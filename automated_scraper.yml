@@ -1,0 +1,31 @@
+# This configuration file automates the execution of the scraping logic
+name: Automated National Fact Scraper
+
+on:
+  schedule:
+    # This cron schedule triggers the scraper every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows you to trigger the scraper manually for testing
+
+jobs:
+  build_and_run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Necessary Libraries
+        run: |
+          pip install feedparser supabase beautifulsoup4
+
+      - name: Execute Scraper Logic
+        env:
+          # These credentials must be stored in your GitHub Repository Secrets
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scraper.py
