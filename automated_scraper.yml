@@ -28,4 +28,4 @@ jobs:
           # These credentials must be stored in your GitHub Repository Secrets
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python scraper.py
+        run: python src/scraper.py
