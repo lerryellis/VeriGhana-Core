@@ -36,4 +36,7 @@ jobs:
           # Stored in: Repository > Settings > Secrets and variables > Actions
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python src/scraper.py
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python src/scraper.py
+          python src/embedder.py
