@@ -1,0 +1,39 @@
+# VeriGhana — Automated National Fact Scraper
+# Runs every 6 hours to keep the Central Database of Facts up to date.
+# Can also be triggered manually from the GitHub Actions tab.
+
+name: Automated National Fact Scraper
+
+on:
+  schedule:
+    # Runs at 00:00, 06:00, 12:00, 18:00 UTC every day
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  build_and_run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Necessary Libraries
+        # FIX: Uses requirements.txt instead of a hardcoded list.
+        # This ensures GitHub Actions always installs the exact same
+        # libraries as your local machine — add once, works everywhere.
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Scraper Logic
+        env:
+          # Stored in: Repository > Settings > Secrets and variables > Actions
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python src/scraper.py
