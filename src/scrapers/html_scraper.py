@@ -86,6 +86,13 @@ HTML_SOURCES = [
         "base_url":      "https://3news.com"
     },
     
+    {
+        "name": "Judicial Service",
+        "url": "https://judicial.gov.gh/index.php/publications/news-publications/js-latest-news",
+        "article_tag": "h3",
+        "article_class": "jeg_post_title",
+        "base_url": "https://judicial.gov.gh"
+    }
 ]
 
 HEADERS = {
