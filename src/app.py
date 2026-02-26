@@ -29,35 +29,41 @@ with col1:
         height=150,
         placeholder='e.g. Government announces 30% tax on Mobile Money starting Monday...'
     )
+if st.button("Check This Claim", type="primary"):
+    if user_input.strip():
+        with st.spinner("Searching trusted Ghanaian sources..."):
+            result = verify_claim(user_input)
 
-    if st.button('Check This Claim', type='primary'):
-        if user_input.strip():
-            with st.spinner('Searching trusted Ghanaian sources...'):
-                result = verify_claim(user_input)
+        score   = result.get("score", 0)
+        verdict = result.get("verdict", "Unknown")
+        explanation = result.get("explanation", "")
+        sources = result.get("sources", [])
 
-            # Display the verdict
-            score = result.get('score', 0)
-            verdict = result.get('verdict', 'Unknown')
-            explanation = result.get('explanation', '')
-            sources = result.get('sources', [])
-
-            if verdict == 'Verified':
-                st.success(f'VERDICT: {verdict} — Score: {score}/100')
-            elif verdict == 'False':
-                st.error(f'VERDICT: {verdict} — Score: {score}/100')
-            else:
-                st.warning(f'VERDICT: {verdict} — Score: {score}/100')
-
-            st.progress(score / 100)
-            st.write(f'**Analysis:** {explanation}')
-
+        # Handle each possible verdict state
+        if verdict == "Verified":
+            st.success(f"✅ VERDICT: Verified — Confidence: {score}/100")
+        elif verdict == "False":
+            st.error(f"❌ VERDICT: False — Confidence: {score}/100")
+        elif verdict == "UNAVAILABLE":
+            st.warning("⏳ AI Unavailable — Daily quota reached")
+            st.info(explanation)
             if sources:
-                st.subheader('Matching Sources:')
-                for source in sources:
-                    if isinstance(source, dict):
-                        st.write(f'- [{source.get("title", "Article")}]({source.get("url", "#")})')
+                st.subheader("However, these related articles were found:")
         else:
-            st.warning('Please enter a claim to verify.')
+            st.warning(f"⚠️ VERDICT: {verdict} — Confidence: {score}/100")
+
+        if verdict != "UNAVAILABLE":
+            st.progress(score / 100)
+
+        st.write(f"**Analysis:** {explanation}")
+
+        if sources:
+            st.subheader("Matching Sources:")
+            for source in sources:
+                if isinstance(source, dict):
+                    st.write(f"- [{source.get('title', 'Article')}]({source.get('url', '#')})")
+    else:
+        st.warning("Please enter a claim to verify.")
 
 with col2:
     st.header('Database Stats')
