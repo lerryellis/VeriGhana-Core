@@ -10,7 +10,7 @@ load_dotenv()
 
 # Define the trusted RSS feeds for the National Fact Database
 TRUSTED_FEEDS = [
-    {'name': 'Citi Newsroom', 'url': 'https://citinewsroom.com/rss/topstories.rss'},
+    {'name': 'Citi Newsroom', 'url': 'https://citinewsroom.com/rss'},
     {'name': 'Joy Online',    'url': 'https://www.myjoyonline.com/feed'},
     {'name': 'Pulse Ghana',   'url': 'https://www.pulse.com.gh/rss'},
 ]
