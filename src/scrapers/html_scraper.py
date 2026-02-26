@@ -78,6 +78,14 @@ HTML_SOURCES = [
         "article_class": "entry-title",
         "base_url": "https://www.ghananewsagency.org"
     },
+    {
+        "name":          "3News",
+        "url":           "https://3news.com/",
+        "article_tag":   "h3",
+        "article_class": "jeg_post_title",
+        "base_url":      "https://3news.com"
+    },
+    
 ]
 
 HEADERS = {
