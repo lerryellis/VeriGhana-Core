@@ -25,7 +25,7 @@ def embed_unprocessed_articles():
     response = supabase.table("fact_entries") \
         .select("id, title, content_text") \
         .is_("content_embedding", "null") \
-        .limit(50) \
+        .limit(1000) \
         .execute()
 
     articles = response.data
