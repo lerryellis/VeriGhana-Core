@@ -92,7 +92,14 @@ HTML_SOURCES = [
         "article_tag": "h3",
         "article_class": "jeg_post_title",
         "base_url": "https://judicial.gov.gh"
-    }
+    },
+    {
+        "name":          "Ministry of Finance",
+        "url":           "https://mofep.gov.gh/",
+        "article_tag":   "h2",
+        "article_class": "None",
+        "base_url":      "https://mofep.gov.gh"
+    },
 ]
 
 HEADERS = {
