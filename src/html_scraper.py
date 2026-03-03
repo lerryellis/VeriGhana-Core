@@ -100,6 +100,146 @@ HTML_SOURCES = [
         "article_class": "None",
         "base_url":      "https://mofep.gov.gh"
     },
+    {
+        "name":          "Citinewsroom",
+        "url":           "https://citinewsroom.com/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://citinewsroom.com"
+    },
+    {
+        "name":          "Daily Graphic",
+        "url":           "https://www.graphic.com.gh/",
+        "article_tag":   "h4",
+        "article_class": "None",
+        "base_url":      "https://www.graphic.com.gh"
+    },
+    {
+        "name":          "Ministry of Foreign Affairs",
+        "url":           "https://mfa.gov.gh/",
+        "article_tag":   "h4",
+        "article_class": "None",
+        "base_url":      "https://mfa.gov.gh"
+    },
+    {
+        "name":          "Ministry of Health",
+        "url":           "https://www.moh.gov.gh/",
+        "article_tag":   "h2",
+        "article_class": "None",
+        "base_url":      "https://www.moh.gov.gh"
+    },
+    {
+        "name":          "Communicatoin Authority",
+        "url":           "https://nca.org.gh/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://nca.org.gh"
+    },
+    {
+        "name":          "National Identification Authority",
+        "url":           "https://nia.gov.gh",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://nia.gov.gh"
+    },
+    {
+        "name":          "GIMPA",
+        "url":           "https://www.gimpa.edu.gh",
+        "article_tag":   "h2",
+        "article_class": "None",
+        "base_url":      "https://www.gimpa.edu.gh"
+    },
+    {
+        "name":          "Volta River Authority (VRA)",
+        "url":           "https://www.vra.com/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://www.vra.com"
+    },
+    {
+        "name":          "Volta River Authority News",
+        "url":           "https://www.vra.com/media/2022_news.php",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://www.vra.com"
+    },
+    {
+        "name":          "Energy Commission",
+        "url":           "https://www.energycom.gov.gh",
+        "article_tag":   "h4",
+        "article_class": "None",
+        "base_url":      "https://www.energycom.gov.gh"
+    },
+    {
+        "name":          "Energy Commission (Press Release)",
+        "url":           "https://www.energycom.gov.gh/index.php/media-center/latest-news",
+        "article_tag":   "h4",
+        "article_class": "None",
+        "base_url":      "https://www.energycom.gov.gh"
+    },
+    {
+        "name":          "Ghana Investment Promotion Centre (GIPC)",
+        "url":           "https://gipc.gov.gh/news-articles/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://gipc.gov.gh"
+    },
+    {
+        "name":          "Ghana Tourism Authority",
+        "url":           "https://ghana.travel/blog/",
+        "article_tag":   "h2",
+        "article_class": "None",
+        "base_url":      "https://ghana.travel"
+    },
+    {
+        "name":          "Ghana Tourism Authority",
+        "url":           "https://ghana.travel/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://ghana.travel"
+    },
+    {
+        "name":          "Securities and Exchange Comm",
+        "url":           "https://sec.gov.gh",
+        "article_tag":   "h2",
+        "article_class": "None",
+        "base_url":      "https://sec.gov.gh"
+    },
+    {
+        "name":          "Citi Newsroom",
+        "url":           "https://citinewsroom.com/category/news/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://citinewsroom.com"
+    },
+    {
+        "name":          "Ministry of Tourism",
+        "url":           "https://www.touringghana.com/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://www.touringghana.com"
+    },
+    {
+        "name":          "Ministry of Local Government",
+        "url":           "http://www.mlgrd.gov.gh/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "http://www.mlgrd.gov.gh"
+    },
+    {
+        "name":          "Ministry of Defence",
+        "url":           "https://mod.gov.gh/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://mod.gov.gh"
+    },
+    {
+        "name":          "National Communications Auth",
+        "url":           "https://www.nca.org.gh/",
+        "article_tag":   "h3",
+        "article_class": "None",
+        "base_url":      "https://www.nca.org.gh"
+    },
 ]
 
 HEADERS = {
