@@ -31,6 +31,9 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
+
       - name: Execute Scraper Logic
         env:
           # Stored in: Repository > Settings > Secrets and variables > Actions
@@ -41,3 +44,4 @@ jobs:
           python src/scraper.py
           python src/embedder.py
           python src/html_scraper.py
+          
