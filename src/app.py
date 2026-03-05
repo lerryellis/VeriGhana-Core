@@ -286,10 +286,18 @@ init_state()
 #  GLOBAL CSS
 # ══════════════════════════════════════════════
 def inject_css():
-    st.markdown("""
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
+    # Fonts injected separately — mixing <link> + <style> in one st.markdown
+    # call causes Streamlit to render the <style> content as raw text.
+    st.markdown(
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800'
+        '&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300'
+        '&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">',
+        unsafe_allow_html=True,
+    )
+    # CSS is injected in its own call so the <style> block is never mixed with
+    # other tags — the only reliable pattern in current Streamlit versions.
+    _CSS = """
 html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
 #MainMenu,footer,header{visibility:hidden;}
 .block-container{padding:0!important;max-width:100%!important;}
@@ -487,8 +495,8 @@ hr{border-color:rgba(255,255,255,.08)!important;margin:1.75rem 0!important;}
 .plan-header.free{background:#1a2e4a;}
 .plan-header{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.07);}
 .plan-body{padding:1.5rem;background:rgba(255,255,255,.02);}
-</style>
-""", unsafe_allow_html=True)
+"""
+    st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
