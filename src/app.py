@@ -298,203 +298,340 @@ def inject_css():
     # CSS is injected in its own call so the <style> block is never mixed with
     # other tags — the only reliable pattern in current Streamlit versions.
     _CSS = """
+/* ── RESET ── */
+*{box-sizing:border-box;}
 html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
-#MainMenu,footer,header{visibility:hidden;}
-.block-container{padding:0!important;max-width:100%!important;}
-section[data-testid="stSidebar"]{display:none;}
+#MainMenu,footer,header{visibility:hidden!important;height:0!important;}
 .stApp{background:#0f2240!important;}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}
+
+/* Aggressive padding reset — Streamlit adds inline padding-top we must override */
+.block-container,
+[data-testid="block-container"],
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stMainBlockContainer"],
+.stMainBlockContainer,
+.appview-container .main .block-container{
+  padding:0!important;padding-top:0!important;padding-bottom:0!important;
+  max-width:100%!important;margin-top:0!important;
+}
+section.main{padding:0!important;}
+section.main > div[style]{padding-top:0!important;}
+section[data-testid="stSidebar"]{display:none!important;}
+/* Kill tab-bar inner Streamlit spacing */
+.vg-tabbar [data-testid="stHorizontalBlock"],
+.vg-tabbar [data-testid="column"],
+.vg-tabbar [data-testid="stVerticalBlock"]{
+  gap:0!important;padding:0!important;min-width:0!important;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
 
-/* NAV */
-.vg-nav{background:rgba(15,34,64,.97);backdrop-filter:blur(20px);
-  border-bottom:1px solid rgba(255,255,255,.08);padding:0 5%;
-  display:flex;align-items:center;height:64px;position:sticky;top:0;z-index:200;}
-.vg-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.35rem;
-  color:#fff;letter-spacing:-.02em;}
-.vg-logo span{color:#60a5fa;}
-
-/* AUTH HERO */
-.vg-hero{background:linear-gradient(160deg,#0f2240 0%,#0c1e3f 55%,#112244 100%);
-  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
-  padding:4rem 1rem;position:relative;overflow:hidden;}
-.vg-hero::before{content:'';position:fixed;inset:0;
-  background-image:linear-gradient(rgba(37,99,235,.06) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(37,99,235,.06) 1px,transparent 1px);
-  background-size:48px 48px;pointer-events:none;}
-
-/* SHELL */
-.vg-shell{background:#0f2240;min-height:100vh;}
-.vg-wrap{max-width:1200px;margin:0 auto;padding:2rem 5%;}
-
-/* CARDS */
-.vg-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
-  border-radius:14px;padding:1.75rem;margin-bottom:1.25rem;}
-.vg-card-flat{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);
-  border-radius:12px;padding:1.25rem;margin-bottom:1rem;}
-
-/* TYPOGRAPHY */
-.vg-h1{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
-  color:#fff;letter-spacing:-.03em;margin:0 0 .5rem;line-height:1.1;}
-.vg-h1 em{font-style:normal;color:#60a5fa;}
-.vg-h2{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:700;
-  color:#fff;letter-spacing:-.02em;margin:0 0 1rem;}
-.vg-h3{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;
-  color:#e2e8f0;margin:0 0 .4rem;}
-.vg-sub{color:#94a3b8;font-size:.95rem;font-weight:300;line-height:1.65;margin:0 0 1.5rem;}
-.vg-mono{font-family:'DM Mono',monospace;font-size:.7rem;color:#64748b;
-  letter-spacing:.06em;text-transform:uppercase;}
-
-/* BADGE */
-.vg-badge{display:inline-flex;align-items:center;gap:.4rem;
-  background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.3);
-  color:#93c5fd;font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
-  padding:.3rem .9rem;border-radius:999px;margin-bottom:1rem;}
-
-/* VERDICT CHIPS */
-.v-VERIFIED{background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
-.v-FALSE{background:rgba(220,38,38,.15);color:#f87171;border:1px solid rgba(220,38,38,.3);}
-.v-PARTIAL{background:rgba(217,119,6,.15);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
-.v-UNCORROBORATED{background:rgba(71,85,105,.15);color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
-.v-UNAVAILABLE{background:rgba(37,99,235,.15);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
-.v-ERROR{background:rgba(220,38,38,.15);color:#f87171;border:1px solid rgba(220,38,38,.3);}
-.vchip{display:inline-block;padding:.25rem .75rem;border-radius:6px;
-  font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;}
-
-/* TIER CHIPS */
-.t-free{background:rgba(71,85,105,.2);color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
-.t-pro{background:rgba(37,99,235,.2);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
-.t-inst{background:rgba(22,163,74,.2);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
-.t-admin{background:rgba(217,119,6,.2);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
-.tchip{display:inline-block;padding:.18rem .65rem;border-radius:999px;
-  font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;}
-
-/* TRUTH BAR */
-.tbar-bg{height:10px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin:.6rem 0;}
-.tbar-fill{height:100%;border-radius:99px;}
-.tbar-green{background:linear-gradient(90deg,#16a34a,#4ade80);}
-.tbar-orange{background:linear-gradient(90deg,#d97706,#fbbf24);}
-.tbar-red{background:linear-gradient(90deg,#dc2626,#f87171);}
-.tbar-gray{background:linear-gradient(90deg,#475569,#94a3b8);}
-
-/* SCORE */
-.score-num{font-family:'Syne',sans-serif;font-size:3.5rem;font-weight:800;line-height:1;}
-.sc-green{color:#4ade80;}.sc-orange{color:#fbbf24;}
-.sc-red{color:#f87171;}.sc-gray{color:#94a3b8;}
-
-/* STAT PILLS */
-.spill{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-  border-radius:12px;padding:1.25rem;text-align:center;}
-.spill-n{font-family:'Syne',sans-serif;font-size:1.75rem;font-weight:800;
-  color:#fff;display:block;letter-spacing:-.02em;}
-.spill-l{font-size:.68rem;color:#64748b;font-family:'DM Mono',monospace;
-  letter-spacing:.06em;text-transform:uppercase;}
-
-/* SOURCE ROWS */
-.src-row{display:flex;align-items:flex-start;gap:.6rem;
-  padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
-.src-row:last-child{border-bottom:none;}
-.src-dot{width:6px;height:6px;border-radius:50%;background:#60a5fa;
-  flex-shrink:0;margin-top:5px;}
-.src-title a{color:#60a5fa;font-size:.875rem;text-decoration:none;}
-.src-title a:hover{text-decoration:underline;}
-.src-by{color:#475569;font-family:'DM Mono',monospace;font-size:.7rem;}
-
-/* TAB BAR */
-.vg-tabs{display:flex;background:rgba(11,27,52,.8);backdrop-filter:blur(12px);
+/* ── NAVBAR ── */
+.vg-nav{
+  background:rgba(10,22,44,.98);
+  backdrop-filter:blur(24px);
   border-bottom:1px solid rgba(255,255,255,.07);
-  position:sticky;top:64px;z-index:100;padding:0 5%;overflow-x:auto;}
+  padding:0 2.5%;
+  display:flex;align-items:center;
+  height:56px;
+  position:sticky;top:0;z-index:200;
+  gap:1.5rem;
+}
+.vg-logo{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;
+  color:#fff;letter-spacing:-.02em;flex-shrink:0;
+}
+.vg-logo span{color:#60a5fa;}
+.vg-nav-sub{
+  color:#334155;font-size:.72rem;
+  font-family:'DM Mono',monospace;letter-spacing:.04em;
+  text-transform:uppercase;
+}
 
-/* INPUTS */
+/* ── TABBAR ── */
+.vg-tabbar{
+  background:rgba(7,16,34,.98);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  position:sticky;top:56px;z-index:100;
+  display:flex;align-items:stretch;
+  padding:0 2.5%;gap:0;
+}
+.vg-tab-item{
+  padding:.7rem 1.25rem;
+  font-size:.82rem;font-weight:400;
+  color:#475569;cursor:pointer;
+  border-bottom:2px solid transparent;
+  white-space:nowrap;
+  letter-spacing:.01em;
+  transition:color .15s,border-color .15s;
+  user-select:none;
+}
+.vg-tab-item.vg-tab-active{
+  color:#f1f5f9;font-weight:500;
+  border-bottom-color:#2563eb;
+}
+.vg-tab-item.vg-tab-admin{color:#78624a;}
+.vg-tab-item.vg-tab-admin.vg-tab-active{
+  color:#fbbf24;border-bottom-color:#d97706;
+}
+/* The real clickable buttons are visually hidden — tab items above are purely decorative */
+.vg-tabbar + [data-testid="stHorizontalBlock"],
+.vg-tabbar ~ div > [data-testid="stHorizontalBlock"]{
+  height:0!important;overflow:hidden!important;position:absolute!important;
+  opacity:0!important;pointer-events:none!important;
+}
+/* But we still need them clickable — so use a zero-height overlay trick */
+.vg-tab-functional{
+  position:relative;height:0;overflow:visible;
+}
+.vg-tab-functional .stButton>button{
+  position:absolute;top:-40px;left:0;right:0;height:40px;
+  background:transparent!important;border:none!important;
+  opacity:0!important;cursor:pointer!important;
+  padding:0!important;margin:0!important;
+}
+
+/* ── AUTH HERO ── */
+.vg-hero{
+  background:linear-gradient(160deg,#0f2240 0%,#0c1e3f 55%,#112244 100%);
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:3.5rem 1rem;position:relative;overflow:hidden;
+}
+.vg-hero::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(37,99,235,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(37,99,235,.05) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;z-index:0;
+}
+
+/* ── PAGE SHELL ── */
+.vg-shell{background:#0f2240;min-height:calc(100vh - 56px);}
+.vg-wrap{max-width:1200px;margin:0 auto;padding:.75rem 2.5% 1.5rem;}
+
+/* ── PAGE HEADERS ── */
+.vg-page-head{padding:.5rem 0 .75rem;}
+
+/* ── CARDS ── */
+.vg-card{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:12px;padding:1.5rem;margin-bottom:1rem;
+}
+.vg-card-flat{
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:1rem;margin-bottom:.75rem;
+}
+
+/* ── TYPOGRAPHY ── */
+.vg-h1{
+  font-family:'Syne',sans-serif;font-size:1.65rem;font-weight:800;
+  color:#fff;letter-spacing:-.03em;margin:0 0 .3rem;line-height:1.15;
+}
+.vg-h1 em{font-style:normal;color:#60a5fa;}
+.vg-h2{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;
+  color:#fff;letter-spacing:-.01em;margin:0 0 .75rem;}
+.vg-h3{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;
+  color:#e2e8f0;margin:0 0 .35rem;}
+.vg-sub{
+  color:#64748b;font-size:.875rem;font-weight:300;
+  line-height:1.6;margin:0 0 1.25rem;
+}
+.vg-mono{
+  font-family:'DM Mono',monospace;font-size:.67rem;color:#475569;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+
+/* ── BADGE ── */
+.vg-badge{
+  display:inline-flex;align-items:center;gap:.35rem;
+  background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.25);
+  color:#93c5fd;font-size:.67rem;font-weight:500;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:.25rem .8rem;border-radius:999px;margin-bottom:.75rem;
+}
+
+/* ── VERDICT CHIPS ── */
+.v-VERIFIED      {background:rgba(22,163,74,.12);color:#4ade80;border:1px solid rgba(22,163,74,.25);}
+.v-FALSE         {background:rgba(220,38,38,.12);color:#f87171;border:1px solid rgba(220,38,38,.25);}
+.v-PARTIAL       {background:rgba(217,119,6,.12);color:#fbbf24;border:1px solid rgba(217,119,6,.25);}
+.v-UNCORROBORATED{background:rgba(71,85,105,.12);color:#94a3b8;border:1px solid rgba(71,85,105,.25);}
+.v-UNAVAILABLE   {background:rgba(37,99,235,.12);color:#93c5fd;border:1px solid rgba(37,99,235,.25);}
+.v-ERROR         {background:rgba(220,38,38,.12);color:#f87171;border:1px solid rgba(220,38,38,.25);}
+.vchip{
+  display:inline-block;padding:.22rem .7rem;border-radius:6px;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;
+}
+
+/* ── TIER CHIPS ── */
+.t-free {background:rgba(71,85,105,.2); color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
+.t-pro  {background:rgba(37,99,235,.18);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
+.t-inst {background:rgba(22,163,74,.18);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
+.t-admin{background:rgba(217,119,6,.18);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
+.tchip{
+  display:inline-block;padding:.15rem .6rem;border-radius:999px;
+  font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.04em;text-transform:uppercase;
+}
+
+/* ── TRUTH BAR ── */
+.tbar-bg{height:8px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:.5rem 0;}
+.tbar-fill{height:100%;border-radius:99px;}
+.tbar-green {background:linear-gradient(90deg,#16a34a,#4ade80);}
+.tbar-orange{background:linear-gradient(90deg,#d97706,#fbbf24);}
+.tbar-red   {background:linear-gradient(90deg,#dc2626,#f87171);}
+.tbar-gray  {background:linear-gradient(90deg,#475569,#94a3b8);}
+
+/* ── SCORE NUMBER ── */
+.score-num{font-family:'Syne',sans-serif;font-size:3rem;font-weight:800;line-height:1;}
+.sc-green{color:#4ade80;}.sc-orange{color:#fbbf24;}
+.sc-red  {color:#f87171;}.sc-gray  {color:#94a3b8;}
+
+/* ── STAT PILLS ── */
+.spill{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:1rem;text-align:center;
+}
+.spill-n{
+  font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;
+  color:#fff;display:block;letter-spacing:-.02em;
+}
+.spill-l{font-size:.64rem;color:#475569;font-family:'DM Mono',monospace;
+  letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;display:block;}
+
+/* ── SOURCES ── */
+.src-row{display:flex;align-items:flex-start;gap:.5rem;
+  padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.src-row:last-child{border-bottom:none;}
+.src-dot{width:5px;height:5px;border-radius:50%;background:#60a5fa;
+  flex-shrink:0;margin-top:6px;}
+.src-title a{color:#60a5fa;font-size:.82rem;text-decoration:none;line-height:1.4;}
+.src-title a:hover{text-decoration:underline;}
+.src-by{color:#334155;font-family:'DM Mono',monospace;font-size:.65rem;margin-top:.15rem;}
+
+/* ── INPUTS ── */
 .stTextInput>div>div>input,
 .stTextArea>div>div>textarea{
-  background:rgba(255,255,255,.06)!important;
-  border:1px solid rgba(255,255,255,.14)!important;
+  background:rgba(255,255,255,.05)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
   border-radius:8px!important;color:#fff!important;
-  font-family:'DM Sans',sans-serif!important;font-size:.95rem!important;}
+  font-family:'DM Sans',sans-serif!important;font-size:.9rem!important;
+}
 .stTextInput>div>div>input::placeholder,
-.stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.3)!important;}
+.stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.25)!important;}
 .stTextInput>div>div>input:focus,
 .stTextArea>div>div>textarea:focus{
   border-color:rgba(59,130,246,.5)!important;
-  box-shadow:0 0 0 3px rgba(37,99,235,.15)!important;outline:none!important;}
+  box-shadow:0 0 0 3px rgba(37,99,235,.12)!important;outline:none!important;
+}
 .stSelectbox>div>div{
-  background:rgba(255,255,255,.06)!important;
-  border:1px solid rgba(255,255,255,.14)!important;
-  border-radius:8px!important;color:#fff!important;}
+  background:rgba(255,255,255,.05)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:8px!important;color:#fff!important;
+}
 div[data-baseweb="select"] *{color:#e2e8f0!important;}
 label,.stSelectbox label,.stTextInput label,
 .stTextArea label,.stRadio label,.stCheckbox label{
-  color:#64748b!important;font-size:.7rem!important;
+  color:#475569!important;font-size:.67rem!important;
   font-family:'DM Mono',monospace!important;
-  letter-spacing:.06em!important;text-transform:uppercase!important;}
+  letter-spacing:.06em!important;text-transform:uppercase!important;
+}
 
-/* BUTTONS */
+/* ── ACTION BUTTONS (orange CTA) ── */
 .stButton>button{
   background:#ea580c!important;color:#fff!important;border:none!important;
-  border-radius:8px!important;font-family:'DM Sans',sans-serif!important;
-  font-weight:600!important;font-size:.9rem!important;
-  padding:.65rem 1.75rem!important;transition:background .2s!important;}
+  border-radius:7px!important;font-family:'DM Sans',sans-serif!important;
+  font-weight:600!important;font-size:.875rem!important;
+  padding:.6rem 1.5rem!important;transition:background .15s!important;
+  letter-spacing:.01em!important;
+}
 .stButton>button:hover{background:#f97316!important;}
+/* Ghost */
 .btn-ghost .stButton>button{
-  background:rgba(255,255,255,.06)!important;
-  border:1px solid rgba(255,255,255,.15)!important;color:#e2e8f0!important;}
-.btn-ghost .stButton>button:hover{background:rgba(255,255,255,.1)!important;}
+  background:rgba(255,255,255,.05)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  color:#94a3b8!important;
+}
+.btn-ghost .stButton>button:hover{
+  background:rgba(255,255,255,.09)!important;color:#e2e8f0!important;
+}
+/* Variants */
 .btn-blue  .stButton>button{background:#2563eb!important;}
 .btn-blue  .stButton>button:hover{background:#3b82f6!important;}
 .btn-green .stButton>button{background:#16a34a!important;}
 .btn-green .stButton>button:hover{background:#15803d!important;}
-.btn-red   .stButton>button{background:#dc2626!important;}
-.btn-red   .stButton>button:hover{background:#b91c1c!important;}
-.btn-navy  .stButton>button{
-  background:rgba(255,255,255,.06)!important;
-  border:1px solid rgba(255,255,255,.1)!important;color:#94a3b8!important;}
+.btn-red   .stButton>button{background:#991b1b!important;color:#fca5a5!important;}
+.btn-red   .stButton>button:hover{background:#dc2626!important;color:#fff!important;}
 
-/* ALERTS */
-.stSuccess{background:rgba(22,163,74,.1)!important;border:1px solid rgba(22,163,74,.3)!important;
-  border-radius:8px!important;color:#4ade80!important;}
-.stError{background:rgba(220,38,38,.1)!important;border:1px solid rgba(220,38,38,.3)!important;
-  border-radius:8px!important;}
-.stWarning{background:rgba(217,119,6,.1)!important;border:1px solid rgba(217,119,6,.3)!important;
-  border-radius:8px!important;}
-.stInfo{background:rgba(37,99,235,.1)!important;border:1px solid rgba(37,99,235,.3)!important;
-  border-radius:8px!important;}
+/* ── ALERTS ── */
+div[data-testid="stAlert"]{border-radius:8px!important;}
+.stSuccess{background:rgba(22,163,74,.08)!important;
+  border:1px solid rgba(22,163,74,.25)!important;color:#4ade80!important;}
+.stError  {background:rgba(220,38,38,.08)!important;
+  border:1px solid rgba(220,38,38,.25)!important;}
+.stWarning{background:rgba(217,119,6,.08)!important;
+  border:1px solid rgba(217,119,6,.25)!important;}
+.stInfo   {background:rgba(37,99,235,.08)!important;
+  border:1px solid rgba(37,99,235,.25)!important;}
 
-/* MISC */
-hr{border-color:rgba(255,255,255,.08)!important;margin:1.75rem 0!important;}
+/* ── DIVIDER ── */
+hr{border-color:rgba(255,255,255,.07)!important;margin:1.25rem 0!important;}
+
+/* ── EXPANDER ── */
 .streamlit-expanderHeader{
-  background:rgba(255,255,255,.04)!important;border-radius:8px!important;
-  color:#94a3b8!important;font-family:'DM Sans',sans-serif!important;}
+  background:rgba(255,255,255,.03)!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:8px!important;color:#94a3b8!important;
+  font-family:'DM Sans',sans-serif!important;font-size:.875rem!important;
+}
+
+/* ── SPINNER / PROGRESS ── */
 .stSpinner>div{border-top-color:#2563eb!important;}
 .stProgress>div>div{background:#2563eb!important;}
+
+/* ── INNER TABS (login page) ── */
 .stTabs [data-baseweb="tab-list"]{
-  background:rgba(255,255,255,.03)!important;border-radius:10px!important;
-  border:1px solid rgba(255,255,255,.08)!important;padding:.25rem!important;gap:.25rem!important;}
+  background:rgba(255,255,255,.03)!important;border-radius:8px!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  padding:.2rem!important;gap:.2rem!important;
+}
 .stTabs [data-baseweb="tab"]{
   background:transparent!important;color:#64748b!important;
-  border-radius:7px!important;font-family:'DM Sans',sans-serif!important;
-  font-size:.875rem!important;border:none!important;padding:.5rem 1rem!important;}
-.stTabs [aria-selected="true"]{background:rgba(37,99,235,.25)!important;color:#fff!important;}
+  border-radius:6px!important;font-family:'DM Sans',sans-serif!important;
+  font-size:.85rem!important;border:none!important;padding:.45rem .9rem!important;
+}
+.stTabs [aria-selected="true"]{
+  background:rgba(37,99,235,.2)!important;color:#fff!important;
+}
 
-/* ADMIN TABLE */
+/* ── ADMIN TABLE ── */
 .admin-table{width:100%;border-collapse:collapse;}
-.admin-table th{padding:.7rem 1rem;text-align:left;font-family:'DM Mono',monospace;
-  font-size:.68rem;color:#64748b;letter-spacing:.06em;font-weight:500;
-  border-bottom:1px solid rgba(255,255,255,.08);}
-.admin-table td{padding:.8rem 1rem;font-size:.82rem;color:#e2e8f0;
-  border-bottom:1px solid rgba(255,255,255,.04);}
+.admin-table th{
+  padding:.6rem 1rem;text-align:left;font-family:'DM Mono',monospace;
+  font-size:.65rem;color:#475569;letter-spacing:.06em;font-weight:500;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.admin-table td{
+  padding:.7rem 1rem;font-size:.82rem;color:#e2e8f0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
 .admin-table tr:hover td{background:rgba(255,255,255,.02);}
 
-/* PLAN CARDS */
-.plan-card{border:1.5px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;
-  transition:transform .2s,box-shadow .2s;}
-.plan-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.25);}
-.plan-card.featured{border-color:#2563eb;box-shadow:0 8px 30px rgba(37,99,235,.2);}
-.plan-header.pro{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);}
+/* ── PLAN CARDS ── */
+.plan-card{
+  border:1.5px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden;
+  transition:transform .2s,box-shadow .2s;
+}
+.plan-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.3);}
+.plan-card.featured{border-color:rgba(37,99,235,.5);box-shadow:0 4px 24px rgba(37,99,235,.15);}
+.plan-header.pro {background:linear-gradient(135deg,#1e3a8a,#1d4ed8);}
 .plan-header.inst{background:linear-gradient(135deg,#064e3b,#065f46);}
-.plan-header.free{background:#1a2e4a;}
-.plan-header{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.07);}
-.plan-body{padding:1.5rem;background:rgba(255,255,255,.02);}
+.plan-header.free{background:#172033;}
+.plan-header{padding:1.25rem;border-bottom:1px solid rgba(255,255,255,.07);}
+.plan-body  {padding:1.25rem;background:rgba(255,255,255,.02);}
 """
     st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
 
@@ -694,18 +831,26 @@ def page_auth():
 #  SHARED: NAVBAR + TABBAR
 # ══════════════════════════════════════════════
 def render_nav():
-    name = st.session_state.user_name or st.session_state.user_email or "User"
-    tier = st.session_state.user_tier
-    role = st.session_state.user_role
+    tier  = st.session_state.user_tier
+    role  = st.session_state.user_role
+    email = st.session_state.user_email or ""
+    name  = st.session_state.user_name or email.split("@")[0].title() or "User"
+    initial = (name or "U")[0].upper()
     st.markdown(f"""
     <div class="vg-nav">
-      <span class="vg-logo">Veri<span>Ghana</span></span>
-      <div style="color:#475569;font-size:.78rem;margin-left:1rem;">
-        Ghana's National Fact Verification Platform
-      </div>
+      <a class="vg-logo" style="text-decoration:none;">Veri<span>Ghana</span></a>
+      <span class="vg-nav-divider"></span>
+      <span class="vg-nav-sub">National Fact Verification</span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;">
         {tier_chip(tier, role)}
-        <span style="color:#94a3b8;font-size:.82rem;">{name}</span>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <div style="width:26px;height:26px;border-radius:50%;
+               background:linear-gradient(135deg,#1e40af,#3b82f6);
+               display:flex;align-items:center;justify-content:center;
+               font-family:'Syne',sans-serif;font-weight:700;
+               font-size:.65rem;color:#fff;letter-spacing:.02em;">{initial}</div>
+          <span style="color:#475569;font-size:.78rem;font-family:'DM Mono',monospace;">{email}</span>
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -714,30 +859,32 @@ def render_nav():
 def render_tabs():
     page  = st.session_state.page
     admin = is_admin()
-    pages = [("verify","🔍  Verify"),("history","📋  History"),("account","⚙️  Account")]
+    pages = [
+        ("verify",  "Verify",     False),
+        ("history", "History",    False),
+        ("account", "Account",    False),
+    ]
     if admin:
-        pages += [("admin","📊  Admin"),("tester","🖥️  Site Tester")]
+        pages += [("admin","Admin",True),("tester","Site Tester",True)]
 
-    html = '<div class="vg-tabs">'
-    for k, lbl in pages:
-        is_admin_tab = k in ("admin","tester")
-        if k == page:
-            style = ("color:#fff;border-bottom:2px solid #2563eb;" if not is_admin_tab
-                     else "color:#fbbf24;border-bottom:2px solid #d97706;")
-        else:
-            style = "color:#475569;border-bottom:2px solid transparent;"
-        html += (f'<span style="padding:.9rem 1.1rem;font-size:.85rem;'
-                 f'white-space:nowrap;{style}">{lbl}</span>')
-    html += '</div>'
-    st.markdown(html, unsafe_allow_html=True)
+    n = len(pages)
+    # Visual tab bar
+    tabs_html = '<div class="vg-tabbar">'
+    for k, lbl, is_admin_tab in pages:
+        is_active = (k == page)
+        cls = "vg-tab-item" + (" vg-tab-active" if is_active else "") + (" vg-tab-admin" if is_admin_tab else "")
+        tabs_html += f'<span class="{cls}">{lbl}</span>'
+    tabs_html += '</div>'
+    st.markdown(tabs_html, unsafe_allow_html=True)
 
-    cols = st.columns(len(pages))
-    for i, (k, lbl) in enumerate(pages):
+    # Functional buttons — visually zeroed out, positioned to sit under the tab bar
+    st.markdown('<div style="height:0;overflow:hidden;opacity:0;pointer-events:auto;">', unsafe_allow_html=True)
+    cols = st.columns(n)
+    for i, (k, lbl, _) in enumerate(pages):
         with cols[i]:
-            st.markdown('<div class="btn-navy">', unsafe_allow_html=True)
             if st.button(lbl, key=f"tab_{k}", use_container_width=True):
                 st.session_state.page = k; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
@@ -753,11 +900,9 @@ def page_verify():
 
     # ── Header
     st.markdown("""
-    <div style="padding:2rem 0 1.5rem;">
-      <div class="vg-badge">🇬🇭 Ghana's AI Fact Verification</div>
+    <div class="vg-page-head">
       <div class="vg-h1">Verify a <em>Claim</em></div>
-      <div class="vg-sub">Paste any suspicious social post, WhatsApp message, or news headline.
-        AI searches 60+ trusted Ghanaian sources and returns a scored verdict with citations.</div>
+      <div class="vg-sub">Paste a post, WhatsApp message or headline — AI searches 60+ trusted Ghanaian sources and scores the verdict.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1022,7 +1167,7 @@ def page_history():
     hist = st.session_state.history
     st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
-    <div style="padding:2rem 0 1.5rem;">
+    <div class="vg-page-head">
       <div class="vg-h1">Verification <em>History</em></div>
       <div class="vg-sub">All claims verified this session.</div>
     </div>
@@ -1105,9 +1250,7 @@ def page_account():
 
     st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
-    <div style="padding:2rem 0 1.5rem;">
-      <div class="vg-h1">Your <em>Account</em></div>
-    </div>
+    <div class="vg-page-head"><div class="vg-h1">Your <em>Account</em></div></div>
     """, unsafe_allow_html=True)
 
     a1, a2 = st.columns([1.3, 1])
@@ -1252,7 +1395,7 @@ def page_account():
 def page_admin():
     st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
-    <div style="padding:2rem 0 1.5rem;">
+    <div class="vg-page-head">
       <div class="vg-h1">Admin <em>Dashboard</em></div>
       <div class="vg-sub">Platform statistics, user management and promo controls.</div>
     </div>
@@ -1361,7 +1504,7 @@ def page_admin():
 def page_tester():
     st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
-    <div style="padding:2rem 0 1.5rem;">
+    <div class="vg-page-head">
       <div class="vg-h1">Site <em>Tester</em></div>
       <div class="vg-sub">
         Test Ghanaian sources for scrapability. Sites that pass are
