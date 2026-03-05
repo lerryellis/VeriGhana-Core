@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriGhana — Ghana's Fact Verification Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #0f2240;
+    --navy2:     #1a3560;
+    --blue:      #2563eb;
+    --blue-lt:   #3b82f6;
+    --orange:    #ea580c;
+    --orange-lt: #f97316;
+    --teal:      #0d9488;
+    --green:     #16a34a;
+    --red:       #dc2626;
+    --gold:      #d97706;
+    --white:     #ffffff;
+    --off:       #f8fafc;
+    --muted:     #94a3b8;
+    --border:    rgba(255,255,255,0.08);
+    --glass:     rgba(255,255,255,0.05);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--off);
+    color: #1e293b;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,34,64,0.97);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 5%;
+    display: flex; align-items: center; height: 64px;
+    animation: fadeDown 0.5s ease both;
+  }
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.35rem;
+    color: var(--white); letter-spacing: -0.02em;
+    text-decoration: none; margin-right: auto;
+  }
+  .nav-logo span { color: #60a5fa; }
+  .nav-links { display: flex; gap: 2rem; list-style: none; margin-right: 2.5rem; }
+  .nav-links a {
+    font-size: 0.875rem; font-weight: 400;
+    color: #93c5fd; text-decoration: none; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--white); }
+  .btn-nav {
+    background: var(--blue); color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem; font-weight: 500;
+    padding: 0.55rem 1.25rem; border-radius: 6px; border: none;
+    cursor: pointer; text-decoration: none;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn-nav:hover { background: var(--blue-lt); transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(160deg, var(--navy) 0%, #0c1e3f 55%, #112244 100%);
+    padding: 80px 5% 60px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(37,99,235,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,99,235,0.07) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at 50% 0%, black 40%, transparent 75%);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%);
+    top: -200px; right: -150px; pointer-events: none;
+  }
+  .hero-inner {
+    position: relative; z-index: 1;
+    max-width: 800px; margin: 0 auto; text-align: center;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(37,99,235,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: #93c5fd;
+    font-size: 0.75rem; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.35rem 1rem; border-radius: 999px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero-badge::before { content: '🇬🇭'; font-size: 0.9rem; }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    font-weight: 800; color: var(--white);
+    line-height: 1.1; letter-spacing: -0.03em;
+    margin-bottom: 1.1rem;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  .hero h1 em { font-style: normal; color: #60a5fa; }
+  .hero-sub {
+    font-size: 1.05rem; font-weight: 300;
+    color: #94a3b8; line-height: 1.7;
+    max-width: 560px; margin: 0 auto 2.25rem;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  /* Model selector */
+  .model-row {
+    display: flex; justify-content: center; align-items: center;
+    gap: 0.5rem; margin-bottom: 0.75rem;
+    animation: fadeUp 0.6s 0.35s ease both;
+  }
+  .model-label {
+    font-size: 0.72rem; color: #64748b;
+    font-family: 'DM Mono', monospace; letter-spacing: 0.04em;
+  }
+  .model-select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #93c5fd;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    padding: 0.25rem 0.6rem; border-radius: 5px;
+    cursor: pointer; outline: none;
+    transition: border-color 0.2s;
+  }
+  .model-select:focus { border-color: rgba(59,130,246,0.5); }
+  .model-select option { background: #1a3560; color: white; }
+
+  /* Search bar */
+  .search-wrap {
+    display: flex; gap: 0;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px; overflow: hidden;
+    max-width: 680px; margin: 0 auto;
+    animation: fadeUp 0.6s 0.4s ease both;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-wrap:focus-within {
+    border-color: rgba(59,130,246,0.5);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  }
+  .search-input {
+    flex: 1;
+    background: transparent; border: none; outline: none;
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; font-weight: 300;
+    padding: 1rem 1.25rem;
+  }
+  .search-input::placeholder { color: rgba(255,255,255,0.3); }
+  .btn-check {
+    background: var(--orange); color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    padding: 0 1.75rem; border: none; cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+    display: flex; align-items: center; gap: 0.5rem;
+    min-width: 140px; justify-content: center;
+  }
+  .btn-check:hover:not(:disabled) { background: var(--orange-lt); }
+  .btn-check:active:not(:disabled) { transform: scale(0.98); }
+  .btn-check:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-check svg { width: 16px; height: 16px; }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Truth meter */
+  .truth-demo {
+    margin-top: 1.5rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex; flex-direction: column; gap: 0.75rem;
+    max-width: 680px; margin: 1.5rem auto 0;
+    animation: fadeUp 0.6s 0.5s ease both;
+    transition: border-color 0.3s;
+  }
+  .truth-demo.live { border-color: rgba(59,130,246,0.35); }
+
+  .truth-header {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .truth-label-left {
+    color: #94a3b8; font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 0 rgba(74,222,128,0.4);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%   { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); }
+    70%  { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+    100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+  }
+
+  .verdict-badge {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.82rem;
+    padding: 0.2rem 0.7rem; border-radius: 4px;
+    letter-spacing: 0.04em;
+    transition: all 0.4s ease;
+  }
+  .verdict-badge.VERIFIED       { background: rgba(22,163,74,0.15);  color: #4ade80; }
+  .verdict-badge.PARTIAL        { background: rgba(217,119,6,0.15);  color: #fbbf24; }
+  .verdict-badge.FALSE          { background: rgba(220,38,38,0.15);  color: #f87171; }
+  .verdict-badge.UNCORROBORATED { background: rgba(71,85,105,0.15);  color: #94a3b8; }
+  .verdict-badge.CHECKING       { background: rgba(37,99,235,0.15);  color: #93c5fd; }
+  .verdict-badge.ERROR          { background: rgba(220,38,38,0.15);  color: #f87171; }
+
+  .score-row { display: flex; align-items: center; gap: 1rem; }
+  .score-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem; font-weight: 800;
+    color: var(--white); min-width: 60px;
+    transition: color 0.4s;
+  }
+  .truth-bar-bg {
+    flex: 1; height: 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 99px; overflow: hidden;
+  }
+  .truth-bar-fill {
+    height: 100%; border-radius: 99px;
+    width: 0%; transition: width 1.6s cubic-bezier(0.16,1,0.3,1), background 0.4s;
+    background: linear-gradient(90deg, #16a34a, #4ade80);
+  }
+
+  .truth-explanation {
+    font-size: 0.82rem; color: #94a3b8; line-height: 1.55;
+    font-style: italic;
+  }
+
+  /* Sources */
+  .truth-sources { display: flex; flex-direction: column; gap: 0.4rem; }
+  .truth-sources-label {
+    font-size: 0.68rem; font-family: 'DM Mono', monospace;
+    letter-spacing: 0.06em; color: #64748b; text-transform: uppercase;
+  }
+  .source-citation {
+    display: flex; align-items: flex-start; gap: 0.5rem;
+    font-size: 0.78rem;
+  }
+  .source-citation .cit-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: #60a5fa; flex-shrink: 0; margin-top: 5px;
+  }
+  .source-citation a {
+    color: #60a5fa; text-decoration: none;
+    transition: color 0.2s;
+  }
+  .source-citation a:hover { color: #93c5fd; text-decoration: underline; }
+  .source-citation .src-name {
+    color: #475569; font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .truth-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.68rem; color: #475569;
+    font-family: 'DM Mono', monospace; margin-top: 0.25rem;
+  }
+
+  /* Error notice */
+  .api-notice {
+    margin-top: 0.75rem;
+    background: rgba(234,88,12,0.1);
+    border: 1px solid rgba(234,88,12,0.3);
+    border-radius: 8px; padding: 0.75rem 1rem;
+    font-size: 0.78rem; color: #fb923c;
+    max-width: 680px; margin: 0.75rem auto 0;
+    display: none;
+  }
+  .api-notice.show { display: block; }
+  .api-notice a { color: #fdba74; }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    background: var(--navy);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 1.25rem 5%;
+    display: flex; justify-content: center; align-items: center; gap: 4rem;
+    flex-wrap: wrap;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem; font-weight: 800;
+    color: var(--white); display: block;
+    letter-spacing: -0.02em;
+  }
+  .stat-label {
+    font-size: 0.72rem; color: #64748b;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* ── SOURCES STRIP ── */
+  .sources-strip {
+    background: #f1f5f9;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1rem 5%;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .strip-label {
+    font-size: 0.72rem; font-weight: 600;
+    color: #64748b; letter-spacing: 0.08em;
+    text-transform: uppercase; white-space: nowrap; margin-right: 0.5rem;
+  }
+  .source-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--white); border: 1px solid #e2e8f0; border-radius: 6px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.78rem; font-weight: 500; color: #334155;
+    white-space: nowrap; transition: border-color 0.2s, box-shadow 0.2s; cursor: default;
+  }
+  .source-pill:hover { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(147,197,253,0.15); }
+  .source-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .source-pill.gov  .dot { background: var(--blue); }
+  .source-pill.veri .dot { background: var(--gold); }
+
+  /* ── PRICING ── */
+  .pricing-section { padding: 72px 5%; background: var(--white); }
+  .section-eyebrow {
+    text-align: center; font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--blue); margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 800; letter-spacing: -0.03em;
+    color: #0f172a; text-align: center; margin-bottom: 0.75rem;
+  }
+  .section-sub { text-align: center; font-size: 0.95rem; color: #64748b; max-width: 480px; margin: 0 auto 3rem; }
+
+  .toggle-wrap { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+  .toggle-label { font-size: 0.85rem; color: #64748b; font-weight: 400; }
+  .toggle-label.active { color: #0f172a; font-weight: 500; }
+  .toggle-switch {
+    position: relative; width: 44px; height: 24px;
+    background: var(--blue); border-radius: 99px; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle-switch::after {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white; top: 3px; left: 3px; transition: transform 0.2s;
+  }
+  .toggle-switch.annual::after { transform: translateX(20px); }
+  .save-badge { font-size: 0.7rem; font-weight: 600; background: #dcfce7; color: #16a34a; padding: 0.2rem 0.5rem; border-radius: 4px; }
+
+  .plans-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; max-width: 960px; margin: 0 auto; }
+  .plan-card {
+    border: 1.5px solid #e2e8f0; border-radius: 14px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    background: var(--white);
+  }
+  .plan-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); border-color: #c7d2fe; }
+  .plan-card.featured { border-color: var(--blue); box-shadow: 0 8px 30px rgba(37,99,235,0.15); position: relative; }
+  .plan-card.featured::before {
+    content: 'Most Popular'; position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+    background: var(--blue); color: white; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.3rem 1rem; border-radius: 0 0 8px 8px;
+  }
+  .plan-header { padding: 1.75rem 1.75rem 1.25rem; border-bottom: 1px solid #f1f5f9; }
+  .plan-header.free-h { background: #f8fafc; }
+  .plan-header.pro-h  { background: linear-gradient(135deg, #1e3a8a, #1d4ed8); }
+  .plan-header.inst-h { background: linear-gradient(135deg, #064e3b, #065f46); }
+  .plan-name { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; letter-spacing: 0.02em; }
+  .plan-name.light { color: white; }
+  .plan-name.dark  { color: #0f172a; }
+  .plan-price { display: flex; align-items: baseline; gap: 0.25rem; margin-top: 0.75rem; }
+  .price-num { font-family: 'Syne', sans-serif; font-size: 2.25rem; font-weight: 800; line-height: 1; }
+  .price-num.light { color: white; }
+  .price-num.dark  { color: #0f172a; }
+  .price-period { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+  .price-period.dark { color: #94a3b8; }
+  .plan-tagline { font-size: 0.78rem; margin-top: 0.35rem; opacity: 0.7; }
+  .plan-tagline.light { color: rgba(255,255,255,0.75); }
+  .plan-tagline.dark  { color: #94a3b8; }
+  .plan-body { padding: 1.5rem 1.75rem; flex: 1; display: flex; flex-direction: column; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1.75rem; flex: 1; }
+  .plan-features li { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.875rem; color: #334155; }
+  .feat-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-size: 0.6rem; }
+  .feat-icon.green { background: #dcfce7; color: #16a34a; }
+  .feat-icon.blue  { background: #dbeafe; color: #2563eb; }
+  .btn-plan { width: 100%; padding: 0.8rem; border-radius: 8px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: block; text-align: center; }
+  .btn-plan.ghost { background: transparent; border: 1.5px solid #e2e8f0; color: #334155; }
+  .btn-plan.ghost:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-plan.solid-blue { background: var(--blue); color: white; }
+  .btn-plan.solid-blue:hover { background: var(--blue-lt); transform: translateY(-1px); }
+  .btn-plan.solid-green { background: #065f46; color: white; }
+  .btn-plan.solid-green:hover { background: #047857; transform: translateY(-1px); }
+
+  /* ── HOW IT WORKS ── */
+  .how-section { padding: 72px 5%; background: var(--off); }
+  .how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2rem; max-width: 960px; margin: 2.5rem auto 0; }
+  .how-card {
+    background: var(--white); border: 1px solid #e2e8f0;
+    border-radius: 14px; padding: 2rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .how-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.07); }
+  .how-num {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 2.5rem; color: #e2e8f0; line-height: 1;
+    margin-bottom: 0.75rem;
+  }
+  .how-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: #0f172a; margin-bottom: 0.5rem; }
+  .how-desc { font-size: 0.875rem; color: #64748b; line-height: 1.65; }
+
+  /* ── TICKER ── */
+  .ticker-section {
+    background: #0f172a; border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 0.9rem 0; overflow: hidden;
+    display: flex; align-items: center;
+  }
+  .ticker-label {
+    flex-shrink: 0; background: var(--red); color: white;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.3rem 1rem; margin-right: 1rem; border-radius: 0 4px 4px 0;
+    white-space: nowrap; display: flex; align-items: center; gap: 0.4rem;
+  }
+  .ticker-label::before { content: '⚠'; font-size: 0.85rem; }
+  .ticker-track { display: flex; gap: 0; overflow: hidden; flex: 1; }
+  .ticker-inner { display: flex; gap: 3rem; animation: tickerScroll 28s linear infinite; white-space: nowrap; }
+  .ticker-item { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
+  .ticker-item .claim { color: #cbd5e1; }
+  .ticker-item .score-low { color: #ef4444; font-weight: 600; }
+  .ticker-item .score-mid { color: #f59e0b; font-weight: 600; }
+  .ticker-sep { color: #334155; margin: 0 1rem; }
+  @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--navy); border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 2.5rem 5%;
+  }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; max-width: 1200px; margin: 0 auto; }
+  .footer-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--white); }
+  .footer-logo span { color: #60a5fa; }
+  .footer-links { display: flex; gap: 2rem; list-style: none; }
+  .footer-links a { font-size: 0.82rem; color: #64748b; text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: #94a3b8; }
+  .footer-meta { font-size: 0.72rem; color: #475569; font-family: 'DM Mono', monospace; }
+  .footer-copy { font-size: 0.75rem; color: #475569; width: 100%; text-align: center; margin-top: 0.5rem; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp   { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+  .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease, transform 0.5s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .plans-grid, .how-grid { grid-template-columns: 1fr; max-width: 400px; }
+    .nav-links { display: none; }
+    .hero { padding: 56px 5% 48px; }
+    .search-wrap { flex-direction: column; }
+    .btn-check { padding: 0.9rem; justify-content: center; }
+    .stats-bar { gap: 2rem; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="#" class="nav-logo">Veri<span>Ghana</span></a>
+  <ul class="nav-links">
+    <li><a href="#">Home</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="http://localhost:8501" target="_blank">Dashboard</a></li>
+  </ul>
+  <a href="http://localhost:8501" target="_blank" class="btn-nav">Open App →</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">Ghana's AI-Powered Fact Verification</div>
+
+    <h1>Fighting <em>Misinformation</em><br>in Ghana with AI</h1>
+
+    <p class="hero-sub">
+      Submit any social media claim — get an instant Truth Score backed
+      by verified Ghanaian sources, updated every 6 hours.
+    </p>
+
+    <!-- Model selector -->
+    <div class="model-row">
+      <span class="model-label">MODEL:</span>
+      <select class="model-select" id="modelSelect">
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+      </select>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" class="search-input" id="claimInput"
+        placeholder="Paste a suspicious claim, social post, or rumour here…">
+      <button class="btn-check" id="checkBtn" onclick="verifyLive()">
+        <div class="spinner" id="spinner"></div>
+        <svg id="searchIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM14 14l-3-3"/>
+        </svg>
+        <span id="btnText">Check Now</span>
+      </button>
+    </div>
+
+    <!-- API offline notice -->
+    <div class="api-notice" id="apiNotice">
+      ⚠ API server not reachable. Start it with:
+      <code>uvicorn src.api:app --reload --port 8000</code>
+      — or use the <a href="http://localhost:8501" target="_blank">Streamlit dashboard</a> directly.
+    </div>
+
+    <!-- Truth meter -->
+    <div class="truth-demo" id="truthDemo">
+      <div class="truth-header">
+        <span class="truth-label-left">
+          <span class="live-dot"></span>
+          TRUTH METER
+        </span>
+        <span class="verdict-badge" id="verdictBadge">AWAITING CLAIM</span>
+      </div>
+
+      <div class="score-row">
+        <span class="score-num" id="scoreNum">—</span>
+        <div class="truth-bar-bg">
+          <div class="truth-bar-fill" id="truthBar"></div>
+        </div>
+      </div>
+
+      <div class="truth-explanation" id="explanationText">
+        Enter a claim above and click Check Now to verify it against
+        trusted Ghanaian sources — or watch the demo cycle below.
+      </div>
+
+      <div class="truth-sources" id="sourcesContainer" style="display:none">
+        <div class="truth-sources-label">Sources</div>
+        <div id="sourcesList"></div>
+      </div>
+
+      <div class="truth-footer">
+        <span id="processingInfo" style="color:#334155">Demo mode</span>
+        <span id="modelInfo" style="color:#334155">—</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS BAR ── -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-num" id="statArticles">—</span>
+    <span class="stat-label">Articles Indexed</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="statSources">—</span>
+    <span class="stat-label">Trusted Sources</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="statClaims">—</span>
+    <span class="stat-label">Claims Checked</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="statUpdated">—</span>
+    <span class="stat-label">Last Updated</span>
+  </div>
+</div>
+
+<!-- ── SOURCES STRIP ── -->
+<div class="sources-strip">
+  <span class="strip-label">Trusted Sources</span>
+  <span class="source-pill gov"><span class="dot"></span>Ministry of Finance</span>
+  <span class="source-pill"><span class="dot"></span>Citi Newsroom</span>
+  <span class="source-pill"><span class="dot"></span>Joy Online</span>
+  <span class="source-pill"><span class="dot"></span>Graphic Online</span>
+  <span class="source-pill gov"><span class="dot"></span>Ghana News Agency</span>
+  <span class="source-pill gov"><span class="dot"></span>Bank of Ghana</span>
+  <span class="source-pill veri"><span class="dot"></span>Dubawa Ghana</span>
+  <span class="source-pill"><span class="dot"></span>3News</span>
+  <span class="source-pill gov"><span class="dot"></span>Ghana Health Service</span>
+</div>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how-section" id="how">
+  <p class="section-eyebrow reveal">Under the hood</p>
+  <h2 class="section-title reveal">How VeriGhana Works</h2>
+  <p class="section-sub reveal">Three layers of AI verification, updated every six hours.</p>
+
+  <div class="how-grid">
+    <div class="how-card reveal">
+      <div class="how-num">01</div>
+      <div class="how-title">Continuous Source Monitoring</div>
+      <div class="how-desc">Our scraper crawls 60+ Ghanaian government portals and media outlets every 6 hours via GitHub Actions, storing articles in a Supabase database.</div>
+    </div>
+    <div class="how-card reveal">
+      <div class="how-num">02</div>
+      <div class="how-title">AI Semantic Embedding</div>
+      <div class="how-desc">Each article is converted into a 3072-dimension vector using Gemini's embedding model, enabling semantic search that goes beyond simple keyword matching.</div>
+    </div>
+    <div class="how-card reveal">
+      <div class="how-num">03</div>
+      <div class="how-title">Cascading Verification</div>
+      <div class="how-desc">Your claim is matched against indexed content at multiple similarity thresholds. Gemini AI reads the top matches and returns a scored verdict with source citations.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section class="pricing-section" id="pricing">
+  <p class="section-eyebrow reveal">Simple, transparent pricing</p>
+  <h2 class="section-title reveal">Choose Your Plan</h2>
+  <p class="section-sub reveal">Start free. Upgrade when you need more power.</p>
+
+  <div class="toggle-wrap reveal">
+    <span class="toggle-label active" id="monthlyLabel">Monthly</span>
+    <div class="toggle-switch" id="billingToggle" onclick="toggleBilling()"></div>
+    <span class="toggle-label" id="annualLabel">Annual</span>
+    <span class="save-badge" id="saveBadge" style="opacity:0">Save 20%</span>
+  </div>
+
+  <div class="plans-grid">
+    <div class="plan-card reveal">
+      <div class="plan-header free-h">
+        <div class="plan-name dark">Free</div>
+        <div class="plan-price">
+          <span class="price-num dark">$0</span>
+          <span class="price-period dark">/mo</span>
+        </div>
+        <p class="plan-tagline dark">For curious citizens</p>
+      </div>
+      <div class="plan-body">
+        <ul class="plan-features">
+          <li><span class="feat-icon green">✓</span>5 fact-check queries per day</li>
+          <li><span class="feat-icon green">✓</span>Basic Truth Meter scoring</li>
+          <li><span class="feat-icon green">✓</span>Public fact database access</li>
+          <li><span class="feat-icon green">✓</span>Source citations included</li>
+        </ul>
+        <a href="http://localhost:8501" target="_blank" class="btn-plan ghost">Get Started Free</a>
+      </div>
+    </div>
+
+    <div class="plan-card featured reveal">
+      <div class="plan-header pro-h">
+        <div class="plan-name light">Pro</div>
+        <div class="plan-price">
+          <span class="price-num light" id="proPrice">$9.99</span>
+          <span class="price-period">/mo</span>
+        </div>
+        <p class="plan-tagline light">For journalists & researchers</p>
+      </div>
+      <div class="plan-body">
+        <ul class="plan-features">
+          <li><span class="feat-icon blue">✓</span>Unlimited fact-check queries</li>
+          <li><span class="feat-icon blue">✓</span>Full AI verification reports</li>
+          <li><span class="feat-icon blue">✓</span>Detailed source citations</li>
+          <li><span class="feat-icon blue">✓</span>Personal REST API key</li>
+          <li><span class="feat-icon blue">✓</span>Real-time misinformation alerts</li>
+          <li><span class="feat-icon blue">✓</span>Verification history export</li>
+        </ul>
+        <a href="http://localhost:8501" target="_blank" class="btn-plan solid-blue">Get Pro Access</a>
+      </div>
+    </div>
+
+    <div class="plan-card reveal">
+      <div class="plan-header inst-h">
+        <div class="plan-name light">Institutional</div>
+        <div class="plan-price">
+          <span class="price-num light" id="instPrice">$79.99</span>
+          <span class="price-period">/mo</span>
+        </div>
+        <p class="plan-tagline light">For newsrooms, NGOs & gov't</p>
+      </div>
+      <div class="plan-body">
+        <ul class="plan-features">
+          <li><span class="feat-icon green">✓</span>Multi-user seat management</li>
+          <li><span class="feat-icon green">✓</span>Bulk API processing</li>
+          <li><span class="feat-icon green">✓</span>White-label reporting</li>
+          <li><span class="feat-icon green">✓</span>Custom analytics dashboard</li>
+          <li><span class="feat-icon green">✓</span>Priority SLA support</li>
+          <li><span class="feat-icon green">✓</span>Research dataset access</li>
+        </ul>
+        <a href="mailto:contact@verighana.gh" class="btn-plan solid-green">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TICKER ── -->
+<div class="ticker-section">
+  <div class="ticker-label">Live Flagged</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner"></div>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">Veri<span>Ghana</span></div>
+    <ul class="footer-links">
+      <li><a href="#">Privacy Policy</a></li>
+      <li><a href="#">Terms of Service</a></li>
+      <li><a href="http://localhost:8000/docs" target="_blank">API Docs</a></li>
+      <li><a href="http://localhost:8501" target="_blank">Dashboard</a></li>
+    </ul>
+    <p class="footer-copy">
+      VeriGhana © 2026 — A product of GIMPA Computer Science Research —
+      Combating information disorder in Ghana with AI.
+    </p>
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG — update these if your ports change
+// ═══════════════════════════════════════════════════
+const API_BASE       = "http://localhost:8000";
+const STREAMLIT_URL  = "http://localhost:8501";
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let apiOnline   = false;
+let demoIdx     = 0;
+let autoCycle   = null;
+
+const demoData = [
+  {
+    claim: "EC postpones 2026 Accra by-election",
+    score: 8, verdict: "UNCORROBORATED",
+    explanation: "No matching story found in any indexed source from Citi Newsroom, Joy Online, or EC official communications.",
+    sources: [], model_used: "demo", processing_ms: 0, search_method: "demo"
+  },
+  {
+    claim: "Free SHS programme officially cancelled",
+    score: 5, verdict: "FALSE",
+    explanation: "Multiple credible sources directly contradict this claim. Ministry of Education has confirmed the programme continues.",
+    sources: [{ title: "Ministry of Education confirms Free SHS continuation", url: "#", source: "Ministry of Education" }],
+    model_used: "demo", processing_ms: 0, search_method: "demo"
+  },
+  {
+    claim: "Bank of Ghana cuts interest rate to 27%",
+    score: 81, verdict: "VERIFIED",
+    explanation: "The Bank of Ghana's Monetary Policy Committee statement confirms this rate adjustment in their latest release.",
+    sources: [{ title: "Monetary Policy Statement — February 2026", url: "#", source: "Bank of Ghana" }],
+    model_used: "demo", processing_ms: 0, search_method: "demo"
+  },
+  {
+    claim: "Ghana Statistical Service releases 2024 census data",
+    score: 91, verdict: "VERIFIED",
+    explanation: "Ghana Statistical Service officially published the 2024 Population and Housing Census report on their portal.",
+    sources: [{ title: "2024 Population & Housing Census — Final Results", url: "#", source: "Ghana Statistical Service" }],
+    model_used: "demo", processing_ms: 0, search_method: "demo"
+  },
+];
+
+// ═══════════════════════════════════════════════════
+//  TRUTH METER — update UI
+// ═══════════════════════════════════════════════════
+const VERDICT_COLORS = {
+  VERIFIED:       "linear-gradient(90deg,#16a34a,#4ade80)",
+  PARTIAL:        "linear-gradient(90deg,#d97706,#fbbf24)",
+  FALSE:          "linear-gradient(90deg,#dc2626,#f87171)",
+  UNCORROBORATED: "linear-gradient(90deg,#475569,#94a3b8)",
+  CHECKING:       "linear-gradient(90deg,#2563eb,#60a5fa)",
+  ERROR:          "linear-gradient(90deg,#dc2626,#f87171)",
+};
+
+function setResult(result) {
+  const { score, verdict, explanation, sources, model_used, processing_ms, search_method } = result;
+
+  const bar        = document.getElementById("truthBar");
+  const scoreNum   = document.getElementById("scoreNum");
+  const badge      = document.getElementById("verdictBadge");
+  const expText    = document.getElementById("explanationText");
+  const procInfo   = document.getElementById("processingInfo");
+  const modelInfo  = document.getElementById("modelInfo");
+  const srcCont    = document.getElementById("sourcesContainer");
+  const srcList    = document.getElementById("sourcesList");
+  const demo       = document.getElementById("truthDemo");
+
+  // Animate bar
+  bar.style.width      = "0%";
+  bar.style.background = VERDICT_COLORS[verdict] || VERDICT_COLORS.UNCORROBORATED;
+
+  setTimeout(() => {
+    bar.style.width = score + "%";
+    scoreNum.textContent = score + "%";
+  }, 80);
+
+  // Badge
+  badge.textContent  = verdict;
+  badge.className    = "verdict-badge " + verdict;
+
+  // Explanation
+  expText.textContent = explanation || "—";
+
+  // Sources
+  if (sources && sources.length > 0) {
+    srcList.innerHTML = sources.slice(0, 4).map(s =>
+      `<div class="source-citation">
+        <span class="cit-dot"></span>
+        <div>
+          <a href="${s.url || '#'}" target="_blank">${s.title}</a>
+          <span class="src-name"> — ${s.source}</span>
+        </div>
+      </div>`
+    ).join("");
+    srcCont.style.display = "flex";
+  } else {
+    srcCont.style.display = "none";
+  }
+
+  // Footer
+  procInfo.textContent = processing_ms > 0
+    ? `${(processing_ms/1000).toFixed(1)}s · ${search_method}`
+    : "Demo mode";
+  modelInfo.textContent = model_used !== "demo" ? model_used : "—";
+  demo.classList.add("live");
+}
+
+function setChecking() {
+  const bar   = document.getElementById("truthBar");
+  const badge = document.getElementById("verdictBadge");
+  const exp   = document.getElementById("explanationText");
+  const score = document.getElementById("scoreNum");
+
+  bar.style.width      = "100%";
+  bar.style.background = VERDICT_COLORS.CHECKING;
+  badge.className      = "verdict-badge CHECKING";
+  badge.textContent    = "CHECKING";
+  exp.textContent      = "Searching across indexed Ghanaian sources…";
+  score.textContent    = "…";
+  document.getElementById("sourcesContainer").style.display = "none";
+}
+
+// ═══════════════════════════════════════════════════
+//  LIVE VERIFY — calls the FastAPI backend
+// ═══════════════════════════════════════════════════
+async function verifyLive() {
+  const input = document.getElementById("claimInput").value.trim();
+  if (!input) {
+    // Run demo cycle if no input
+    runDemoCycle();
+    return;
+  }
+
+  // Stop auto-cycle while user is verifying
+  clearInterval(autoCycle);
+
+  const btn     = document.getElementById("checkBtn");
+  const spinner = document.getElementById("spinner");
+  const icon    = document.getElementById("searchIcon");
+  const btnText = document.getElementById("btnText");
+
+  btn.disabled     = true;
+  spinner.style.display = "block";
+  icon.style.display    = "none";
+  btnText.textContent   = "Checking…";
+
+  setChecking();
+  hideApiNotice();
+
+  try {
+    const model = document.getElementById("modelSelect").value;
+    const response = await fetch(`${API_BASE}/verify`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ claim: input, model }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.detail || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    apiOnline = true;
+    setResult(data);
+
+  } catch (err) {
+    if (err.name === "TypeError" || err.message.includes("fetch")) {
+      // API not running — show notice, fall back to demo
+      showApiNotice();
+      apiOnline = false;
+      const demo = demoData[demoIdx % demoData.length];
+      demo.claim_input = input;
+      setResult({ ...demo, explanation: "API offline — showing demo result. Start api.py to get real results." });
+    } else {
+      setResult({
+        score: 0, verdict: "ERROR",
+        explanation: `Error: ${err.message}`,
+        sources: [], model_used: "—", processing_ms: 0, search_method: "—"
+      });
+    }
+  } finally {
+    btn.disabled          = false;
+    spinner.style.display = "none";
+    icon.style.display    = "block";
+    btnText.textContent   = "Check Now";
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  DEMO CYCLE — runs when no user input
+// ═══════════════════════════════════════════════════
+function runDemoCycle() {
+  const d = demoData[demoIdx % demoData.length];
+  document.getElementById("claimInput").value = d.claim;
+  setResult(d);
+  demoIdx++;
+}
+
+function startAutoCycle() {
+  autoCycle = setInterval(() => {
+    const focused = document.activeElement === document.getElementById("claimInput");
+    const hasInput = document.getElementById("claimInput").value.trim().length > 0;
+    if (!focused && !hasInput) {
+      runDemoCycle();
+    }
+  }, 4500);
+}
+
+// Allow Enter key to trigger verify
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("claimInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") verifyLive();
+  });
+  // Clear field on focus to let user type fresh
+  document.getElementById("claimInput").addEventListener("focus", () => {
+    clearInterval(autoCycle);
+  });
+  document.getElementById("claimInput").addEventListener("blur", () => {
+    if (!document.getElementById("claimInput").value.trim()) {
+      startAutoCycle();
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════
+//  API HEALTH + STATS
+// ═══════════════════════════════════════════════════
+function showApiNotice() { document.getElementById("apiNotice").classList.add("show"); }
+function hideApiNotice() { document.getElementById("apiNotice").classList.remove("show"); }
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API_BASE}/stats`);
+    if (!r.ok) throw new Error("Stats unavailable");
+    const d = await r.json();
+    apiOnline = true;
+
+    document.getElementById("statArticles").textContent =
+      d.total_articles > 0 ? d.total_articles.toLocaleString() : "—";
+    document.getElementById("statSources").textContent =
+      d.sources_indexed > 0 ? d.sources_indexed : "—";
+    document.getElementById("statClaims").textContent =
+      d.claims_checked > 0 ? d.claims_checked.toLocaleString() : "—";
+    document.getElementById("statUpdated").textContent =
+      d.last_updated !== "N/A" ? d.last_updated.split(",")[0] : "—";
+  } catch {
+    // API offline — leave as "—"
+  }
+}
+
+// Load available models into selector
+async function loadModels() {
+  try {
+    const r = await fetch(`${API_BASE}/models`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const sel = document.getElementById("modelSelect");
+    sel.innerHTML = d.models.map(m =>
+      `<option value="${m}" ${m === d.default ? "selected" : ""}>${m}</option>`
+    ).join("");
+  } catch { /* keep defaults */ }
+}
+
+// ═══════════════════════════════════════════════════
+//  BILLING TOGGLE
+// ═══════════════════════════════════════════════════
+let isAnnual = false;
+function toggleBilling() {
+  isAnnual = !isAnnual;
+  document.getElementById("billingToggle").classList.toggle("annual", isAnnual);
+  document.getElementById("monthlyLabel").classList.toggle("active", !isAnnual);
+  document.getElementById("annualLabel").classList.toggle("active", isAnnual);
+  document.getElementById("saveBadge").style.opacity = isAnnual ? "1" : "0";
+  document.getElementById("proPrice").textContent  = isAnnual ? "$7.99"  : "$9.99";
+  document.getElementById("instPrice").textContent = isAnnual ? "$63.99" : "$79.99";
+}
+
+// ═══════════════════════════════════════════════════
+//  TICKER
+// ═══════════════════════════════════════════════════
+const flagged = [
+  { claim: '"EC postpones elections"',         score: "5%",  level: "low" },
+  { claim: '"Free SHS officially ended"',       score: "8%",  level: "low" },
+  { claim: '"President arrested"',             score: "2%",  level: "low" },
+  { claim: '"Ghana joins European Union"',     score: "1%",  level: "low" },
+  { claim: '"Cedi collapses to 30/dollar"',   score: "12%", level: "low" },
+  { claim: '"COVID-19 lockdown returns"',      score: "6%",  level: "low" },
+  { claim: '"New 40% mobile money tax"',       score: "9%",  level: "low" },
+  { claim: '"BECE cancelled nationwide"',      score: "3%",  level: "low" },
+  { claim: '"Petrol prices drop 50%"',         score: "7%",  level: "low" },
+  { claim: '"Government bans WhatsApp"',       score: "1%",  level: "low" },
+];
+function buildTicker() {
+  const inner = document.getElementById("tickerInner");
+  const items = [...flagged, ...flagged].map(f =>
+    `<span class="ticker-item"><span class="claim">${f.claim}</span> — Score: <span class="score-${f.level}">${f.score}</span></span>`
+  ).join('<span class="ticker-sep">|</span>');
+  inner.innerHTML = items;
+}
+
+// ═══════════════════════════════════════════════════
+//  SCROLL REVEAL
+// ═══════════════════════════════════════════════════
+const obs = new IntersectionObserver(entries => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      e.target.style.transitionDelay = (i * 0.07) + "s";
+      e.target.classList.add("visible");
+      obs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll(".reveal").forEach(el => obs.observe(el));
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+buildTicker();
+loadStats();
+loadModels();
+
+// Start demo after short delay
+setTimeout(() => {
+  runDemoCycle();
+  startAutoCycle();
+}, 900);
+</script>
+</body>
+</html>
