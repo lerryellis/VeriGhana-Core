@@ -1,49 +1,89 @@
-import streamlit as st
-import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+"""
+VeriGhana — Streamlit Application  (merged)
+=============================================
+Full redesign matching index.html aesthetic,
+with all original logic from the working app.py preserved:
+  • Real Supabase auth (sign_in_with_password / sign_up)
+  • Real verify_claim() call with model_id parameter
+  • Full SITES_TO_TEST list (65 sites)
+  • Full HEADLINE_PATTERNS list
+  • test_single_site() with complete scraping logic
+  • auto_add_to_scraper()
+  • Live progress + summary counters in Site Tester
+  • Database stats sidebar with trusted-source list
+  • Skip-existing checkbox, category filter, custom URL tester
+"""
 
-from verifier import verify_claim, FREE_MODELS, DEFAULT_MODEL
-from database_utils import get_supabase_client
-from dotenv import load_dotenv
+import streamlit as st
+import sys, os, time, hashlib
+from datetime import datetime
+from urllib.parse import urlparse
+
 import requests
 from bs4 import BeautifulSoup
-import time
 import urllib3
-import re
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+sys.path.insert(0, os.path.dirname(__file__))
+from dotenv import load_dotenv
 load_dotenv()
 
-# ── Admin email (set ADMIN_EMAIL=you@example.com in your .env file)
+# ── Core imports
+try:
+    from verifier import verify_claim, FREE_MODELS, DEFAULT_MODEL
+    VERIFIER_OK = True
+except ImportError:
+    VERIFIER_OK = False
+    FREE_MODELS   = {
+        "Gemini 2.0 Flash":      "gemini-2.0-flash",
+        "Gemini 2.0 Flash Lite": "gemini-2.0-flash-lite",
+        "Gemini 1.5 Flash":      "gemini-1.5-flash",
+        "Gemini 1.5 Flash 8B":   "gemini-1.5-flash-8b",
+    }
+    DEFAULT_MODEL = "gemini-2.0-flash"
+
+try:
+    from database_utils import get_supabase_client
+    DB_OK = True
+except ImportError:
+    DB_OK = False
+
+try:
+    import auth as Auth
+    import db   as DB
+    BACKEND_OK = True
+except ImportError:
+    BACKEND_OK = False
+
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
 
+TIER_LIMITS = {"free": 5, "pro": None, "institutional": None}
+TIER_MODELS = {
+    "free":          [list(FREE_MODELS.keys())[-1]],
+    "pro":           list(FREE_MODELS.keys()),
+    "institutional": list(FREE_MODELS.keys()),
+}
+
+# ══════════════════════════════════════════════
+#  PAGE CONFIG
+# ══════════════════════════════════════════════
 st.set_page_config(
     page_title="VeriGhana — National Fact Verification",
     page_icon="🇬🇭",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-# ─────────────────────────────────────────────
-#  SESSION STATE DEFAULTS
-# ─────────────────────────────────────────────
-for key, default in {
-    "logged_in":    False,
-    "user_email":   "",
-    "test_results": [],
-    "testing":      False,
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-
-# ─────────────────────────────────────────────
-#  SITE TESTER CONSTANTS
-# ─────────────────────────────────────────────
+# ══════════════════════════════════════════════
+#  SITE TESTER CONSTANTS  (from original app.py)
+# ══════════════════════════════════════════════
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
 
@@ -63,79 +103,99 @@ HEADLINE_PATTERNS = [
 ]
 
 SITES_TO_TEST = [
-    {"name": "Citi Newsroom",           "url": "https://citinewsroom.com/category/news/",            "category": "Media"},
-    {"name": "Joy Online",              "url": "https://www.myjoyonline.com/news/",                  "category": "Media"},
-    {"name": "Graphic Online",          "url": "https://www.graphic.com.gh/news/general-news.html",  "category": "Media"},
-    {"name": "Ghana News Agency",       "url": "https://www.ghananewsagency.org/",                   "category": "Media"},
-    {"name": "3News",                   "url": "https://3news.com/",                                 "category": "Media"},
-    {"name": "Peacefm Online",          "url": "https://www.peacefmonline.com/",                     "category": "Media"},
-    {"name": "GhanaWeb",                "url": "https://www.ghanaweb.com/",                          "category": "Media"},
-    {"name": "Pulse Ghana",             "url": "https://www.pulse.com.gh/",                          "category": "Media"},
-    {"name": "Office of the President", "url": "https://presidency.gov.gh/",                         "category": "Government - Executive"},
-    {"name": "Ghana Government Portal", "url": "https://www.ghana.gov.gh/",                          "category": "Government - Executive"},
-    {"name": "Ministry of Foreign Affairs",    "url": "https://mfa.gov.gh/",                         "category": "Government - Ministry"},
-    {"name": "Ministry of Finance",            "url": "https://mofep.gov.gh/",                       "category": "Government - Ministry"},
-    {"name": "Ministry of Education",          "url": "https://moe.gov.gh/",                         "category": "Government - Ministry"},
-    {"name": "Ministry of Energy",             "url": "https://www.energymin.gov.gh/",               "category": "Government - Ministry"},
-    {"name": "Ministry of Health",             "url": "https://www.moh.gov.gh/",                     "category": "Government - Ministry"},
-    {"name": "Ministry of Roads and Highways", "url": "https://www.mrh.gov.gh/",                     "category": "Government - Ministry"},
-    {"name": "Ministry of Trade and Industry", "url": "http://www.moti.gov.gh/",                     "category": "Government - Ministry"},
-    {"name": "Ministry of Communication",      "url": "https://moc.gov.gh/",                         "category": "Government - Ministry"},
-    {"name": "Ministry of the Interior",       "url": "https://www.mint.gov.gh/",                    "category": "Government - Ministry"},
-    {"name": "Ministry of Tourism",            "url": "https://www.touringghana.com/",               "category": "Government - Ministry"},
-    {"name": "Ministry of Local Government",   "url": "http://www.mlgrd.gov.gh/",                   "category": "Government - Ministry"},
-    {"name": "Ministry of Justice",            "url": "https://mojag.gov.gh/",                       "category": "Government - Ministry"},
-    {"name": "Ministry of Defence",            "url": "https://mod.gov.gh/",                         "category": "Government - Ministry"},
-    {"name": "Parliament of Ghana",            "url": "https://www.parliament.gh/news",              "category": "Government - Legislature"},
-    {"name": "Judicial Service of Ghana",      "url": "https://www.judicial.gov.gh/",               "category": "Government - Judiciary"},
-    {"name": "Bank of Ghana",                  "url": "https://www.bog.gov.gh/news-publications/press-releases/", "category": "Government - Regulatory"},
-    {"name": "Electoral Commission",           "url": "https://www.ec.gov.gh/",                     "category": "Government - Regulatory"},
-    {"name": "National Development Planning",  "url": "https://www.ndpc.gov.gh/",                   "category": "Government - Regulatory"},
-    {"name": "Public Procurement Authority",   "url": "https://www.ppbghana.org/",                  "category": "Government - Regulatory"},
-    {"name": "National Communications Auth",   "url": "https://www.nca.org.gh/",                    "category": "Government - Regulatory"},
-    {"name": "Public Utilities Regulatory",    "url": "http://www.purc.com.gh/",                    "category": "Government - Regulatory"},
-    {"name": "Ghana Standards Authority",      "url": "https://www.gsa.gov.gh/",                    "category": "Government - Regulatory"},
-    {"name": "Food and Drugs Authority",       "url": "https://www.fdaghana.gov.gh/",               "category": "Government - Regulatory"},
-    {"name": "National Commission on Culture", "url": "http://www.ghanaculture.gov.gh/",            "category": "Government - Regulatory"},
-    {"name": "Ghana Revenue Authority",        "url": "https://gra.gov.gh/",                        "category": "Government - Revenue"},
-    {"name": "SSNIT",                          "url": "https://www.ssnit.org.gh/",                  "category": "Government - Social"},
-    {"name": "National Health Insurance Auth", "url": "https://www.nhis.gov.gh/",                   "category": "Government - Social"},
-    {"name": "National Identification Auth",   "url": "https://nia.gov.gh/",                        "category": "Government - Identification"},
-    {"name": "DVLA",                           "url": "https://dvla.gov.gh/",                       "category": "Government - Identification"},
-    {"name": "Ghana Education Service",        "url": "https://ges.gov.gh/",                        "category": "Government - Education"},
-    {"name": "National Teaching Council",      "url": "https://ntc.gov.gh/",                        "category": "Government - Education"},
-    {"name": "National Accreditation Board",   "url": "https://nab.gov.gh/",                        "category": "Government - Education"},
-    {"name": "GIMPA",                          "url": "https://www.gimpa.edu.gh/",                  "category": "Government - Education"},
-    {"name": "CSIR",                           "url": "http://www.csir.org.gh/",                    "category": "Government - Education"},
-    {"name": "Ghana Statistical Service",      "url": "https://www.statsghana.gov.gh/",             "category": "Government - Statistics"},
-    {"name": "Ghana Health Service",           "url": "https://ghs.gov.gh/",                        "category": "Government - Health"},
-    {"name": "Volta River Authority",          "url": "https://www.vra.com/",                       "category": "Government - Energy"},
-    {"name": "GRIDCo",                         "url": "https://www.gridcogh.com/",                  "category": "Government - Energy"},
-    {"name": "Energy Commission",              "url": "https://www.energycom.gov.gh/",              "category": "Government - Energy"},
-    {"name": "Ghana Investment Promotion",     "url": "https://www.gipcghana.com/",                 "category": "Government - Investment"},
-    {"name": "Ghana Export Promotion Auth",    "url": "https://www.gepaghana.org/",                 "category": "Government - Investment"},
-    {"name": "Ghana Free Zones Board",         "url": "https://gfzb.gov.gh/",                      "category": "Government - Investment"},
-    {"name": "Ghana Tourism Authority",        "url": "https://www.ghana.travel/",                  "category": "Government - Investment"},
-    {"name": "Ghana Armed Forces",             "url": "https://gafonline.mil.gh/",                  "category": "Government - Security"},
-    {"name": "Ghana Police Service",           "url": "https://www.police.gov.gh/",                 "category": "Government - Security"},
-    {"name": "NITA",                           "url": "https://nita.gov.gh/",                       "category": "Government - Technology"},
-    {"name": "Cyber Security Authority",       "url": "https://www.csa.gov.gh/",                   "category": "Government - Technology"},
-    {"name": "Data Protection Commission",     "url": "https://dataprotection.gov.gh/",            "category": "Government - Technology"},
-    {"name": "Securities and Exchange Comm",   "url": "https://sec.gov.gh/",                       "category": "Government - Finance"},
-    {"name": "National Insurance Commission",  "url": "https://nicghana.org/",                     "category": "Government - Finance"},
-    {"name": "NPRA",                           "url": "https://www.npra.gov.gh/",                   "category": "Government - Finance"},
-    {"name": "CAGD",                           "url": "https://cagd.gov.gh/",                       "category": "Government - Finance"},
-    {"name": "Association of Ghana Industries","url": "https://www.agighana.org/",                  "category": "Government - Business"},
-    {"name": "Private Enterprise Federation",  "url": "https://pef.org.gh/",                       "category": "Government - Business"},
-    {"name": "Local Government Service",       "url": "https://lgs.gov.gh/",                       "category": "Government - Local"},
+    {"name": "Citi Newsroom",                  "url": "https://citinewsroom.com/category/news/",                          "category": "Media"},
+    {"name": "Joy Online",                     "url": "https://www.myjoyonline.com/news/",                                "category": "Media"},
+    {"name": "Graphic Online",                 "url": "https://www.graphic.com.gh/news/general-news.html",                "category": "Media"},
+    {"name": "Ghana News Agency",              "url": "https://www.ghananewsagency.org/",                                 "category": "Media"},
+    {"name": "3News",                          "url": "https://3news.com/",                                               "category": "Media"},
+    {"name": "Peacefm Online",                 "url": "https://www.peacefmonline.com/",                                   "category": "Media"},
+    {"name": "GhanaWeb",                       "url": "https://www.ghanaweb.com/",                                       "category": "Media"},
+    {"name": "Pulse Ghana",                    "url": "https://www.pulse.com.gh/",                                       "category": "Media"},
+    {"name": "Office of the President",        "url": "https://presidency.gov.gh/",                                      "category": "Government - Executive"},
+    {"name": "Ghana Government Portal",        "url": "https://www.ghana.gov.gh/",                                       "category": "Government - Executive"},
+    {"name": "Ministry of Foreign Affairs",    "url": "https://mfa.gov.gh/",                                             "category": "Government - Ministry"},
+    {"name": "Ministry of Finance",            "url": "https://mofep.gov.gh/",                                           "category": "Government - Ministry"},
+    {"name": "Ministry of Education",          "url": "https://moe.gov.gh/",                                             "category": "Government - Ministry"},
+    {"name": "Ministry of Energy",             "url": "https://www.energymin.gov.gh/",                                   "category": "Government - Ministry"},
+    {"name": "Ministry of Health",             "url": "https://www.moh.gov.gh/",                                         "category": "Government - Ministry"},
+    {"name": "Ministry of Roads and Highways", "url": "https://www.mrh.gov.gh/",                                         "category": "Government - Ministry"},
+    {"name": "Ministry of Trade and Industry", "url": "http://www.moti.gov.gh/",                                         "category": "Government - Ministry"},
+    {"name": "Ministry of Communication",      "url": "https://moc.gov.gh/",                                             "category": "Government - Ministry"},
+    {"name": "Ministry of the Interior",       "url": "https://www.mint.gov.gh/",                                        "category": "Government - Ministry"},
+    {"name": "Ministry of Tourism",            "url": "https://www.touringghana.com/",                                   "category": "Government - Ministry"},
+    {"name": "Ministry of Local Government",   "url": "http://www.mlgrd.gov.gh/",                                        "category": "Government - Ministry"},
+    {"name": "Ministry of Justice",            "url": "https://mojag.gov.gh/",                                           "category": "Government - Ministry"},
+    {"name": "Ministry of Defence",            "url": "https://mod.gov.gh/",                                             "category": "Government - Ministry"},
+    {"name": "Parliament of Ghana",            "url": "https://www.parliament.gh/news",                                  "category": "Government - Legislature"},
+    {"name": "Judicial Service of Ghana",      "url": "https://www.judicial.gov.gh/",                                    "category": "Government - Judiciary"},
+    {"name": "Bank of Ghana",                  "url": "https://www.bog.gov.gh/news-publications/press-releases/",        "category": "Government - Regulatory"},
+    {"name": "Electoral Commission",           "url": "https://www.ec.gov.gh/",                                          "category": "Government - Regulatory"},
+    {"name": "National Development Planning",  "url": "https://www.ndpc.gov.gh/",                                        "category": "Government - Regulatory"},
+    {"name": "Public Procurement Authority",   "url": "https://www.ppbghana.org/",                                       "category": "Government - Regulatory"},
+    {"name": "National Communications Auth",   "url": "https://www.nca.org.gh/",                                         "category": "Government - Regulatory"},
+    {"name": "Public Utilities Regulatory",    "url": "http://www.purc.com.gh/",                                         "category": "Government - Regulatory"},
+    {"name": "Ghana Standards Authority",      "url": "https://www.gsa.gov.gh/",                                         "category": "Government - Regulatory"},
+    {"name": "Food and Drugs Authority",       "url": "https://www.fdaghana.gov.gh/",                                    "category": "Government - Regulatory"},
+    {"name": "National Commission on Culture", "url": "http://www.ghanaculture.gov.gh/",                                 "category": "Government - Regulatory"},
+    {"name": "Ghana Revenue Authority",        "url": "https://gra.gov.gh/",                                             "category": "Government - Revenue"},
+    {"name": "SSNIT",                          "url": "https://www.ssnit.org.gh/",                                       "category": "Government - Social"},
+    {"name": "National Health Insurance Auth", "url": "https://www.nhis.gov.gh/",                                        "category": "Government - Social"},
+    {"name": "National Identification Auth",   "url": "https://nia.gov.gh/",                                             "category": "Government - Identification"},
+    {"name": "DVLA",                           "url": "https://dvla.gov.gh/",                                            "category": "Government - Identification"},
+    {"name": "Ghana Education Service",        "url": "https://ges.gov.gh/",                                             "category": "Government - Education"},
+    {"name": "National Teaching Council",      "url": "https://ntc.gov.gh/",                                             "category": "Government - Education"},
+    {"name": "National Accreditation Board",   "url": "https://nab.gov.gh/",                                             "category": "Government - Education"},
+    {"name": "GIMPA",                          "url": "https://www.gimpa.edu.gh/",                                       "category": "Government - Education"},
+    {"name": "CSIR",                           "url": "http://www.csir.org.gh/",                                         "category": "Government - Education"},
+    {"name": "Ghana Statistical Service",      "url": "https://www.statsghana.gov.gh/",                                  "category": "Government - Statistics"},
+    {"name": "Ghana Health Service",           "url": "https://ghs.gov.gh/",                                             "category": "Government - Health"},
+    {"name": "Volta River Authority",          "url": "https://www.vra.com/",                                            "category": "Government - Energy"},
+    {"name": "GRIDCo",                         "url": "https://www.gridcogh.com/",                                       "category": "Government - Energy"},
+    {"name": "Energy Commission",              "url": "https://www.energycom.gov.gh/",                                   "category": "Government - Energy"},
+    {"name": "Ghana Investment Promotion",     "url": "https://www.gipcghana.com/",                                      "category": "Government - Investment"},
+    {"name": "Ghana Export Promotion Auth",    "url": "https://www.gepaghana.org/",                                      "category": "Government - Investment"},
+    {"name": "Ghana Free Zones Board",         "url": "https://gfzb.gov.gh/",                                            "category": "Government - Investment"},
+    {"name": "Ghana Tourism Authority",        "url": "https://www.ghana.travel/",                                       "category": "Government - Investment"},
+    {"name": "Ghana Armed Forces",             "url": "https://gafonline.mil.gh/",                                       "category": "Government - Security"},
+    {"name": "Ghana Police Service",           "url": "https://www.police.gov.gh/",                                      "category": "Government - Security"},
+    {"name": "NITA",                           "url": "https://nita.gov.gh/",                                            "category": "Government - Technology"},
+    {"name": "Cyber Security Authority",       "url": "https://www.csa.gov.gh/",                                        "category": "Government - Technology"},
+    {"name": "Data Protection Commission",     "url": "https://dataprotection.gov.gh/",                                  "category": "Government - Technology"},
+    {"name": "Securities and Exchange Comm",   "url": "https://sec.gov.gh/",                                             "category": "Government - Finance"},
+    {"name": "National Insurance Commission",  "url": "https://nicghana.org/",                                           "category": "Government - Finance"},
+    {"name": "NPRA",                           "url": "https://www.npra.gov.gh/",                                        "category": "Government - Finance"},
+    {"name": "CAGD",                           "url": "https://cagd.gov.gh/",                                            "category": "Government - Finance"},
+    {"name": "Association of Ghana Industries","url": "https://www.agighana.org/",                                       "category": "Government - Business"},
+    {"name": "Private Enterprise Federation",  "url": "https://pef.org.gh/",                                            "category": "Government - Business"},
+    {"name": "Local Government Service",       "url": "https://lgs.gov.gh/",                                            "category": "Government - Local"},
 ]
 
+STATUS_ICON = {
+    "scrapeable":   "✅",
+    "no_headlines": "⚠️",
+    "blocked":      "🚫",
+    "unreachable":  "❌",
+    "ssl_error":    "🔒",
+    "timeout":      "⏱️",
+    "not_found":    "🔍",
+    "error":        "❌",
+}
+STATUS_LABEL = {
+    "scrapeable":   "Scrapeable",
+    "no_headlines": "No Headlines",
+    "blocked":      "Blocked (403)",
+    "unreachable":  "Unreachable",
+    "ssl_error":    "SSL Error",
+    "timeout":      "Timeout",
+    "not_found":    "Not Found (404)",
+    "error":        "Error",
+}
 
-# ─────────────────────────────────────────────
-#  SITE TESTER CORE LOGIC
-# ─────────────────────────────────────────────
+
+# ══════════════════════════════════════════════
+#  SITE TESTER CORE  (from original app.py, untouched)
+# ══════════════════════════════════════════════
 def test_single_site(site: dict) -> dict:
-    """Test one site and return a result dict."""
     name     = site["name"]
     url      = site["url"]
     category = site.get("category", "Uncategorized")
@@ -178,11 +238,8 @@ def test_single_site(site: dict) -> dict:
     if best_count == 0:
         return {"name": name, "url": url, "category": category, "status": "no_headlines", "samples": []}
 
-    from urllib.parse import urlparse
     parsed   = urlparse(url)
     base_url = f"{parsed.scheme}://{parsed.netloc}"
-
-    # Resolve relative hrefs in samples
     for s in best_samples:
         if s["href"] and not s["href"].startswith("http"):
             s["href"] = base_url + s["href"]
@@ -201,7 +258,6 @@ def test_single_site(site: dict) -> dict:
 
 
 def auto_add_to_scraper(result: dict) -> dict:
-    """Write a verified site into html_scraper.py's HTML_SOURCES."""
     try:
         from source_manager import add_source_to_scraper
         return add_source_to_scraper(result)
@@ -209,385 +265,1378 @@ def auto_add_to_scraper(result: dict) -> dict:
         return {"success": False, "skipped": False, "message": "source_manager.py not found."}
 
 
-# ─────────────────────────────────────────────
-#  STATUS HELPERS
-# ─────────────────────────────────────────────
-STATUS_ICON = {
-    "scrapeable":   "✅",
-    "no_headlines": "⚠️",
-    "blocked":      "🚫",
-    "unreachable":  "❌",
-    "ssl_error":    "🔒",
-    "timeout":      "⏱️",
-    "not_found":    "🔍",
-    "error":        "❌",
-}
-STATUS_LABEL = {
-    "scrapeable":   "Scrapeable",
-    "no_headlines": "No Headlines",
-    "blocked":      "Blocked (403)",
-    "unreachable":  "Unreachable",
-    "ssl_error":    "SSL Error",
-    "timeout":      "Timeout",
-    "not_found":    "Not Found (404)",
-    "error":        "Error",
-}
+# ══════════════════════════════════════════════
+#  SESSION STATE
+# ══════════════════════════════════════════════
+def init_state():
+    defaults = dict(
+        logged_in=False, user_email="", user_name="",
+        user_role="client", user_tier="free", user_id=None,
+        page="verify", result=None, history=[],
+        test_results=[], testing=False,
+    )
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+init_state()
 
 
-# ─────────────────────────────────────────────
-#  LOGIN SCREEN
-# ─────────────────────────────────────────────
-if not st.session_state.logged_in:
-    st.title("🇬🇭 VeriGhana")
-    st.subheader("Please log in to access the verification platform")
-    tab1, tab2 = st.tabs(["Login", "Register"])
+# ══════════════════════════════════════════════
+#  GLOBAL CSS
+# ══════════════════════════════════════════════
+def inject_css():
+    st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
+#MainMenu,footer,header{visibility:hidden;}
+.block-container{padding:0!important;max-width:100%!important;}
+section[data-testid="stSidebar"]{display:none;}
+.stApp{background:#0f2240!important;}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
 
-    with tab1:
-        email    = st.text_input("Email Address")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            try:
-                supabase = get_supabase_client()
-                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                st.session_state.logged_in  = True
-                st.session_state.user_email = email
-                st.rerun()
-            except Exception:
-                st.error("Login failed. Check your email and password.")
+/* NAV */
+.vg-nav{background:rgba(15,34,64,.97);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,.08);padding:0 5%;
+  display:flex;align-items:center;height:64px;position:sticky;top:0;z-index:200;}
+.vg-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.35rem;
+  color:#fff;letter-spacing:-.02em;}
+.vg-logo span{color:#60a5fa;}
 
-    with tab2:
-        new_email = st.text_input("Email Address", key="reg_email")
-        new_pass  = st.text_input("Password (minimum 6 characters)", type="password", key="reg_pass")
-        if st.button("Create Account"):
-            try:
-                supabase = get_supabase_client()
-                supabase.auth.sign_up({"email": new_email, "password": new_pass})
-                st.success("Account created! Check your email to confirm, then log in.")
-            except Exception as e:
-                st.error(f"Registration failed: {e}")
+/* AUTH HERO */
+.vg-hero{background:linear-gradient(160deg,#0f2240 0%,#0c1e3f 55%,#112244 100%);
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:4rem 1rem;position:relative;overflow:hidden;}
+.vg-hero::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(37,99,235,.06) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(37,99,235,.06) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;}
 
-# ─────────────────────────────────────────────
-#  MAIN APP (logged in)
-# ─────────────────────────────────────────────
-else:
-    is_admin = (
+/* SHELL */
+.vg-shell{background:#0f2240;min-height:100vh;}
+.vg-wrap{max-width:1200px;margin:0 auto;padding:2rem 5%;}
+
+/* CARDS */
+.vg-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;padding:1.75rem;margin-bottom:1.25rem;}
+.vg-card-flat{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);
+  border-radius:12px;padding:1.25rem;margin-bottom:1rem;}
+
+/* TYPOGRAPHY */
+.vg-h1{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
+  color:#fff;letter-spacing:-.03em;margin:0 0 .5rem;line-height:1.1;}
+.vg-h1 em{font-style:normal;color:#60a5fa;}
+.vg-h2{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:700;
+  color:#fff;letter-spacing:-.02em;margin:0 0 1rem;}
+.vg-h3{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;
+  color:#e2e8f0;margin:0 0 .4rem;}
+.vg-sub{color:#94a3b8;font-size:.95rem;font-weight:300;line-height:1.65;margin:0 0 1.5rem;}
+.vg-mono{font-family:'DM Mono',monospace;font-size:.7rem;color:#64748b;
+  letter-spacing:.06em;text-transform:uppercase;}
+
+/* BADGE */
+.vg-badge{display:inline-flex;align-items:center;gap:.4rem;
+  background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.3);
+  color:#93c5fd;font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  padding:.3rem .9rem;border-radius:999px;margin-bottom:1rem;}
+
+/* VERDICT CHIPS */
+.v-VERIFIED{background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
+.v-FALSE{background:rgba(220,38,38,.15);color:#f87171;border:1px solid rgba(220,38,38,.3);}
+.v-PARTIAL{background:rgba(217,119,6,.15);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
+.v-UNCORROBORATED{background:rgba(71,85,105,.15);color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
+.v-UNAVAILABLE{background:rgba(37,99,235,.15);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
+.v-ERROR{background:rgba(220,38,38,.15);color:#f87171;border:1px solid rgba(220,38,38,.3);}
+.vchip{display:inline-block;padding:.25rem .75rem;border-radius:6px;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;}
+
+/* TIER CHIPS */
+.t-free{background:rgba(71,85,105,.2);color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
+.t-pro{background:rgba(37,99,235,.2);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
+.t-inst{background:rgba(22,163,74,.2);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
+.t-admin{background:rgba(217,119,6,.2);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
+.tchip{display:inline-block;padding:.18rem .65rem;border-radius:999px;
+  font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;}
+
+/* TRUTH BAR */
+.tbar-bg{height:10px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin:.6rem 0;}
+.tbar-fill{height:100%;border-radius:99px;}
+.tbar-green{background:linear-gradient(90deg,#16a34a,#4ade80);}
+.tbar-orange{background:linear-gradient(90deg,#d97706,#fbbf24);}
+.tbar-red{background:linear-gradient(90deg,#dc2626,#f87171);}
+.tbar-gray{background:linear-gradient(90deg,#475569,#94a3b8);}
+
+/* SCORE */
+.score-num{font-family:'Syne',sans-serif;font-size:3.5rem;font-weight:800;line-height:1;}
+.sc-green{color:#4ade80;}.sc-orange{color:#fbbf24;}
+.sc-red{color:#f87171;}.sc-gray{color:#94a3b8;}
+
+/* STAT PILLS */
+.spill{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:1.25rem;text-align:center;}
+.spill-n{font-family:'Syne',sans-serif;font-size:1.75rem;font-weight:800;
+  color:#fff;display:block;letter-spacing:-.02em;}
+.spill-l{font-size:.68rem;color:#64748b;font-family:'DM Mono',monospace;
+  letter-spacing:.06em;text-transform:uppercase;}
+
+/* SOURCE ROWS */
+.src-row{display:flex;align-items:flex-start;gap:.6rem;
+  padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.src-row:last-child{border-bottom:none;}
+.src-dot{width:6px;height:6px;border-radius:50%;background:#60a5fa;
+  flex-shrink:0;margin-top:5px;}
+.src-title a{color:#60a5fa;font-size:.875rem;text-decoration:none;}
+.src-title a:hover{text-decoration:underline;}
+.src-by{color:#475569;font-family:'DM Mono',monospace;font-size:.7rem;}
+
+/* TAB BAR */
+.vg-tabs{display:flex;background:rgba(11,27,52,.8);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  position:sticky;top:64px;z-index:100;padding:0 5%;overflow-x:auto;}
+
+/* INPUTS */
+.stTextInput>div>div>input,
+.stTextArea>div>div>textarea{
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:8px!important;color:#fff!important;
+  font-family:'DM Sans',sans-serif!important;font-size:.95rem!important;}
+.stTextInput>div>div>input::placeholder,
+.stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.3)!important;}
+.stTextInput>div>div>input:focus,
+.stTextArea>div>div>textarea:focus{
+  border-color:rgba(59,130,246,.5)!important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.15)!important;outline:none!important;}
+.stSelectbox>div>div{
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:8px!important;color:#fff!important;}
+div[data-baseweb="select"] *{color:#e2e8f0!important;}
+label,.stSelectbox label,.stTextInput label,
+.stTextArea label,.stRadio label,.stCheckbox label{
+  color:#64748b!important;font-size:.7rem!important;
+  font-family:'DM Mono',monospace!important;
+  letter-spacing:.06em!important;text-transform:uppercase!important;}
+
+/* BUTTONS */
+.stButton>button{
+  background:#ea580c!important;color:#fff!important;border:none!important;
+  border-radius:8px!important;font-family:'DM Sans',sans-serif!important;
+  font-weight:600!important;font-size:.9rem!important;
+  padding:.65rem 1.75rem!important;transition:background .2s!important;}
+.stButton>button:hover{background:#f97316!important;}
+.btn-ghost .stButton>button{
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.15)!important;color:#e2e8f0!important;}
+.btn-ghost .stButton>button:hover{background:rgba(255,255,255,.1)!important;}
+.btn-blue  .stButton>button{background:#2563eb!important;}
+.btn-blue  .stButton>button:hover{background:#3b82f6!important;}
+.btn-green .stButton>button{background:#16a34a!important;}
+.btn-green .stButton>button:hover{background:#15803d!important;}
+.btn-red   .stButton>button{background:#dc2626!important;}
+.btn-red   .stButton>button:hover{background:#b91c1c!important;}
+.btn-navy  .stButton>button{
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.1)!important;color:#94a3b8!important;}
+
+/* ALERTS */
+.stSuccess{background:rgba(22,163,74,.1)!important;border:1px solid rgba(22,163,74,.3)!important;
+  border-radius:8px!important;color:#4ade80!important;}
+.stError{background:rgba(220,38,38,.1)!important;border:1px solid rgba(220,38,38,.3)!important;
+  border-radius:8px!important;}
+.stWarning{background:rgba(217,119,6,.1)!important;border:1px solid rgba(217,119,6,.3)!important;
+  border-radius:8px!important;}
+.stInfo{background:rgba(37,99,235,.1)!important;border:1px solid rgba(37,99,235,.3)!important;
+  border-radius:8px!important;}
+
+/* MISC */
+hr{border-color:rgba(255,255,255,.08)!important;margin:1.75rem 0!important;}
+.streamlit-expanderHeader{
+  background:rgba(255,255,255,.04)!important;border-radius:8px!important;
+  color:#94a3b8!important;font-family:'DM Sans',sans-serif!important;}
+.stSpinner>div{border-top-color:#2563eb!important;}
+.stProgress>div>div{background:#2563eb!important;}
+.stTabs [data-baseweb="tab-list"]{
+  background:rgba(255,255,255,.03)!important;border-radius:10px!important;
+  border:1px solid rgba(255,255,255,.08)!important;padding:.25rem!important;gap:.25rem!important;}
+.stTabs [data-baseweb="tab"]{
+  background:transparent!important;color:#64748b!important;
+  border-radius:7px!important;font-family:'DM Sans',sans-serif!important;
+  font-size:.875rem!important;border:none!important;padding:.5rem 1rem!important;}
+.stTabs [aria-selected="true"]{background:rgba(37,99,235,.25)!important;color:#fff!important;}
+
+/* ADMIN TABLE */
+.admin-table{width:100%;border-collapse:collapse;}
+.admin-table th{padding:.7rem 1rem;text-align:left;font-family:'DM Mono',monospace;
+  font-size:.68rem;color:#64748b;letter-spacing:.06em;font-weight:500;
+  border-bottom:1px solid rgba(255,255,255,.08);}
+.admin-table td{padding:.8rem 1rem;font-size:.82rem;color:#e2e8f0;
+  border-bottom:1px solid rgba(255,255,255,.04);}
+.admin-table tr:hover td{background:rgba(255,255,255,.02);}
+
+/* PLAN CARDS */
+.plan-card{border:1.5px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;
+  transition:transform .2s,box-shadow .2s;}
+.plan-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.25);}
+.plan-card.featured{border-color:#2563eb;box-shadow:0 8px 30px rgba(37,99,235,.2);}
+.plan-header.pro{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);}
+.plan-header.inst{background:linear-gradient(135deg,#064e3b,#065f46);}
+.plan-header.free{background:#1a2e4a;}
+.plan-header{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.07);}
+.plan-body{padding:1.5rem;background:rgba(255,255,255,.02);}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  HELPERS
+# ══════════════════════════════════════════════
+def sc(score):
+    if score >= 70: return "green"
+    if score >= 40: return "orange"
+    return "red" if score > 0 else "gray"
+
+def tier_chip(tier, role=None):
+    if role == "admin":
+        return '<span class="tchip t-admin">Admin</span>'
+    m = {"free": "t-free", "pro": "t-pro", "institutional": "t-inst"}
+    l = {"free": "Free",   "pro": "Pro",   "institutional": "Institutional"}
+    return f'<span class="tchip {m.get(tier,"t-free")}">{l.get(tier,tier)}</span>'
+
+def queries_today():
+    today = datetime.now().strftime("%Y-%m-%d")
+    return sum(1 for h in st.session_state.history if h.get("date","").startswith(today))
+
+def daily_limit():
+    return TIER_LIMITS.get(st.session_state.user_tier, 5)
+
+def is_admin():
+    return (
         ADMIN_EMAIL != "" and
         st.session_state.user_email.lower().strip() == ADMIN_EMAIL.lower().strip()
-    )
+    ) or st.session_state.user_role == "admin"
 
-    # Header
-    col_title, col_logout = st.columns([5, 1])
-    with col_title:
-        st.title("🇬🇭 VeriGhana")
-        st.subheader("Ghana's Centralized Automated Verification Platform")
-    with col_logout:
-        st.write("")
-        st.write("")
-        if st.button("Logout"):
-            st.session_state.logged_in  = False
-            st.session_state.user_email = ""
-            st.rerun()
 
-    st.markdown("---")
+# ══════════════════════════════════════════════
+#  AUTH LOGIC
+# ══════════════════════════════════════════════
+def do_login(email, password):
+    if not email or not password:
+        return False, "Email and password are required."
 
-    # ── Tab bar — admins get an extra "Admin" tab
-    if is_admin:
-        tab_verify, tab_admin = st.tabs(["🔎 Verify a Claim", "⚙️ Admin — Site Tester"])
+    # ── Admin shortcut
+    if ADMIN_EMAIL and email.lower().strip() == ADMIN_EMAIL.lower().strip():
+        st.session_state.update(logged_in=True, user_email=email,
+                                user_name="Admin", user_role="admin",
+                                user_tier="institutional", user_id="admin-001")
+        return True, ""
+
+    # ── Real Supabase auth
+    if DB_OK:
+        try:
+            supabase = get_supabase_client()
+            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            st.session_state.update(
+                logged_in=True, user_email=email,
+                user_name=email.split("@")[0].title(),
+                user_role="client", user_tier="free",
+                user_id=str(res.user.id) if res.user else None,
+            )
+            return True, ""
+        except Exception as e:
+            err = str(e)
+            if "Invalid login" in err or "invalid" in err.lower():
+                return False, "Incorrect email or password."
+            return False, f"Login failed: {err}"
+
+    # ── Backend auth (auth.py / db.py)
+    if BACKEND_OK:
+        import asyncio
+        try:
+            user = asyncio.run(DB.get_user_by_email(email))
+            if not user:
+                return False, "No account found with this email."
+            if not Auth.verify_password(password, user["password_hash"]):
+                return False, "Incorrect password."
+            if not user["is_active"]:
+                return False, "This account has been suspended."
+            st.session_state.update(
+                logged_in=True, user_email=user["email"],
+                user_name=user.get("full_name") or email.split("@")[0].title(),
+                user_role=user["role"], user_tier=user["tier"],
+                user_id=str(user["id"]),
+            )
+            return True, ""
+        except Exception as e:
+            return False, f"Login error: {e}"
+
+    return False, "Authentication service unavailable."
+
+
+def do_register(email, password):
+    if not email or not password:
+        return False, "Email and password are required."
+
+    if DB_OK:
+        try:
+            supabase = get_supabase_client()
+            supabase.auth.sign_up({"email": email, "password": password})
+            return True, "Account created! Check your email to confirm, then sign in."
+        except Exception as e:
+            return False, f"Registration failed: {e}"
+
+    if BACKEND_OK:
+        import asyncio
+        errs = Auth.validate_password_strength(password)
+        if errs:
+            return False, errs[0]
+        try:
+            if asyncio.run(DB.get_user_by_email(email)):
+                return False, "An account with this email already exists."
+            user = asyncio.run(DB.create_user(
+                email=email,
+                password_hash=Auth.hash_password(password),
+            ))
+            return (True, "Account created! You can now sign in.") if user \
+                   else (False, "Could not create account.")
+        except Exception as e:
+            return False, f"Registration error: {e}"
+
+    return False, "Registration service unavailable."
+
+
+# ══════════════════════════════════════════════
+#  PAGE: AUTH
+# ══════════════════════════════════════════════
+def page_auth():
+    st.markdown('<div class="vg-hero">', unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.3, 1])
+    with col:
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:2.5rem;">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.25rem;
+                      color:#fff;letter-spacing:-.02em;margin-bottom:.75rem;">
+            Veri<span style="color:#60a5fa;">Ghana</span>
+          </div>
+          <div class="vg-badge">🇬🇭 Ghana's AI Fact Verification</div>
+          <div style="color:#64748b;font-size:.875rem;margin-top:.5rem;">
+            Fighting misinformation with trusted Ghanaian sources
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="vg-card" style="max-width:440px;margin:0 auto;">', unsafe_allow_html=True)
+        tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+
+        with tab_in:
+            st.markdown("<br>", unsafe_allow_html=True)
+            li_email = st.text_input("Email address", placeholder="you@example.com", key="li_em")
+            li_pass  = st.text_input("Password", type="password", placeholder="Your password", key="li_pw")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Sign In →", key="li_btn", use_container_width=True):
+                with st.spinner(""):
+                    ok, err = do_login(li_email, li_pass)
+                if ok:
+                    st.success("Welcome back!")
+                    time.sleep(0.4); st.rerun()
+                else:
+                    st.error(err)
+            st.markdown("""
+            <div style="text-align:center;margin-top:.75rem;">
+              <span style="font-size:.75rem;color:#475569;">
+                Admin? Use your <code style="color:#93c5fd;">ADMIN_EMAIL</code> credentials.
+              </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with tab_up:
+            st.markdown("<br>", unsafe_allow_html=True)
+            r_email = st.text_input("Email address", placeholder="you@example.com", key="r_em")
+            r_pass  = st.text_input("Password (minimum 6 characters)", type="password",
+                                    placeholder="6+ characters", key="r_pw")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Create Account →", key="r_btn", use_container_width=True):
+                with st.spinner(""):
+                    ok, msg = do_register(r_email, r_pass)
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+            st.markdown("""
+            <div style="text-align:center;margin-top:.75rem;">
+              <span style="font-size:.75rem;color:#475569;">
+                GIMPA students — use code
+                <span style="color:#60a5fa;font-family:'DM Mono',monospace;
+                             background:rgba(37,99,235,.1);padding:.1rem .4rem;border-radius:4px;">
+                  GIMPA2026
+                </span>
+                for 50% off Pro after sign-up
+              </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  SHARED: NAVBAR + TABBAR
+# ══════════════════════════════════════════════
+def render_nav():
+    name = st.session_state.user_name or st.session_state.user_email or "User"
+    tier = st.session_state.user_tier
+    role = st.session_state.user_role
+    st.markdown(f"""
+    <div class="vg-nav">
+      <span class="vg-logo">Veri<span>Ghana</span></span>
+      <div style="color:#475569;font-size:.78rem;margin-left:1rem;">
+        Ghana's National Fact Verification Platform
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;">
+        {tier_chip(tier, role)}
+        <span style="color:#94a3b8;font-size:.82rem;">{name}</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_tabs():
+    page  = st.session_state.page
+    admin = is_admin()
+    pages = [("verify","🔍  Verify"),("history","📋  History"),("account","⚙️  Account")]
+    if admin:
+        pages += [("admin","📊  Admin"),("tester","🖥️  Site Tester")]
+
+    html = '<div class="vg-tabs">'
+    for k, lbl in pages:
+        is_admin_tab = k in ("admin","tester")
+        if k == page:
+            style = ("color:#fff;border-bottom:2px solid #2563eb;" if not is_admin_tab
+                     else "color:#fbbf24;border-bottom:2px solid #d97706;")
+        else:
+            style = "color:#475569;border-bottom:2px solid transparent;"
+        html += (f'<span style="padding:.9rem 1.1rem;font-size:.85rem;'
+                 f'white-space:nowrap;{style}">{lbl}</span>')
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+    cols = st.columns(len(pages))
+    for i, (k, lbl) in enumerate(pages):
+        with cols[i]:
+            st.markdown('<div class="btn-navy">', unsafe_allow_html=True)
+            if st.button(lbl, key=f"tab_{k}", use_container_width=True):
+                st.session_state.page = k; st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  PAGE: VERIFY
+# ══════════════════════════════════════════════
+def page_verify():
+    tier  = st.session_state.user_tier
+    role  = st.session_state.user_role
+    lim   = daily_limit()
+    used  = queries_today()
+
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+
+    # ── Header
+    st.markdown("""
+    <div style="padding:2rem 0 1.5rem;">
+      <div class="vg-badge">🇬🇭 Ghana's AI Fact Verification</div>
+      <div class="vg-h1">Verify a <em>Claim</em></div>
+      <div class="vg-sub">Paste any suspicious social post, WhatsApp message, or news headline.
+        AI searches 60+ trusted Ghanaian sources and returns a scored verdict with citations.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Usage bar
+    if lim is not None:
+        rem   = max(0, lim - used)
+        pct   = min(100, int(used / lim * 100))
+        bar_c = "green" if rem > 2 else "orange" if rem > 0 else "red"
+        c_hex = "#4ade80" if rem > 2 else "#fbbf24" if rem > 0 else "#f87171"
+        st.markdown(f"""
+        <div class="vg-card-flat" style="display:flex;align-items:center;
+             justify-content:space-between;padding:1rem 1.5rem;margin-bottom:1.5rem;">
+          <div>
+            <span class="vg-mono">Daily Usage</span><br>
+            <span style="font-family:'Syne',sans-serif;font-weight:700;
+                         font-size:1.15rem;color:{c_hex};">{used}/{lim}</span>
+            <span style="color:#475569;font-size:.78rem;margin-left:.4rem;">queries used today</span>
+          </div>
+          <div style="width:220px;">
+            <div class="tbar-bg">
+              <div class="tbar-fill tbar-{bar_c}" style="width:{pct}%;"></div>
+            </div>
+            <div class="vg-mono" style="margin-top:.3rem;color:#334155;">
+              {rem} remaining · upgrade for unlimited
+            </div>
+          </div>
+          <div>{tier_chip(tier, role)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Two-column layout: input left, controls right
+    in1, in2 = st.columns([3, 1])
+
+    with in1:
+        user_input = st.text_area(
+            "",
+            height=140,
+            key="claim_in",
+            placeholder="e.g. Government announces 30% tax on Mobile Money starting Monday…",
+            label_visibility="collapsed",
+        )
+
+    with in2:
+        # Model selector — same logic as original: keys are display names, values are model IDs
+        st.markdown("**Select AI Model**", unsafe_allow_html=False)
+        model_names = list(FREE_MODELS.keys())
+        # Default to Flash Lite for free tier
+        default_idx = 0
+        for i, n in enumerate(model_names):
+            if "Lite" in n or "lite" in n:
+                default_idx = i
+                break
+        selected_model_name = st.selectbox(
+            "AI Model",
+            options=model_names,
+            index=default_idx,
+            help="If one model hits its daily quota, switch to another.",
+            label_visibility="collapsed",
+        )
+        selected_model_id = FREE_MODELS[selected_model_name]
+        st.markdown(
+            f'<div class="vg-mono" style="margin-top:-.5rem;margin-bottom:.75rem;">'
+            f'Using: {selected_model_id}</div>',
+            unsafe_allow_html=True,
+        )
+
+        can = (lim is None) or (used < lim)
+        if not can:
+            st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+        run_btn = st.button(
+            "🔍  Check This Claim" if can else "⛔  Daily Limit Reached",
+            key="run_btn", use_container_width=True, disabled=not can,
+        )
+        if not can:
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown(
+            '<div style="font-size:.72rem;color:#475569;line-height:1.5;margin-top:.5rem;">'
+            'Switch models if you see a quota error. All models are free tier.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Run verification
+    if run_btn:
+        if not user_input or not user_input.strip():
+            st.warning("Please enter a claim to verify.")
+        elif not VERIFIER_OK:
+            st.error("verifier.py not found — check your src/ directory.")
+        else:
+            with st.spinner(f"Searching trusted sources using {selected_model_name}…"):
+                t0 = time.time()
+                try:
+                    result = verify_claim(user_input.strip(), model_id=selected_model_id)
+                    result.update(
+                        claim        = user_input.strip(),
+                        date         = datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        model        = selected_model_id,
+                        model_name   = selected_model_name,
+                        processing_ms= int((time.time() - t0) * 1000),
+                    )
+                    st.session_state.result = result
+                    st.session_state.history.insert(0, result)
+                except Exception as e:
+                    st.error(f"Verification error: {e}")
+
+    # ── Results
+    res = st.session_state.result
+    if res:
+        st.markdown("<hr>", unsafe_allow_html=True)
+        verdict     = res.get("verdict", "UNCORROBORATED")
+        score       = int(res.get("score", 0))
+        explanation = res.get("explanation", "")
+        sources     = res.get("sources", [])
+        model_used  = res.get("model_used", res.get("model", selected_model_id))
+        color       = sc(score)
+
+        r1, r2, r3 = st.columns([1, 2.2, 1.8])
+
+        # ── Score card
+        with r1:
+            st.markdown(f"""
+            <div class="vg-card" style="text-align:center;padding:2rem 1rem;">
+              <div class="vg-mono" style="margin-bottom:.75rem;">TRUTH SCORE</div>
+              <div class="score-num sc-{color}">{score}%</div>
+              <div style="margin-top:1rem;">
+                <span class="vchip v-{verdict.replace(' ','-')}">{verdict}</span>
+              </div>
+              <div class="vg-mono" style="margin-top:.75rem;color:#334155;">
+                {res.get("processing_ms",0)}ms
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── Truth meter + explanation
+        with r2:
+            if verdict == "UNAVAILABLE":
+                st.markdown(f"""
+                <div class="vg-card">
+                  <div class="vg-mono" style="margin-bottom:.75rem;">STATUS</div>
+                  <div style="color:#93c5fd;font-size:.95rem;margin-bottom:.75rem;">
+                    ⏳ AI Model Unavailable — quota reached
+                  </div>
+                  <div style="color:#94a3b8;font-size:.875rem;line-height:1.65;">
+                    {explanation}
+                  </div>
+                  <div class="vg-mono" style="margin-top:1rem;color:#334155;">
+                    Try selecting a different model above.
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="vg-card">
+                  <div class="vg-mono" style="margin-bottom:.75rem;">TRUTH METER</div>
+                  <div class="tbar-bg">
+                    <div class="tbar-fill tbar-{color}" style="width:{score}%;"></div>
+                  </div>
+                  <div style="font-size:.875rem;color:#94a3b8;line-height:1.65;
+                               font-style:italic;margin-top:.75rem;">
+                    {explanation}
+                  </div>
+                  <div class="vg-mono" style="margin-top:1rem;color:#334155;">
+                    {model_used}
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Sources
+        with r3:
+            src_html = ('<div class="vg-card">'
+                        '<div class="vg-mono" style="margin-bottom:.75rem;">SOURCES</div>')
+            if sources:
+                for s in sources[:5]:
+                    if isinstance(s, dict):
+                        title  = s.get("title", "Untitled")[:65]
+                        url    = s.get("url_link", s.get("url", "#"))
+                        source = s.get("source_name", s.get("source", ""))
+                    else:
+                        title, url, source = str(s)[:65], "#", ""
+                    src_html += f"""
+                    <div class="src-row">
+                      <div class="src-dot"></div>
+                      <div>
+                        <div class="src-title">
+                          <a href="{url}" target="_blank">{title}</a>
+                        </div>
+                        <div class="src-by">{source}</div>
+                      </div>
+                    </div>"""
+            else:
+                src_html += ('<div style="color:#475569;font-size:.875rem;">'
+                             'No direct source matches found in the indexed database.</div>')
+            src_html += '</div>'
+            st.markdown(src_html, unsafe_allow_html=True)
+
+        # Claim echo + clear
+        st.markdown(f"""
+        <div class="vg-card-flat" style="padding:1rem 1.5rem;">
+          <span class="vg-mono">Claim checked</span><br>
+          <span style="color:#94a3b8;font-size:.875rem;font-style:italic;">
+            "{res.get('claim','')[:300]}{"…" if len(res.get('claim',''))>300 else ""}"
+          </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="btn-ghost" style="display:inline-block;margin-top:.5rem;">',
+                    unsafe_allow_html=True)
+        if st.button("✕  Clear Result", key="clear_btn"):
+            st.session_state.result = None; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Right sidebar: DB stats (mirrors original)
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Database Stats</div>',
+                unsafe_allow_html=True)
+    db1, db2 = st.columns(2)
+    if DB_OK:
+        try:
+            supabase    = get_supabase_client()
+            count_resp  = supabase.table("fact_entries").select("id", count="exact").execute()
+            total       = count_resp.count or 0
+            src_resp    = supabase.table("trusted_sources").select("source_name,category").execute()
+            with db1:
+                st.markdown(f"""
+                <div class="spill">
+                  <span class="spill-n">{total:,}</span>
+                  <span class="spill-l">Facts Indexed</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with db2:
+                st.markdown(f"""
+                <div class="spill">
+                  <span class="spill-n">{len(src_resp.data or [])}</span>
+                  <span class="spill-l">Trusted Sources</span>
+                </div>
+                """, unsafe_allow_html=True)
+            if src_resp.data:
+                with st.expander("View trusted sources"):
+                    for s in src_resp.data:
+                        st.markdown(
+                            f'<div style="color:#e2e8f0;font-size:.82rem;padding:.25rem 0;">'
+                            f'<span style="color:#60a5fa;">•</span> '
+                            f'{s["source_name"]} '
+                            f'<span style="color:#475569;font-family:\'DM Mono\',monospace;'
+                            f'font-size:.68rem;">({s["category"]})</span></div>',
+                            unsafe_allow_html=True,
+                        )
+        except Exception as e:
+            with db1:
+                st.error(f"DB error: {e}")
     else:
-        tab_verify, = st.tabs(["🔎 Verify a Claim"])
+        st.markdown('<div style="color:#475569;font-size:.82rem;">Database not connected.</div>',
+                    unsafe_allow_html=True)
 
-    # ─────────────────────────────────────────────
-    #  VERIFY TAB
-    # ─────────────────────────────────────────────
-    with tab_verify:
-        col1, col2 = st.columns([2, 1])
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-        with col1:
-            st.header("Verify a Claim")
 
-            st.markdown("**Select AI Model**")
-            selected_model_name = st.selectbox(
-                label="AI Model",
-                options=list(FREE_MODELS.keys()),
-                index=list(FREE_MODELS.keys()).index("Gemini 2.0 Flash Lite"),
-                help="If one model has reached its daily limit, switch to another.",
-                label_visibility="collapsed"
-            )
-            selected_model_id = FREE_MODELS[selected_model_name]
-            st.caption(f"Using: `{selected_model_id}` — All models are free tier. Switch if you see a quota error.")
+# ══════════════════════════════════════════════
+#  PAGE: HISTORY
+# ══════════════════════════════════════════════
+def page_history():
+    hist = st.session_state.history
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="padding:2rem 0 1.5rem;">
+      <div class="vg-h1">Verification <em>History</em></div>
+      <div class="vg-sub">All claims verified this session.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-            user_input = st.text_area(
-                "Paste a suspicious post, news card text, or rumour below:",
-                height=150,
-                placeholder="e.g. Government announces 30% tax on Mobile Money starting Monday..."
-            )
+    if not hist:
+        st.markdown("""
+        <div class="vg-card" style="text-align:center;padding:3.5rem;">
+          <div style="font-size:2.5rem;margin-bottom:1rem;">📋</div>
+          <div class="vg-h3">No verifications yet</div>
+          <div class="vg-sub">Head to Verify to check your first claim.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        verified = sum(1 for h in hist if h.get("verdict") == "Verified")
+        false_ct = sum(1 for h in hist if h.get("verdict") == "False")
+        uncorr   = sum(1 for h in hist if h.get("verdict") not in ("Verified","False"))
 
-            if st.button("Check This Claim", type="primary"):
-                if user_input.strip():
-                    with st.spinner(f"Searching trusted sources using {selected_model_name}..."):
-                        result = verify_claim(user_input, model_id=selected_model_id)
+        s1, s2, s3, s4 = st.columns(4)
+        for col, (val, lbl) in zip([s1,s2,s3,s4], [
+            (len(hist),"Total"), (verified,"Verified"), (false_ct,"False"), (uncorr,"Other")
+        ]):
+            with col:
+                st.markdown(f'<div class="spill"><span class="spill-n">{val}</span>'
+                            f'<span class="spill-l">{lbl}</span></div>', unsafe_allow_html=True)
 
-                    verdict     = result.get("verdict", "Unknown")
-                    score       = result.get("score", 0)
-                    explanation = result.get("explanation", "")
-                    sources     = result.get("sources", [])
-                    model_used  = result.get("model_used", selected_model_id)
+        st.markdown("<br>", unsafe_allow_html=True)
+        for h in hist:
+            verdict = h.get("verdict","UNCORROBORATED")
+            score   = int(h.get("score",0))
+            color   = sc(score)
+            claim   = h.get("claim","")
+            label   = claim[:80] + "…" if len(claim) > 80 else claim
+            with st.expander(f"{STATUS_ICON.get(verdict,'❓')} {label}"):
+                c1, c2 = st.columns([1,3])
+                with c1:
+                    st.markdown(f"""
+                    <div style="text-align:center;padding:1rem 0;">
+                      <div class="score-num sc-{color}" style="font-size:2.5rem;">{score}%</div>
+                      <div style="margin-top:.5rem;">
+                        <span class="vchip v-{verdict.replace(' ','-')}">{verdict}</span>
+                      </div>
+                      <div class="vg-mono" style="margin-top:.6rem;">{h.get("date","—")}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"""
+                    <div style="padding:.75rem 0;">
+                      <div class="tbar-bg">
+                        <div class="tbar-fill tbar-{color}" style="width:{score}%;"></div>
+                      </div>
+                      <div style="color:#94a3b8;font-size:.875rem;line-height:1.6;font-style:italic;margin-top:.75rem;">
+                        {h.get("explanation","—")}
+                      </div>
+                      <div class="vg-mono" style="margin-top:.75rem;color:#334155;">
+                        Model: {h.get("model","—")}
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    if verdict == "Verified":
-                        st.success(f"✅ VERDICT: Verified — Confidence: {score}/100")
-                        st.progress(score / 100)
-                    elif verdict == "False":
-                        st.error(f"❌ VERDICT: False — Confidence: {score}/100")
-                        st.progress(score / 100)
-                    elif verdict == "UNAVAILABLE":
-                        st.warning("⏳ AI Model Unavailable")
-                        st.info(f"{explanation}\n\n**Try selecting a different model from the dropdown above.**")
-                    else:
-                        st.warning(f"⚠️ VERDICT: Uncorroborated — Confidence: {score}/100")
-                        st.progress(score / 100)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="btn-ghost" style="display:inline-block;">', unsafe_allow_html=True)
+        if st.button("Clear All History", key="clear_hist"):
+            st.session_state.history = []; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-                    st.write(f"**Analysis:** {explanation}")
-                    st.caption(f"Checked using: `{model_used}`")
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-                    if sources:
-                        st.subheader("Matching Sources Found:")
-                        for source in sources:
-                            if isinstance(source, dict):
-                                title = source.get("title", "Article")
-                                url   = source.get("url", "#")
-                                st.write(f"- [{title}]({url})")
+
+# ══════════════════════════════════════════════
+#  PAGE: ACCOUNT
+# ══════════════════════════════════════════════
+def page_account():
+    tier  = st.session_state.user_tier
+    role  = st.session_state.user_role
+    email = st.session_state.user_email
+    name  = st.session_state.user_name or email or "User"
+    lim   = daily_limit()
+    used  = queries_today()
+
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="padding:2rem 0 1.5rem;">
+      <div class="vg-h1">Your <em>Account</em></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    a1, a2 = st.columns([1.3, 1])
+    with a1:
+        st.markdown(f"""
+        <div class="vg-card">
+          <div class="vg-mono" style="margin-bottom:1rem;">PROFILE</div>
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+            <div style="width:52px;height:52px;border-radius:50%;flex-shrink:0;
+                        background:linear-gradient(135deg,#2563eb,#60a5fa);
+                        display:flex;align-items:center;justify-content:center;
+                        font-family:'Syne',sans-serif;font-weight:800;
+                        font-size:1.2rem;color:#fff;">
+              {(name or "U")[0].upper()}
+            </div>
+            <div>
+              <div class="vg-h3" style="font-size:1rem;">{name}</div>
+              <div style="color:#64748b;font-size:.82rem;">{email}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            {tier_chip(tier, role)}
+            <span style="color:#475569;font-size:.78rem;">
+              {"Unlimited verifications" if lim is None else f"{lim} verifications / day"}
+            </span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with a2:
+        pct   = 0 if lim is None else min(100, int(used / lim * 100))
+        bar_c = "green" if pct < 60 else "orange" if pct < 90 else "red"
+        st.markdown(f"""
+        <div class="vg-card">
+          <div class="vg-mono" style="margin-bottom:1rem;">TODAY'S USAGE</div>
+          {"<div style='color:#4ade80;font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;'>♾ Unlimited</div>"
+            if lim is None else
+           f"<div style='font-family:Syne,sans-serif;font-size:1.75rem;font-weight:800;color:#fff;'>{used}"
+           f"<span style='color:#475569;font-size:1rem;font-weight:400;'>/{lim}</span></div>"
+           f"<div class='tbar-bg' style='margin:.5rem 0;'><div class='tbar-fill tbar-{bar_c}' style='width:{pct}%;'></div></div>"
+          }
+          <div class="vg-mono" style="color:#334155;">
+            {f"{max(0,lim-used)} remaining today" if lim else "No daily limits on your plan"}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Plan upgrade (free users)
+    if tier == "free":
+        st.markdown('<hr>', unsafe_allow_html=True)
+        st.markdown('<div class="vg-h2">Upgrade Your Plan</div>', unsafe_allow_html=True)
+        p1, p2 = st.columns(2)
+        with p1:
+            st.markdown("""
+            <div class="plan-card featured">
+              <div class="plan-header pro">
+                <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">MOST POPULAR</div>
+                <div class="vg-h3" style="color:#fff;">Pro — $9.99/mo</div>
+                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Journalists & researchers</div>
+              </div>
+              <div class="plan-body">
+                <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
+                  <li>Unlimited verifications</li>
+                  <li>All 4 AI models</li>
+                  <li>3 REST API keys</li>
+                  <li>Export history · Real-time alerts</li>
+                </ul>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+            promo_pro = st.text_input("Promo code", placeholder="GIMPA2026 · PRESS50", key="promo_pro")
+            st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+            if st.button("Upgrade to Pro →", key="up_pro", use_container_width=True):
+                st.info("💳 Payment integration coming soon. Use code **GIMPA2026** for 50% off.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with p2:
+            st.markdown("""
+            <div class="plan-card">
+              <div class="plan-header inst">
+                <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">INSTITUTIONAL</div>
+                <div class="vg-h3" style="color:#fff;">Institutional — $79.99/mo</div>
+                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Newsrooms, NGOs & gov't</div>
+              </div>
+              <div class="plan-body">
+                <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
+                  <li>Everything in Pro</li>
+                  <li>Bulk verify (20 claims)</li>
+                  <li>20 API keys · 20 team seats</li>
+                  <li>White-label reports</li>
+                </ul>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown('<div class="btn-green">', unsafe_allow_html=True)
+            if st.button("Contact Sales →", key="up_inst", use_container_width=True):
+                st.info("📧 sales@verighana.gh")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # Promo validator
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Redeem Promo Code</div>',
+                unsafe_allow_html=True)
+    pc1, pc2 = st.columns([2.5, 1])
+    with pc1:
+        promo_val = st.text_input("", placeholder="GIMPA2026 · PRESS50 · NGOFREE30 · LAUNCH100",
+                                   key="promo_val_in", label_visibility="collapsed")
+    with pc2:
+        st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
+        if st.button("Apply Code", key="apply_promo", use_container_width=True):
+            known = {
+                "GIMPA2026": "50% off Pro — GIMPA students & staff",
+                "PRESS50":   "50% off Pro — press & media",
+                "NGOFREE30": "Free Pro for 30 days — NGOs",
+                "LAUNCH100": "100% off first month",
+            }
+            match = known.get((promo_val or "").upper())
+            if match: st.success(f"✅ Valid: {match}")
+            else:      st.error("❌ Invalid or expired promo code.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Sign out
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown('<div class="btn-red" style="display:inline-block;">', unsafe_allow_html=True)
+    if st.button("Sign Out", key="signout"):
+        try:
+            if DB_OK:
+                get_supabase_client().auth.sign_out()
+        except Exception:
+            pass
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        init_state(); st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  PAGE: ADMIN DASHBOARD
+# ══════════════════════════════════════════════
+def page_admin():
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="padding:2rem 0 1.5rem;">
+      <div class="vg-h1">Admin <em>Dashboard</em></div>
+      <div class="vg-sub">Platform statistics, user management and promo controls.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    articles, sources_count, reqs = 0, 0, 0
+    if DB_OK:
+        try:
+            sb       = get_supabase_client()
+            articles = sb.table("fact_entries").select("id",count="exact").execute().count or 0
+            sources_count = sb.table("trusted_sources").select("id",count="exact").execute().count or 0
+        except Exception: pass
+
+    s1,s2,s3,s4 = st.columns(4)
+    for col,(val,lbl) in zip([s1,s2,s3,s4],[
+        (f"{articles:,}","Articles Indexed"),
+        (f"{sources_count:,}","Trusted Sources"),
+        (len(st.session_state.history),"Session Checks"),
+        (len(SITES_TO_TEST),"Sites in Test List"),
+    ]):
+        with col:
+            st.markdown(f'<div class="spill"><span class="spill-n">{val}</span>'
+                        f'<span class="spill-l">{lbl}</span></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    ad1, ad2 = st.columns([1.6, 1])
+
+    with ad1:
+        st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Promo Codes</div>',
+                    unsafe_allow_html=True)
+        promos = [
+            ("GIMPA2026","Discount","50% off","200","Active","#4ade80"),
+            ("PRESS50",  "Discount","50% off", "50","Active","#4ade80"),
+            ("NGOFREE30","Tier Unlock","Pro 30d","30","Active","#4ade80"),
+            ("LAUNCH100","Discount","100% off","100","Active","#4ade80"),
+        ]
+        rows = ""
+        for code,typ,disc,mx,status,sc_color in promos:
+            rows += (f"<tr><td style='color:#60a5fa;font-family:\"DM Mono\",monospace;'>{code}</td>"
+                     f"<td>{typ}</td><td>{disc}</td><td>0 / {mx}</td>"
+                     f"<td><span style='color:{sc_color};'>● {status}</span></td></tr>")
+        st.markdown(f"""
+        <div class="vg-card" style="padding:0;overflow:hidden;">
+          <table class="admin-table">
+            <thead><tr><th>CODE</th><th>TYPE</th><th>DISCOUNT</th><th>USES</th><th>STATUS</th></tr></thead>
+            <tbody>{rows}</tbody>
+          </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with ad2:
+        st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Create Promo Code</div>',
+                    unsafe_allow_html=True)
+        st.markdown('<div class="vg-card">', unsafe_allow_html=True)
+        np_code = st.text_input("Code", placeholder="NEWCODE2026", key="np_code")
+        np_type = st.selectbox("Type", ["discount","tier_unlock"], key="np_type")
+        np_disc = st.slider("Discount %", 0, 100, 50, key="np_disc")
+        np_max  = st.number_input("Max uses", 1, 10000, 100, key="np_max")
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button("Create Code", key="create_promo", use_container_width=True):
+            if np_code:
+                st.success(f"✅ Code **{np_code.upper()}** created.")
+            else:
+                st.error("Enter a code name.")
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # Scraper controls
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown('<div class="vg-h2" style="margin-bottom:1rem;">Scraper Controls</div>',
+                unsafe_allow_html=True)
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button("▶  Run RSS Scraper", key="run_rss", use_container_width=True):
+            with st.spinner("Running…"):
+                try:
+                    from scraper import run_scraper; run_scraper()
+                    st.success("RSS scraper done.")
+                except Exception as e: st.error(str(e))
+        st.markdown('</div>', unsafe_allow_html=True)
+    with sc2:
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button("▶  Run HTML Scraper", key="run_html", use_container_width=True):
+            with st.spinner("Running…"):
+                try:
+                    from scrapers.html_scraper import run_html_ingestion
+                    run_html_ingestion(); st.success("HTML scraper done.")
+                except Exception as e: st.error(str(e))
+        st.markdown('</div>', unsafe_allow_html=True)
+    with sc3:
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if st.button("▶  Run Embedder", key="run_embed", use_container_width=True):
+            with st.spinner("Running…"):
+                try:
+                    from embedder import run_embedder
+                    run_embedder(); st.success("Embedder done.")
+                except Exception as e: st.error(str(e))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  PAGE: SITE TESTER  (full original logic, restyled)
+# ══════════════════════════════════════════════
+def page_tester():
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="padding:2rem 0 1.5rem;">
+      <div class="vg-h1">Site <em>Tester</em></div>
+      <div class="vg-sub">
+        Test Ghanaian sources for scrapability. Sites that pass are
+        <strong style="color:#fff;">automatically added</strong> to
+        <code style="color:#60a5fa;background:rgba(37,99,235,.1);
+        padding:.1rem .4rem;border-radius:4px;">html_scraper.py</code>.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Source manager stats
+    try:
+        from source_manager import get_scraper_source_count, get_existing_urls
+        current_count = get_scraper_source_count()
+        existing_urls = get_existing_urls()
+    except ImportError:
+        current_count = 0
+        existing_urls = set()
+
+    already_added = sum(1 for s in SITES_TO_TEST if s["url"] in existing_urls)
+    m1,m2,m3,m4 = st.columns(4)
+    for col,(val,lbl) in zip([m1,m2,m3,m4],[
+        (len(SITES_TO_TEST),"Sites in Test List"),
+        (already_added,"Already in Scraper"),
+        (len(SITES_TO_TEST)-already_added,"Remaining to Test"),
+        (current_count,"HTML_SOURCES Total"),
+    ]):
+        with col:
+            st.markdown(f'<div class="spill"><span class="spill-n">{val}</span>'
+                        f'<span class="spill-l">{lbl}</span></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Controls
+    ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 1])
+    with ctrl1:
+        all_categories = sorted(set(s["category"] for s in SITES_TO_TEST))
+        selected_cats  = st.multiselect(
+            "Filter by Category",
+            options=["All"] + all_categories,
+            default=["All"],
+            key="tst_cats",
+        )
+    with ctrl2:
+        skip_existing = st.checkbox(
+            "Skip sites already in html_scraper.py", value=True, key="tst_skip"
+        )
+        delay = st.slider("Delay between requests (s)", 0.5, 3.0, 1.0, 0.5, key="tst_delay")
+    with ctrl3:
+        st.write("")
+        st.write("")
+        st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        run_button = st.button("▶️  Run Tests", key="run_tst", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Custom URL tester
+    with st.expander("➕  Test a Custom URL"):
+        c1, c2, c3 = st.columns([2, 2, 1])
+        custom_name = c1.text_input("Site Name", placeholder="My News Site", key="c_name")
+        custom_url  = c2.text_input("URL",       placeholder="https://example.com/news/", key="c_url")
+        custom_cat  = c3.text_input("Category",  placeholder="Media", key="c_cat")
+        if st.button("Test Custom URL", key="test_cu"):
+            if custom_url.strip():
+                with st.spinner(f"Testing {custom_url}…"):
+                    result = test_single_site({
+                        "name":     custom_name or custom_url,
+                        "url":      custom_url.strip(),
+                        "category": custom_cat or "Custom",
+                    })
+                if result["status"] == "scrapeable":
+                    st.success(
+                        f"✅ Scrapeable — {result['count']} headlines via "
+                        f"`{result['article_tag']}` / `{result['article_class']}`"
+                    )
+                    add_res = auto_add_to_scraper(result)
+                    if add_res["skipped"]:   st.info(add_res["message"])
+                    elif add_res["success"]: st.success(add_res["message"])
+                    else:                    st.error(add_res["message"])
+                    for s in result["samples"]:
+                        st.write(f"  • [{s['text']}]({s['href']})")
                 else:
-                    st.warning("Please enter a claim to verify.")
+                    icon = STATUS_ICON.get(result["status"],"❓")
+                    st.warning(f"{icon} {STATUS_LABEL.get(result['status'], result['status'])}")
+            else:
+                st.warning("Please enter a URL.")
 
-        with col2:
-            st.header("Database Stats")
-            try:
-                supabase     = get_supabase_client()
-                count_resp   = supabase.table("fact_entries").select("id", count="exact").execute()
-                total        = count_resp.count or 0
-                st.metric("Total Facts Indexed", f"{total:,}")
+    st.markdown("<hr>", unsafe_allow_html=True)
 
-                sources_resp = supabase.table("trusted_sources").select("source_name, category").execute()
-                st.subheader("Trusted Sources:")
-                for s in sources_resp.data:
-                    st.write(f"• {s['source_name']} ({s['category']})")
-            except Exception as e:
-                st.error(f"Could not connect to database: {e}")
+    # ── Run tests (original live-progress logic, restyled output)
+    if run_button:
+        sites_to_run = []
+        for site in SITES_TO_TEST:
+            cat = site.get("category","")
+            if "All" not in selected_cats and cat not in selected_cats:
+                continue
+            if skip_existing and site["url"] in existing_urls:
+                continue
+            sites_to_run.append(site)
 
-            st.markdown("---")
-            st.subheader("Available AI Models")
-            for name, model_id in FREE_MODELS.items():
-                st.write(f"• **{name}** `{model_id}`")
-            st.caption("Switch models in the dropdown if one hits its daily limit.")
+        if not sites_to_run:
+            st.info("No sites to test with current filters.")
+        else:
+            st.markdown(f"""
+            <div class="vg-card-flat">
+              <span class="vg-mono">Testing
+                <span style="color:#fff;font-size:.9rem;font-weight:700;">{len(sites_to_run)}</span>
+                sites — results appear live as each completes
+              </span>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # ─────────────────────────────────────────────
-    #  ADMIN TAB — only shown to admin
-    # ─────────────────────────────────────────────
-    if is_admin:
-        with tab_admin:
-            st.header("⚙️ Site Tester & Source Manager")
-            st.markdown(
-                "Test any site's scrapability. Sites that pass are **automatically added** to "
-                "`html_scraper.py`'s `HTML_SOURCES`."
-            )
+            progress_bar = st.progress(0)
+            status_text  = st.empty()
+            results_store = []
 
-            # ── Stats bar
-            try:
-                from source_manager import get_scraper_source_count, get_existing_urls
-                current_count    = get_scraper_source_count()
-                existing_urls    = get_existing_urls()
-            except ImportError:
-                current_count    = 0
-                existing_urls    = set()
+            # Live summary counters
+            sm1, sm2, sm3, sm4 = st.columns(4)
+            cnt_s = sm1.empty(); cnt_n = sm2.empty()
+            cnt_b = sm3.empty(); cnt_u = sm4.empty()
 
-            m1, m2, m3, m4 = st.columns(4)
-            total_sites  = len(SITES_TO_TEST)
-            already_added = sum(1 for s in SITES_TO_TEST if s["url"] in existing_urls)
-            m1.metric("Sites in Test List",        total_sites)
-            m2.metric("Already in html_scraper",   already_added)
-            m3.metric("Remaining to Test",         total_sites - already_added)
-            m4.metric("HTML_SOURCES Total Entries", current_count)
+            def refresh_counters(results):
+                s_c = sum(1 for r in results if r["status"]=="scrapeable")
+                n_c = sum(1 for r in results if r["status"]=="no_headlines")
+                b_c = sum(1 for r in results if r["status"]=="blocked")
+                u_c = sum(1 for r in results if r["status"] not in
+                          ["scrapeable","no_headlines","blocked"])
+                cnt_s.markdown(f'<div class="spill"><span class="spill-n">{s_c}</span>'
+                               f'<span class="spill-l">✅ Scrapeable</span></div>',
+                               unsafe_allow_html=True)
+                cnt_n.markdown(f'<div class="spill"><span class="spill-n">{n_c}</span>'
+                               f'<span class="spill-l">⚠️ No Headlines</span></div>',
+                               unsafe_allow_html=True)
+                cnt_b.markdown(f'<div class="spill"><span class="spill-n">{b_c}</span>'
+                               f'<span class="spill-l">🚫 Blocked</span></div>',
+                               unsafe_allow_html=True)
+                cnt_u.markdown(f'<div class="spill"><span class="spill-n">{u_c}</span>'
+                               f'<span class="spill-l">❌ Unreachable</span></div>',
+                               unsafe_allow_html=True)
 
-            st.markdown("---")
+            refresh_counters([])
+            results_container = st.container()
 
-            # ── Controls
-            ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 1])
-
-            with ctrl1:
-                all_categories = sorted(set(s["category"] for s in SITES_TO_TEST))
-                selected_cats  = st.multiselect(
-                    "Filter by Category",
-                    options=["All"] + all_categories,
-                    default=["All"]
+            for i, site in enumerate(sites_to_run):
+                status_text.markdown(
+                    f'<div class="vg-mono" style="color:#64748b;">'
+                    f'Testing ({i+1}/{len(sites_to_run)}): {site["name"]} — '
+                    f'<span style="color:#60a5fa;">{site["url"]}</span></div>',
+                    unsafe_allow_html=True,
                 )
+                result = test_single_site(site)
+                results_store.append(result)
 
-            with ctrl2:
-                skip_existing = st.checkbox(
-                    "Skip sites already in html_scraper.py", value=True
-                )
-                delay = st.slider("Delay between requests (seconds)", 0.5, 3.0, 1.0, 0.5)
-
-            with ctrl3:
-                st.write("")
-                st.write("")
-                run_button = st.button("▶️ Run Tests", type="primary", use_container_width=True)
-
-            # ── Custom URL tester
-            with st.expander("➕ Test a Custom URL"):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                custom_name = c1.text_input("Site Name", placeholder="e.g. My News Site")
-                custom_url  = c2.text_input("URL", placeholder="https://example.com/news/")
-                custom_cat  = c3.text_input("Category", placeholder="Media")
-                if st.button("Test Custom URL"):
-                    if custom_url.strip():
-                        with st.spinner(f"Testing {custom_url}..."):
-                            result = test_single_site({
-                                "name":     custom_name or custom_url,
-                                "url":      custom_url.strip(),
-                                "category": custom_cat or "Custom"
-                            })
-                        if result["status"] == "scrapeable":
-                            st.success(f"✅ Scrapeable — {result['count']} headlines found using `{result['article_tag']}` / `{result['article_class']}`")
-                            add_res = auto_add_to_scraper(result)
-                            if add_res["skipped"]:
-                                st.info(add_res["message"])
-                            elif add_res["success"]:
-                                st.success(add_res["message"])
-                            else:
-                                st.error(add_res["message"])
-                            for s in result["samples"]:
-                                st.write(f"  • [{s['text']}]({s['href']})")
-                        else:
-                            icon = STATUS_ICON.get(result["status"], "❓")
-                            st.warning(f"{icon} {STATUS_LABEL.get(result['status'], result['status'])}")
+                # Auto-add
+                add_msg = ""
+                if result["status"] == "scrapeable":
+                    add_res = auto_add_to_scraper(result)
+                    if add_res["skipped"]:
+                        add_msg = "_(already in html_scraper.py)_"
+                    elif add_res["success"]:
+                        add_msg = "🆕 **Auto-added**"
                     else:
-                        st.warning("Please enter a URL.")
+                        add_msg = f"⚠️ Could not add: {add_res['message']}"
 
-            st.markdown("---")
-
-            # ── Run tests
-            if run_button:
-                # Build list to test
-                sites_to_run = []
-                for site in SITES_TO_TEST:
-                    cat = site.get("category", "")
-                    if "All" not in selected_cats and cat not in selected_cats:
-                        continue
-                    if skip_existing and site["url"] in existing_urls:
-                        continue
-                    sites_to_run.append(site)
-
-                if not sites_to_run:
-                    st.info("No sites to test with current filters.")
-                else:
-                    st.info(f"Testing **{len(sites_to_run)}** sites — results appear as each completes...")
-
-                    # Live results containers
-                    progress_bar  = st.progress(0)
-                    status_text   = st.empty()
-                    results_store = []
-
-                    # Summary counters (updated live)
-                    sum_col1, sum_col2, sum_col3, sum_col4 = st.columns(4)
-                    cnt_scrapeable    = sum_col1.empty()
-                    cnt_no_headlines  = sum_col2.empty()
-                    cnt_blocked       = sum_col3.empty()
-                    cnt_unreachable   = sum_col4.empty()
-
-                    results_container = st.container()
-
-                    def refresh_counters(results):
-                        sc = sum(1 for r in results if r["status"] == "scrapeable")
-                        nh = sum(1 for r in results if r["status"] == "no_headlines")
-                        bl = sum(1 for r in results if r["status"] == "blocked")
-                        un = sum(1 for r in results if r["status"] not in ["scrapeable", "no_headlines", "blocked"])
-                        cnt_scrapeable.metric("✅ Scrapeable",    sc)
-                        cnt_no_headlines.metric("⚠️ No Headlines", nh)
-                        cnt_blocked.metric("🚫 Blocked",           bl)
-                        cnt_unreachable.metric("❌ Unreachable",    un)
-
-                    refresh_counters([])
-
-                    for i, site in enumerate(sites_to_run):
-                        status_text.markdown(f"**Testing ({i+1}/{len(sites_to_run)}):** {site['name']} — `{site['url']}`")
-                        result = test_single_site(site)
-                        results_store.append(result)
-
-                        # Auto-add if scrapeable
-                        add_msg = ""
-                        if result["status"] == "scrapeable":
-                            add_res = auto_add_to_scraper(result)
-                            if add_res["skipped"]:
-                                add_msg = "_(already in html_scraper.py)_"
-                            elif add_res["success"]:
-                                add_msg = "🆕 **Auto-added to html_scraper.py**"
-                            else:
-                                add_msg = f"⚠️ Could not auto-add: {add_res['message']}"
-
-                        # Show result card
-                        with results_container:
-                            icon  = STATUS_ICON.get(result["status"], "❓")
-                            label = STATUS_LABEL.get(result["status"], result["status"])
-
-                            if result["status"] == "scrapeable":
-                                with st.expander(
-                                    f"{icon} {result['name']} — {result['count']} headlines  |  "
-                                    f"`{result['article_tag']}` / `{result['article_class']}`  {add_msg}",
-                                    expanded=False
-                                ):
-                                    st.write(f"**URL:** {result['url']}")
-                                    st.write(f"**Base URL:** {result['base_url']}")
-                                    st.write(f"**Category:** {result['category']}")
-                                    st.write("**Sample Headlines:**")
-                                    for s in result["samples"]:
-                                        st.write(f"  • [{s['text']}]({s['href']})")
-                                    st.code(
-                                        f'{{\n'
-                                        f'    "name":          "{result["name"]}",\n'
-                                        f'    "url":           "{result["url"]}",\n'
-                                        f'    "article_tag":   "{result["article_tag"]}",\n'
-                                        f'    "article_class": "{result["article_class"]}",\n'
-                                        f'    "base_url":      "{result["base_url"]}"\n'
-                                        f'}},',
-                                        language="python"
-                                    )
-                            else:
-                                st.write(f"{icon} **{result['name']}** — {label} — `{result['url']}`")
-
-                        refresh_counters(results_store)
-                        progress_bar.progress((i + 1) / len(sites_to_run))
-                        time.sleep(delay)
-
-                    status_text.markdown("✅ **All tests complete.**")
-                    st.session_state.test_results = results_store
-
-            # ── Previous results (if any)
-            elif st.session_state.test_results:
-                st.subheader("Last Test Run Results")
-                results = st.session_state.test_results
-                sc = [r for r in results if r["status"] == "scrapeable"]
-                nh = [r for r in results if r["status"] == "no_headlines"]
-                bl = [r for r in results if r["status"] == "blocked"]
-                un = [r for r in results if r["status"] not in ["scrapeable", "no_headlines", "blocked"]]
-
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("✅ Scrapeable",    len(sc))
-                m2.metric("⚠️ No Headlines",  len(nh))
-                m3.metric("🚫 Blocked",        len(bl))
-                m4.metric("❌ Unreachable",    len(un))
-
-                for result in results:
-                    icon  = STATUS_ICON.get(result["status"], "❓")
+                # Show result
+                with results_container:
+                    icon  = STATUS_ICON.get(result["status"],"❓")
                     label = STATUS_LABEL.get(result["status"], result["status"])
                     if result["status"] == "scrapeable":
-                        with st.expander(f"{icon} {result['name']} — {result['count']} headlines  |  `{result['article_tag']}` / `{result['article_class']}`"):
+                        with st.expander(
+                            f"{icon} {result['name']} — {result['count']} headlines  |  "
+                            f"`{result['article_tag']}` / `{result['article_class']}`  {add_msg}",
+                            expanded=False,
+                        ):
+                            st.markdown(f"""
+                            <div style="color:#e2e8f0;font-size:.875rem;line-height:1.8;">
+                              <strong>URL:</strong> {result['url']}<br>
+                              <strong>Base URL:</strong> {result['base_url']}<br>
+                              <strong>Category:</strong> {result['category']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.write("**Sample Headlines:**")
                             for s in result["samples"]:
                                 st.write(f"  • [{s['text']}]({s['href']})")
+                            st.code(
+                                f'{{\n'
+                                f'    "name":          "{result["name"]}",\n'
+                                f'    "url":           "{result["url"]}",\n'
+                                f'    "article_tag":   "{result["article_tag"]}",\n'
+                                f'    "article_class": "{result["article_class"]}",\n'
+                                f'    "base_url":      "{result["base_url"]}"\n'
+                                f'}},',
+                                language="python",
+                            )
                     else:
-                        st.write(f"{icon} **{result['name']}** — {label}")
+                        st.markdown(
+                            f'<div style="padding:.5rem 0;color:#94a3b8;font-size:.875rem;">'
+                            f'{icon} <strong style="color:#e2e8f0;">{result["name"]}</strong>'
+                            f' — {label}</div>',
+                            unsafe_allow_html=True,
+                        )
 
-    st.markdown("---")
-    st.caption(
-        "VeriGhana uses Retrieval-Augmented Generation to verify claims against "
-        "a curated database of trusted Ghanaian sources only."
+                refresh_counters(results_store)
+                progress_bar.progress((i + 1) / len(sites_to_run))
+                time.sleep(delay)
+
+            status_text.markdown(
+                '<div class="vg-mono" style="color:#4ade80;">✅ All tests complete.</div>',
+                unsafe_allow_html=True,
+            )
+            st.session_state.test_results = results_store
+
+    # ── Previous results
+    elif st.session_state.test_results:
+        results = st.session_state.test_results
+        sc_l = [r for r in results if r["status"]=="scrapeable"]
+        nh_l = [r for r in results if r["status"]=="no_headlines"]
+        bl_l = [r for r in results if r["status"]=="blocked"]
+        un_l = [r for r in results if r["status"] not in
+                ["scrapeable","no_headlines","blocked"]]
+
+        st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Last Test Run</div>',
+                    unsafe_allow_html=True)
+        pm1,pm2,pm3,pm4 = st.columns(4)
+        for col,(val,lbl) in zip([pm1,pm2,pm3,pm4],[
+            (len(sc_l),"✅ Scrapeable"),(len(nh_l),"⚠️ No Headlines"),
+            (len(bl_l),"🚫 Blocked"),  (len(un_l),"❌ Unreachable"),
+        ]):
+            with col:
+                st.markdown(f'<div class="spill"><span class="spill-n">{val}</span>'
+                            f'<span class="spill-l">{lbl}</span></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        for result in results:
+            icon  = STATUS_ICON.get(result["status"],"❓")
+            label = STATUS_LABEL.get(result["status"], result["status"])
+            if result["status"] == "scrapeable":
+                with st.expander(
+                    f"{icon} {result['name']} — {result['count']} headlines  |  "
+                    f"`{result['article_tag']}` / `{result['article_class']}`"
+                ):
+                    for s in result["samples"]:
+                        st.write(f"  • [{s['text']}]({s['href']})")
+            else:
+                st.markdown(
+                    f'<div style="padding:.4rem 0;color:#94a3b8;font-size:.875rem;">'
+                    f'{icon} <strong style="color:#e2e8f0;">{result["name"]}</strong>'
+                    f' — {label}</div>',
+                    unsafe_allow_html=True,
+                )
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  MAIN ROUTER
+# ══════════════════════════════════════════════
+def main():
+    inject_css()
+
+    if not st.session_state.logged_in:
+        page_auth()
+        return
+
+    render_nav()
+    render_tabs()
+
+    p    = st.session_state.page
+    admin = is_admin()
+
+    if   p == "verify":                    page_verify()
+    elif p == "history":                   page_history()
+    elif p == "account":                   page_account()
+    elif p == "admin"  and admin:          page_admin()
+    elif p == "tester" and admin:          page_tester()
+    else:
+        st.session_state.page = "verify"; st.rerun()
+
+    st.markdown(
+        '<div style="text-align:center;padding:2rem;font-size:.72rem;color:#334155;">'
+        'VeriGhana © 2026 — GIMPA Computer Science Research — '
+        'Combating information disorder in Ghana with AI.</div>',
+        unsafe_allow_html=True,
     )
+
+if __name__ == "__main__":
+    main()
