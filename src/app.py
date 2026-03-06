@@ -1009,12 +1009,18 @@ def page_verify():
     res = st.session_state.result
     if res:
         st.markdown("<hr>", unsafe_allow_html=True)
-        verdict     = res.get("verdict", "UNCORROBORATED")
-        score       = int(res.get("score", 0))
-        explanation = res.get("explanation", "")
-        sources     = res.get("sources", [])
-        model_used  = res.get("model_used", res.get("model", selected_model_id))
-        color       = sc(score)
+        verdict      = res.get("verdict", "UNCORROBORATED").upper()
+        score        = max(0, min(100, int(res.get("score", 0))))
+        explanation  = res.get("explanation", "")
+        summary      = res.get("summary", explanation)
+        sources      = res.get("sources", [])
+        source_notes = res.get("source_notes", [])
+        model_used   = res.get("model_used", res.get("model", selected_model_id))
+        color        = sc(score)
+
+        # Normalise verdict casing for CSS classes
+        if verdict not in ("VERIFIED", "PARTIAL", "FALSE", "UNCORROBORATED", "ERROR"):
+            verdict = "UNCORROBORATED"
 
         r1, r2, r3 = st.columns([1, 2.2, 1.8])
 
@@ -1025,68 +1031,78 @@ def page_verify():
               <div class="vg-mono" style="margin-bottom:.75rem;">TRUTH SCORE</div>
               <div class="score-num sc-{color}">{score}%</div>
               <div style="margin-top:1rem;">
-                <span class="vchip v-{verdict.replace(' ','-')}">{verdict}</span>
+                <span class="vchip v-{verdict}">{verdict}</span>
               </div>
               <div class="vg-mono" style="margin-top:.75rem;color:#334155;">
-                {res.get("processing_ms",0)}ms
+                {res.get("processing_ms",0)}ms · {model_used}
               </div>
             </div>
             """, unsafe_allow_html=True)
 
         # ── Truth meter + explanation
         with r2:
-            if verdict == "UNAVAILABLE":
+            st.markdown(f"""
+            <div class="vg-card">
+              <div class="vg-mono" style="margin-bottom:.75rem;">TRUTH METER</div>
+              <div class="tbar-bg">
+                <div class="tbar-fill tbar-{color}" style="width:{score}%;transition:width 1.4s ease;"></div>
+              </div>
+              <div style="font-size:.875rem;color:#94a3b8;line-height:1.65;
+                           font-style:italic;margin-top:.75rem;">
+                {explanation}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ── AI summary with source nuances (shown below meter)
+            if summary and summary != explanation:
                 st.markdown(f"""
-                <div class="vg-card">
-                  <div class="vg-mono" style="margin-bottom:.75rem;">STATUS</div>
-                  <div style="color:#93c5fd;font-size:.95rem;margin-bottom:.75rem;">
-                    ⏳ AI Model Unavailable — quota reached
+                <div class="vg-card" style="margin-top:.75rem;border-left:3px solid #2563eb;">
+                  <div class="vg-mono" style="margin-bottom:.5rem;color:#60a5fa;">
+                    AI ANALYSIS SUMMARY
                   </div>
-                  <div style="color:#94a3b8;font-size:.875rem;line-height:1.65;">
-                    {explanation}
-                  </div>
-                  <div class="vg-mono" style="margin-top:1rem;color:#334155;">
-                    Try selecting a different model above.
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="vg-card">
-                  <div class="vg-mono" style="margin-bottom:.75rem;">TRUTH METER</div>
-                  <div class="tbar-bg">
-                    <div class="tbar-fill tbar-{color}" style="width:{score}%;"></div>
-                  </div>
-                  <div style="font-size:.875rem;color:#94a3b8;line-height:1.65;
-                               font-style:italic;margin-top:.75rem;">
-                    {explanation}
-                  </div>
-                  <div class="vg-mono" style="margin-top:1rem;color:#334155;">
-                    {model_used}
+                  <div style="font-size:.875rem;color:#cbd5e1;line-height:1.7;">
+                    {summary}
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # ── Sources
+        # ── Sources with per-source stance
         with r3:
             src_html = ('<div class="vg-card">'
                         '<div class="vg-mono" style="margin-bottom:.75rem;">SOURCES</div>')
             if sources:
+                # Build stance lookup
+                stance_map: dict[str, str] = {}
+                for note in source_notes:
+                    k = note.get("source", "").lower()
+                    if k:
+                        stance_map[k] = note.get("stance", "")
+
                 for s in sources[:5]:
                     if isinstance(s, dict):
-                        title  = s.get("title", "Untitled")[:65]
-                        url    = s.get("url_link", s.get("url", "#"))
-                        source = s.get("source_name", s.get("source", ""))
+                        title   = s.get("title", "Untitled")[:65]
+                        url     = s.get("url_link", s.get("url", "#"))
+                        src_name = s.get("source_name", s.get("source", ""))
+                        # stance from source or from source_notes
+                        stance  = s.get("stance", "") or stance_map.get(src_name.lower(), "")
                     else:
-                        title, url, source = str(s)[:65], "#", ""
+                        title, url, src_name, stance = str(s)[:65], "#", "", ""
+
+                    stance_html = (
+                        f'<div style="font-size:.72rem;color:#64748b;margin-top:.2rem;'
+                        f'font-style:italic;">{stance[:120]}</div>'
+                        if stance else ""
+                    )
                     src_html += f"""
                     <div class="src-row">
                       <div class="src-dot"></div>
-                      <div>
+                      <div style="flex:1;">
                         <div class="src-title">
                           <a href="{url}" target="_blank">{title}</a>
                         </div>
-                        <div class="src-by">{source}</div>
+                        <div class="src-by">{src_name}</div>
+                        {stance_html}
                       </div>
                     </div>"""
             else:
