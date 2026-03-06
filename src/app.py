@@ -298,340 +298,332 @@ def inject_css():
     # CSS is injected in its own call so the <style> block is never mixed with
     # other tags — the only reliable pattern in current Streamlit versions.
     _CSS = """
-/* ── RESET ── */
+/* ─── GLOBAL RESET ─── */
 *{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
 html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
-#MainMenu,footer,header{visibility:hidden!important;height:0!important;}
-.stApp{background:#0f2240!important;}
+#MainMenu,footer,header{visibility:hidden!important;height:0!important;overflow:hidden!important;}
+.stApp{background:#0f2240!important;min-height:100vh;}
 
-/* Aggressive padding reset — Streamlit adds inline padding-top we must override */
-.block-container,
-[data-testid="block-container"],
-[data-testid="stAppViewBlockContainer"],
-[data-testid="stMainBlockContainer"],
-.stMainBlockContainer,
-.appview-container .main .block-container{
-  padding:0!important;padding-top:0!important;padding-bottom:0!important;
-  max-width:100%!important;margin-top:0!important;
-}
-section.main{padding:0!important;}
-section.main > div[style]{padding-top:0!important;}
+/* ─── NUKE ALL STREAMLIT PADDING ─── */
+/* Streamlit injects padding-top via inline style AND class — target both */
+.block-container{padding:0!important;padding-top:0!important;max-width:100%!important;margin:0!important;}
+[data-testid="stAppViewBlockContainer"]{padding:0!important;padding-top:0!important;max-width:100%!important;}
+[data-testid="stMainBlockContainer"]{padding:0!important;padding-top:0!important;max-width:100%!important;}
+.stMainBlockContainer{padding:0!important;padding-top:0!important;}
+section.main > div{padding:0!important;padding-top:0!important;}
+section.main > div > div{padding:0!important;}
 section[data-testid="stSidebar"]{display:none!important;}
-/* Kill tab-bar inner Streamlit spacing */
-.vg-tabbar [data-testid="stHorizontalBlock"],
-.vg-tabbar [data-testid="column"],
-.vg-tabbar [data-testid="stVerticalBlock"]{
-  gap:0!important;padding:0!important;min-width:0!important;
-}
+/* Remove default vertical gap between blocks */
+[data-testid="stVerticalBlock"]{gap:0 !important;}
+/* But restore gap inside content areas */
+.vg-wrap [data-testid="stVerticalBlock"]{gap:.4rem !important;}
 
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar{width:5px}
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
 
-/* ── NAVBAR ── */
-.vg-nav{
-  background:rgba(10,22,44,.98);
-  backdrop-filter:blur(24px);
-  border-bottom:1px solid rgba(255,255,255,.07);
-  padding:0 2.5%;
-  display:flex;align-items:center;
-  height:56px;
-  position:sticky;top:0;z-index:200;
-  gap:1.5rem;
+/* ─── AUTH PAGE ─── */
+/* The entire stApp becomes the centred login screen */
+.auth-mode .stApp{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:100vh;
+  background:
+    linear-gradient(160deg,#0a1628 0%,#0d1f42 60%,#0f2240 100%) !important;
 }
-.vg-logo{
-  font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;
-  color:#fff;letter-spacing:-.02em;flex-shrink:0;
+.auth-mode .block-container,
+.auth-mode [data-testid="stAppViewBlockContainer"],
+.auth-mode [data-testid="stMainBlockContainer"]{
+  width:100%!important;max-width:440px!important;
+  margin:0 auto!important;padding:0 1rem!important;
 }
-.vg-logo span{color:#60a5fa;}
-.vg-nav-sub{
-  color:#334155;font-size:.72rem;
-  font-family:'DM Mono',monospace;letter-spacing:.04em;
-  text-transform:uppercase;
-}
-
-/* ── TABBAR ── */
-.vg-tabbar{
-  background:rgba(7,16,34,.98);
-  border-bottom:1px solid rgba(255,255,255,.07);
-  position:sticky;top:56px;z-index:100;
-  display:flex;align-items:stretch;
-  padding:0 2.5%;gap:0;
-}
-.vg-tab-item{
-  padding:.7rem 1.25rem;
-  font-size:.82rem;font-weight:400;
-  color:#475569;cursor:pointer;
-  border-bottom:2px solid transparent;
-  white-space:nowrap;
-  letter-spacing:.01em;
-  transition:color .15s,border-color .15s;
-  user-select:none;
-}
-.vg-tab-item.vg-tab-active{
-  color:#f1f5f9;font-weight:500;
-  border-bottom-color:#2563eb;
-}
-.vg-tab-item.vg-tab-admin{color:#78624a;}
-.vg-tab-item.vg-tab-admin.vg-tab-active{
-  color:#fbbf24;border-bottom-color:#d97706;
-}
-/* The real clickable buttons are visually hidden — tab items above are purely decorative */
-.vg-tabbar + [data-testid="stHorizontalBlock"],
-.vg-tabbar ~ div > [data-testid="stHorizontalBlock"]{
-  height:0!important;overflow:hidden!important;position:absolute!important;
-  opacity:0!important;pointer-events:none!important;
-}
-/* But we still need them clickable — so use a zero-height overlay trick */
-.vg-tab-functional{
-  position:relative;height:0;overflow:visible;
-}
-.vg-tab-functional .stButton>button{
-  position:absolute;top:-40px;left:0;right:0;height:40px;
-  background:transparent!important;border:none!important;
-  opacity:0!important;cursor:pointer!important;
-  padding:0!important;margin:0!important;
-}
-
-/* ── AUTH HERO ── */
-.vg-hero{
-  background:linear-gradient(160deg,#0f2240 0%,#0c1e3f 55%,#112244 100%);
-  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
-  padding:3.5rem 1rem;position:relative;overflow:hidden;
-}
-.vg-hero::before{
-  content:'';position:fixed;inset:0;
+/* Grid overlay */
+.auth-bg-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
     linear-gradient(rgba(37,99,235,.05) 1px,transparent 1px),
     linear-gradient(90deg,rgba(37,99,235,.05) 1px,transparent 1px);
-  background-size:48px 48px;pointer-events:none;z-index:0;
+  background-size:44px 44px;
 }
 
-/* ── PAGE SHELL ── */
-.vg-shell{background:#0f2240;min-height:calc(100vh - 56px);}
-.vg-wrap{max-width:1200px;margin:0 auto;padding:.75rem 2.5% 1.5rem;}
+/* ─── NAV BAR ─── */
+.vg-nav{
+  background:rgba(9,19,40,.98);
+  border-bottom:1px solid rgba(255,255,255,.07);
+  padding:0 2rem;
+  display:flex;align-items:center;
+  height:52px;gap:1rem;
+  position:sticky;top:0;z-index:300;
+  width:100%;
+}
+.vg-logo{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;
+  color:#fff;letter-spacing:-.02em;text-decoration:none;white-space:nowrap;
+}
+.vg-logo em{font-style:normal;color:#60a5fa;}
+.vg-sep{width:1px;height:16px;background:rgba(255,255,255,.1);}
+.vg-nav-sub{
+  font-family:'DM Mono',monospace;font-size:.62rem;color:#334155;
+  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+}
+.vg-nav-right{
+  margin-left:auto;display:flex;align-items:center;gap:.75rem;
+}
+.vg-avatar{
+  width:24px;height:24px;border-radius:50%;
+  background:linear-gradient(135deg,#1e40af,#3b82f6);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:700;
+  font-size:.6rem;color:#fff;flex-shrink:0;
+}
 
-/* ── PAGE HEADERS ── */
-.vg-page-head{padding:.5rem 0 .75rem;}
+/* ─── TAB BAR ─── */
+.vg-tabbar{
+  background:rgba(7,15,32,.97);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:stretch;
+  padding:0 2rem;
+  position:sticky;top:52px;z-index:200;
+  overflow-x:auto;
+}
+.vg-tab-item{
+  padding:.6rem 1.1rem;
+  font-size:.8rem;font-weight:400;color:#3d5068;
+  border-bottom:2px solid transparent;
+  white-space:nowrap;letter-spacing:.01em;cursor:pointer;
+  transition:color .15s,border-color .15s;
+}
+.vg-tab-item.active{color:#e2e8f0;font-weight:500;border-bottom-color:#2563eb;}
+.vg-tab-item.admin-tab{color:#5a4830;}
+.vg-tab-item.admin-tab.active{color:#fbbf24;border-bottom-color:#d97706;}
+/* Zero-height clickable button row sits here */
+.vg-tab-btns{
+  position:relative;height:0;overflow:visible;
+}
+.vg-tab-btns .stButton>button{
+  position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;
+  opacity:0!important;cursor:pointer!important;
+  padding:0!important;margin:0!important;border:none!important;
+}
+/* Tab columns need zero gap */
+.vg-tab-btns [data-testid="stHorizontalBlock"]{gap:0!important;align-items:stretch!important;}
+.vg-tab-btns [data-testid="column"]{padding:0!important;}
 
-/* ── CARDS ── */
+/* ─── PAGE SHELL ─── */
+.vg-shell{
+  background:#0f2240;
+  width:100%;
+}
+.vg-wrap{
+  max-width:1080px;margin:0 auto;
+  padding:.75rem 2rem 2rem;
+}
+
+/* ─── PAGE HEADER ─── */
+.vg-page-head{
+  border-bottom:1px solid rgba(255,255,255,.05);
+  padding:.75rem 0 .75rem;
+  margin-bottom:1rem;
+}
+
+/* ─── CARDS ─── */
 .vg-card{
   background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.09);
-  border-radius:12px;padding:1.5rem;margin-bottom:1rem;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:1.25rem;margin-bottom:.75rem;
 }
 .vg-card-flat{
-  background:rgba(255,255,255,.025);
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:10px;padding:1rem;margin-bottom:.75rem;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;
 }
 
-/* ── TYPOGRAPHY ── */
+/* ─── TYPOGRAPHY ─── */
 .vg-h1{
-  font-family:'Syne',sans-serif;font-size:1.65rem;font-weight:800;
-  color:#fff;letter-spacing:-.03em;margin:0 0 .3rem;line-height:1.15;
+  font-family:'Syne',sans-serif;font-size:1.45rem;font-weight:800;
+  color:#f1f5f9;letter-spacing:-.03em;margin:0 0 .2rem;line-height:1.2;
+  display:inline;
 }
 .vg-h1 em{font-style:normal;color:#60a5fa;}
-.vg-h2{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;
-  color:#fff;letter-spacing:-.01em;margin:0 0 .75rem;}
-.vg-h3{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;
-  color:#e2e8f0;margin:0 0 .35rem;}
+.vg-h2{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
+  color:#e2e8f0;margin:0 0 .6rem;}
+.vg-h3{font-family:'Syne',sans-serif;font-size:.875rem;font-weight:700;
+  color:#cbd5e1;margin:0 0 .3rem;}
 .vg-sub{
-  color:#64748b;font-size:.875rem;font-weight:300;
-  line-height:1.6;margin:0 0 1.25rem;
+  color:#4b6080;font-size:.8rem;font-weight:400;
+  line-height:1.55;margin:.3rem 0 0;display:block;
 }
 .vg-mono{
-  font-family:'DM Mono',monospace;font-size:.67rem;color:#475569;
+  font-family:'DM Mono',monospace;font-size:.65rem;color:#3d5068;
   letter-spacing:.06em;text-transform:uppercase;
 }
 
-/* ── BADGE ── */
+/* ─── BADGE ─── */
 .vg-badge{
-  display:inline-flex;align-items:center;gap:.35rem;
-  background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.25);
-  color:#93c5fd;font-size:.67rem;font-weight:500;
+  display:inline-flex;align-items:center;gap:.3rem;
+  background:rgba(37,99,235,.1);border:1px solid rgba(59,130,246,.2);
+  color:#93c5fd;font-size:.62rem;font-weight:600;
   letter-spacing:.08em;text-transform:uppercase;
-  padding:.25rem .8rem;border-radius:999px;margin-bottom:.75rem;
+  padding:.2rem .7rem;border-radius:999px;
 }
 
-/* ── VERDICT CHIPS ── */
-.v-VERIFIED      {background:rgba(22,163,74,.12);color:#4ade80;border:1px solid rgba(22,163,74,.25);}
-.v-FALSE         {background:rgba(220,38,38,.12);color:#f87171;border:1px solid rgba(220,38,38,.25);}
-.v-PARTIAL       {background:rgba(217,119,6,.12);color:#fbbf24;border:1px solid rgba(217,119,6,.25);}
-.v-UNCORROBORATED{background:rgba(71,85,105,.12);color:#94a3b8;border:1px solid rgba(71,85,105,.25);}
-.v-UNAVAILABLE   {background:rgba(37,99,235,.12);color:#93c5fd;border:1px solid rgba(37,99,235,.25);}
-.v-ERROR         {background:rgba(220,38,38,.12);color:#f87171;border:1px solid rgba(220,38,38,.25);}
-.vchip{
-  display:inline-block;padding:.22rem .7rem;border-radius:6px;
-  font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;
-}
+/* ─── VERDICT CHIPS ─── */
+.v-VERIFIED      {background:rgba(22,163,74,.1); color:#4ade80;border:1px solid rgba(22,163,74,.2);}
+.v-FALSE         {background:rgba(220,38,38,.1); color:#f87171;border:1px solid rgba(220,38,38,.2);}
+.v-PARTIAL       {background:rgba(217,119,6,.1); color:#fbbf24;border:1px solid rgba(217,119,6,.2);}
+.v-UNCORROBORATED{background:rgba(71,85,105,.1); color:#64748b;border:1px solid rgba(71,85,105,.2);}
+.v-UNAVAILABLE   {background:rgba(37,99,235,.1); color:#93c5fd;border:1px solid rgba(37,99,235,.2);}
+.v-ERROR         {background:rgba(220,38,38,.1); color:#f87171;border:1px solid rgba(220,38,38,.2);}
+.vchip{display:inline-block;padding:.2rem .65rem;border-radius:5px;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;}
 
-/* ── TIER CHIPS ── */
-.t-free {background:rgba(71,85,105,.2); color:#94a3b8;border:1px solid rgba(71,85,105,.3);}
-.t-pro  {background:rgba(37,99,235,.18);color:#93c5fd;border:1px solid rgba(37,99,235,.3);}
-.t-inst {background:rgba(22,163,74,.18);color:#4ade80;border:1px solid rgba(22,163,74,.3);}
-.t-admin{background:rgba(217,119,6,.18);color:#fbbf24;border:1px solid rgba(217,119,6,.3);}
-.tchip{
-  display:inline-block;padding:.15rem .6rem;border-radius:999px;
-  font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.04em;text-transform:uppercase;
-}
+/* ─── TIER CHIPS ─── */
+.t-free {background:rgba(71,85,105,.15);color:#64748b;border:1px solid rgba(71,85,105,.25);}
+.t-pro  {background:rgba(37,99,235,.15);color:#93c5fd;border:1px solid rgba(37,99,235,.25);}
+.t-inst {background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.25);}
+.t-admin{background:rgba(217,119,6,.15);color:#fbbf24;border:1px solid rgba(217,119,6,.25);}
+.tchip{display:inline-block;padding:.12rem .55rem;border-radius:999px;
+  font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.04em;text-transform:uppercase;}
 
-/* ── TRUTH BAR ── */
-.tbar-bg{height:8px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:.5rem 0;}
+/* ─── TRUTH BAR ─── */
+.tbar-bg{height:7px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:.45rem 0;}
 .tbar-fill{height:100%;border-radius:99px;}
 .tbar-green {background:linear-gradient(90deg,#16a34a,#4ade80);}
 .tbar-orange{background:linear-gradient(90deg,#d97706,#fbbf24);}
 .tbar-red   {background:linear-gradient(90deg,#dc2626,#f87171);}
 .tbar-gray  {background:linear-gradient(90deg,#475569,#94a3b8);}
 
-/* ── SCORE NUMBER ── */
-.score-num{font-family:'Syne',sans-serif;font-size:3rem;font-weight:800;line-height:1;}
-.sc-green{color:#4ade80;}.sc-orange{color:#fbbf24;}
-.sc-red  {color:#f87171;}.sc-gray  {color:#94a3b8;}
+/* ─── SCORE ─── */
+.score-num{font-family:'Syne',sans-serif;font-size:2.75rem;font-weight:800;line-height:1;}
+.sc-green{color:#4ade80;}.sc-orange{color:#fbbf24;}.sc-red{color:#f87171;}.sc-gray{color:#64748b;}
 
-/* ── STAT PILLS ── */
-.spill{
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
-  border-radius:10px;padding:1rem;text-align:center;
-}
-.spill-n{
-  font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;
-  color:#fff;display:block;letter-spacing:-.02em;
-}
-.spill-l{font-size:.64rem;color:#475569;font-family:'DM Mono',monospace;
-  letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;display:block;}
+/* ─── STAT PILLS ─── */
+.spill{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:8px;padding:.75rem 1rem;text-align:center;}
+.spill-n{font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:800;
+  color:#fff;display:block;letter-spacing:-.02em;}
+.spill-l{font-size:.6rem;color:#3d5068;font-family:'DM Mono',monospace;
+  letter-spacing:.06em;text-transform:uppercase;display:block;margin-top:.15rem;}
 
-/* ── SOURCES ── */
-.src-row{display:flex;align-items:flex-start;gap:.5rem;
-  padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
+/* ─── SOURCE ROWS ─── */
+.src-row{display:flex;align-items:flex-start;gap:.45rem;
+  padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.04);}
 .src-row:last-child{border-bottom:none;}
-.src-dot{width:5px;height:5px;border-radius:50%;background:#60a5fa;
-  flex-shrink:0;margin-top:6px;}
-.src-title a{color:#60a5fa;font-size:.82rem;text-decoration:none;line-height:1.4;}
+.src-dot{width:5px;height:5px;border-radius:50%;background:#3b82f6;flex-shrink:0;margin-top:5px;}
+.src-title a{color:#60a5fa;font-size:.8rem;text-decoration:none;line-height:1.4;}
 .src-title a:hover{text-decoration:underline;}
-.src-by{color:#334155;font-family:'DM Mono',monospace;font-size:.65rem;margin-top:.15rem;}
+.src-by{color:#2d3f55;font-family:'DM Mono',monospace;font-size:.62rem;}
 
-/* ── INPUTS ── */
+/* ─── INPUTS ─── */
 .stTextInput>div>div>input,
 .stTextArea>div>div>textarea{
   background:rgba(255,255,255,.05)!important;
-  border:1px solid rgba(255,255,255,.12)!important;
-  border-radius:8px!important;color:#fff!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+  border-radius:7px!important;color:#f1f5f9!important;
   font-family:'DM Sans',sans-serif!important;font-size:.9rem!important;
 }
 .stTextInput>div>div>input::placeholder,
-.stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.25)!important;}
+.stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.2)!important;}
 .stTextInput>div>div>input:focus,
 .stTextArea>div>div>textarea:focus{
   border-color:rgba(59,130,246,.5)!important;
-  box-shadow:0 0 0 3px rgba(37,99,235,.12)!important;outline:none!important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.1)!important;
 }
 .stSelectbox>div>div{
   background:rgba(255,255,255,.05)!important;
-  border:1px solid rgba(255,255,255,.12)!important;
-  border-radius:8px!important;color:#fff!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+  border-radius:7px!important;color:#f1f5f9!important;
 }
 div[data-baseweb="select"] *{color:#e2e8f0!important;}
-label,.stSelectbox label,.stTextInput label,
-.stTextArea label,.stRadio label,.stCheckbox label{
-  color:#475569!important;font-size:.67rem!important;
+label{
+  color:#3d5068!important;font-size:.62rem!important;
   font-family:'DM Mono',monospace!important;
   letter-spacing:.06em!important;text-transform:uppercase!important;
 }
 
-/* ── ACTION BUTTONS (orange CTA) ── */
+/* ─── BUTTONS ─── */
+/* Default = orange CTA */
 .stButton>button{
   background:#ea580c!important;color:#fff!important;border:none!important;
-  border-radius:7px!important;font-family:'DM Sans',sans-serif!important;
-  font-weight:600!important;font-size:.875rem!important;
-  padding:.6rem 1.5rem!important;transition:background .15s!important;
-  letter-spacing:.01em!important;
+  border-radius:6px!important;font-family:'DM Sans',sans-serif!important;
+  font-weight:600!important;font-size:.85rem!important;
+  padding:.55rem 1.25rem!important;
+  transition:background .15s!important;letter-spacing:.01em!important;
+  width:100%;
 }
 .stButton>button:hover{background:#f97316!important;}
-/* Ghost */
 .btn-ghost .stButton>button{
-  background:rgba(255,255,255,.05)!important;
-  border:1px solid rgba(255,255,255,.12)!important;
-  color:#94a3b8!important;
+  background:transparent!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+  color:#64748b!important;
 }
 .btn-ghost .stButton>button:hover{
-  background:rgba(255,255,255,.09)!important;color:#e2e8f0!important;
+  background:rgba(255,255,255,.05)!important;color:#94a3b8!important;
 }
-/* Variants */
-.btn-blue  .stButton>button{background:#2563eb!important;}
-.btn-blue  .stButton>button:hover{background:#3b82f6!important;}
-.btn-green .stButton>button{background:#16a34a!important;}
-.btn-green .stButton>button:hover{background:#15803d!important;}
-.btn-red   .stButton>button{background:#991b1b!important;color:#fca5a5!important;}
-.btn-red   .stButton>button:hover{background:#dc2626!important;color:#fff!important;}
+.btn-blue .stButton>button{background:#1d4ed8!important;}
+.btn-blue .stButton>button:hover{background:#2563eb!important;}
+.btn-green .stButton>button{background:#15803d!important;}
+.btn-green .stButton>button:hover{background:#16a34a!important;}
+.btn-red .stButton>button{background:transparent!important;border:1px solid rgba(220,38,38,.3)!important;color:#f87171!important;}
+.btn-red .stButton>button:hover{background:rgba(220,38,38,.1)!important;}
 
-/* ── ALERTS ── */
-div[data-testid="stAlert"]{border-radius:8px!important;}
-.stSuccess{background:rgba(22,163,74,.08)!important;
-  border:1px solid rgba(22,163,74,.25)!important;color:#4ade80!important;}
-.stError  {background:rgba(220,38,38,.08)!important;
-  border:1px solid rgba(220,38,38,.25)!important;}
-.stWarning{background:rgba(217,119,6,.08)!important;
-  border:1px solid rgba(217,119,6,.25)!important;}
-.stInfo   {background:rgba(37,99,235,.08)!important;
-  border:1px solid rgba(37,99,235,.25)!important;}
+/* ─── ALERTS ─── */
+div[data-testid="stAlert"]{border-radius:7px!important;}
+.stSuccess{background:rgba(22,163,74,.07)!important;border:1px solid rgba(22,163,74,.2)!important;color:#4ade80!important;}
+.stError  {background:rgba(220,38,38,.07)!important;border:1px solid rgba(220,38,38,.2)!important;}
+.stWarning{background:rgba(217,119,6,.07)!important;border:1px solid rgba(217,119,6,.2)!important;}
+.stInfo   {background:rgba(37,99,235,.07)!important;border:1px solid rgba(37,99,235,.2)!important;}
 
-/* ── DIVIDER ── */
-hr{border-color:rgba(255,255,255,.07)!important;margin:1.25rem 0!important;}
+/* ─── DIVIDER ─── */
+hr{border:none!important;border-top:1px solid rgba(255,255,255,.06)!important;margin:.9rem 0!important;}
 
-/* ── EXPANDER ── */
+/* ─── EXPANDER ─── */
 .streamlit-expanderHeader{
   background:rgba(255,255,255,.03)!important;
   border:1px solid rgba(255,255,255,.07)!important;
-  border-radius:8px!important;color:#94a3b8!important;
-  font-family:'DM Sans',sans-serif!important;font-size:.875rem!important;
+  border-radius:7px!important;color:#64748b!important;
+  font-family:'DM Sans',sans-serif!important;font-size:.82rem!important;
 }
 
-/* ── SPINNER / PROGRESS ── */
+/* ─── SPINNER / PROGRESS ─── */
 .stSpinner>div{border-top-color:#2563eb!important;}
 .stProgress>div>div{background:#2563eb!important;}
 
-/* ── INNER TABS (login page) ── */
+/* ─── INNER TABS (login) ─── */
 .stTabs [data-baseweb="tab-list"]{
-  background:rgba(255,255,255,.03)!important;border-radius:8px!important;
+  background:rgba(255,255,255,.03)!important;
   border:1px solid rgba(255,255,255,.07)!important;
-  padding:.2rem!important;gap:.2rem!important;
+  border-radius:7px!important;padding:.15rem!important;gap:.15rem!important;
 }
 .stTabs [data-baseweb="tab"]{
-  background:transparent!important;color:#64748b!important;
-  border-radius:6px!important;font-family:'DM Sans',sans-serif!important;
-  font-size:.85rem!important;border:none!important;padding:.45rem .9rem!important;
+  background:transparent!important;color:#3d5068!important;
+  border-radius:5px!important;font-family:'DM Sans',sans-serif!important;
+  font-size:.82rem!important;border:none!important;padding:.4rem .85rem!important;
 }
-.stTabs [aria-selected="true"]{
-  background:rgba(37,99,235,.2)!important;color:#fff!important;
-}
+.stTabs [aria-selected="true"]{background:rgba(37,99,235,.18)!important;color:#e2e8f0!important;}
 
-/* ── ADMIN TABLE ── */
+/* ─── ADMIN TABLE ─── */
 .admin-table{width:100%;border-collapse:collapse;}
 .admin-table th{
-  padding:.6rem 1rem;text-align:left;font-family:'DM Mono',monospace;
-  font-size:.65rem;color:#475569;letter-spacing:.06em;font-weight:500;
-  border-bottom:1px solid rgba(255,255,255,.07);
-}
+  padding:.5rem .85rem;text-align:left;font-family:'DM Mono',monospace;
+  font-size:.62rem;color:#3d5068;letter-spacing:.06em;font-weight:500;
+  border-bottom:1px solid rgba(255,255,255,.06);}
 .admin-table td{
-  padding:.7rem 1rem;font-size:.82rem;color:#e2e8f0;
-  border-bottom:1px solid rgba(255,255,255,.04);
-}
-.admin-table tr:hover td{background:rgba(255,255,255,.02);}
+  padding:.6rem .85rem;font-size:.8rem;color:#e2e8f0;
+  border-bottom:1px solid rgba(255,255,255,.04);}
+.admin-table tr:hover td{background:rgba(255,255,255,.015);}
 
-/* ── PLAN CARDS ── */
-.plan-card{
-  border:1.5px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden;
-  transition:transform .2s,box-shadow .2s;
-}
-.plan-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.3);}
-.plan-card.featured{border-color:rgba(37,99,235,.5);box-shadow:0 4px 24px rgba(37,99,235,.15);}
+/* ─── PLAN CARDS ─── */
+.plan-card{border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;}
+.plan-card.featured{border-color:rgba(37,99,235,.4);}
 .plan-header.pro {background:linear-gradient(135deg,#1e3a8a,#1d4ed8);}
 .plan-header.inst{background:linear-gradient(135deg,#064e3b,#065f46);}
 .plan-header.free{background:#172033;}
-.plan-header{padding:1.25rem;border-bottom:1px solid rgba(255,255,255,.07);}
-.plan-body  {padding:1.25rem;background:rgba(255,255,255,.02);}
+.plan-header{padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.07);}
+.plan-body  {padding:1rem 1.25rem;background:rgba(255,255,255,.015);}
 """
     st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
 
@@ -757,73 +749,84 @@ def do_register(email, password):
 #  PAGE: AUTH
 # ══════════════════════════════════════════════
 def page_auth():
-    st.markdown('<div class="vg-hero">', unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 1.3, 1])
-    with col:
+    # Inject auth-mode class so CSS can target this state
+    st.markdown("""
+    <div class="auth-bg-grid"></div>
+    <style>
+    /* Auth-mode: constrain and centre the Streamlit block container */
+    [data-testid="stAppViewBlockContainer"],
+    [data-testid="stMainBlockContainer"],
+    .block-container {
+        max-width: 420px !important;
+        margin: 0 auto !important;
+        padding: 0 1rem !important;
+        padding-top: 0 !important;
+    }
+    /* Push content down from top */
+    [data-testid="stVerticalBlock"] > div:first-child { margin-top: 3rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Logo + brand
+    st.markdown("""
+    <div style="text-align:center;padding:2.5rem 0 1.5rem;">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;
+                  color:#fff;letter-spacing:-.02em;margin-bottom:.6rem;">
+        Veri<em style="font-style:normal;color:#60a5fa;">Ghana</em>
+      </div>
+      <span class="vg-badge">🇬🇭 National Fact Verification Platform</span>
+      <div style="color:#334155;font-size:.78rem;margin-top:.5rem;">
+        Powered by AI · Trusted Ghanaian sources
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Card
+    st.markdown('<div class="vg-card">', unsafe_allow_html=True)
+    tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+
+    with tab_in:
+        st.markdown("<br>", unsafe_allow_html=True)
+        li_email = st.text_input("Email", placeholder="you@example.com", key="li_em")
+        li_pass  = st.text_input("Password", type="password", placeholder="••••••••", key="li_pw")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Sign In →", key="li_btn", use_container_width=True):
+            with st.spinner(""):
+                ok, err = do_login(li_email, li_pass)
+            if ok:
+                st.success("Welcome back!")
+                time.sleep(0.4); st.rerun()
+            else:
+                st.error(err)
         st.markdown("""
-        <div style="text-align:center;margin-bottom:2.5rem;">
-          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2.25rem;
-                      color:#fff;letter-spacing:-.02em;margin-bottom:.75rem;">
-            Veri<span style="color:#60a5fa;">Ghana</span>
-          </div>
-          <div class="vg-badge">🇬🇭 Ghana's AI Fact Verification</div>
-          <div style="color:#64748b;font-size:.875rem;margin-top:.5rem;">
-            Fighting misinformation with trusted Ghanaian sources
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div style="text-align:center;margin-top:.75rem;">
+          <span style="font-size:.72rem;color:#2d4060;">
+            Admin access: set <code style="color:#60a5fa;font-size:.7rem;">ADMIN_EMAIL</code> in .env
+          </span>
+        </div>""", unsafe_allow_html=True)
 
-        st.markdown('<div class="vg-card" style="max-width:440px;margin:0 auto;">', unsafe_allow_html=True)
-        tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+    with tab_up:
+        st.markdown("<br>", unsafe_allow_html=True)
+        r_email = st.text_input("Email", placeholder="you@example.com", key="r_em")
+        r_pass  = st.text_input("Password", type="password", placeholder="Minimum 6 characters", key="r_pw")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Create Account →", key="r_btn", use_container_width=True):
+            with st.spinner(""):
+                ok, msg = do_register(r_email, r_pass)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+        st.markdown("""
+        <div style="text-align:center;margin-top:.75rem;">
+          <span style="font-size:.72rem;color:#2d4060;">
+            GIMPA students — promo code
+            <code style="color:#60a5fa;background:rgba(37,99,235,.08);
+              padding:.1rem .35rem;border-radius:3px;font-size:.7rem;">GIMPA2026</code>
+            for 50% off Pro
+          </span>
+        </div>""", unsafe_allow_html=True)
 
-        with tab_in:
-            st.markdown("<br>", unsafe_allow_html=True)
-            li_email = st.text_input("Email address", placeholder="you@example.com", key="li_em")
-            li_pass  = st.text_input("Password", type="password", placeholder="Your password", key="li_pw")
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Sign In →", key="li_btn", use_container_width=True):
-                with st.spinner(""):
-                    ok, err = do_login(li_email, li_pass)
-                if ok:
-                    st.success("Welcome back!")
-                    time.sleep(0.4); st.rerun()
-                else:
-                    st.error(err)
-            st.markdown("""
-            <div style="text-align:center;margin-top:.75rem;">
-              <span style="font-size:.75rem;color:#475569;">
-                Admin? Use your <code style="color:#93c5fd;">ADMIN_EMAIL</code> credentials.
-              </span>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with tab_up:
-            st.markdown("<br>", unsafe_allow_html=True)
-            r_email = st.text_input("Email address", placeholder="you@example.com", key="r_em")
-            r_pass  = st.text_input("Password (minimum 6 characters)", type="password",
-                                    placeholder="6+ characters", key="r_pw")
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Create Account →", key="r_btn", use_container_width=True):
-                with st.spinner(""):
-                    ok, msg = do_register(r_email, r_pass)
-                if ok:
-                    st.success(msg)
-                else:
-                    st.error(msg)
-            st.markdown("""
-            <div style="text-align:center;margin-top:.75rem;">
-              <span style="font-size:.75rem;color:#475569;">
-                GIMPA students — use code
-                <span style="color:#60a5fa;font-family:'DM Mono',monospace;
-                             background:rgba(37,99,235,.1);padding:.1rem .4rem;border-radius:4px;">
-                  GIMPA2026
-                </span>
-                for 50% off Pro after sign-up
-              </span>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -831,26 +834,20 @@ def page_auth():
 #  SHARED: NAVBAR + TABBAR
 # ══════════════════════════════════════════════
 def render_nav():
-    tier  = st.session_state.user_tier
-    role  = st.session_state.user_role
-    email = st.session_state.user_email or ""
-    name  = st.session_state.user_name or email.split("@")[0].title() or "User"
+    tier    = st.session_state.user_tier
+    role    = st.session_state.user_role
+    email   = st.session_state.user_email or ""
+    name    = st.session_state.user_name or email.split("@")[0].title() or "User"
     initial = (name or "U")[0].upper()
     st.markdown(f"""
     <div class="vg-nav">
-      <a class="vg-logo" style="text-decoration:none;">Veri<span>Ghana</span></a>
-      <span class="vg-nav-divider"></span>
+      <span class="vg-logo">Veri<em>Ghana</em></span>
+      <span class="vg-sep"></span>
       <span class="vg-nav-sub">National Fact Verification</span>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;">
+      <div class="vg-nav-right">
         {tier_chip(tier, role)}
-        <div style="display:flex;align-items:center;gap:.5rem;">
-          <div style="width:26px;height:26px;border-radius:50%;
-               background:linear-gradient(135deg,#1e40af,#3b82f6);
-               display:flex;align-items:center;justify-content:center;
-               font-family:'Syne',sans-serif;font-weight:700;
-               font-size:.65rem;color:#fff;letter-spacing:.02em;">{initial}</div>
-          <span style="color:#475569;font-size:.78rem;font-family:'DM Mono',monospace;">{email}</span>
-        </div>
+        <div class="vg-avatar">{initial}</div>
+        <span style="color:#2d4060;font-family:'DM Mono',monospace;font-size:.68rem;">{email}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -860,27 +857,27 @@ def render_tabs():
     page  = st.session_state.page
     admin = is_admin()
     pages = [
-        ("verify",  "Verify",     False),
-        ("history", "History",    False),
-        ("account", "Account",    False),
+        ("verify",  "Verify",       False),
+        ("history", "History",      False),
+        ("account", "Account",      False),
     ]
     if admin:
         pages += [("admin","Admin",True),("tester","Site Tester",True)]
 
-    n = len(pages)
-    # Visual tab bar
+    # Visual tab strip
     tabs_html = '<div class="vg-tabbar">'
-    for k, lbl, is_admin_tab in pages:
-        is_active = (k == page)
-        cls = "vg-tab-item" + (" vg-tab-active" if is_active else "") + (" vg-tab-admin" if is_admin_tab else "")
+    for k, lbl, is_adm in pages:
+        cls = "vg-tab-item"
+        if k == page: cls += " active"
+        if is_adm:    cls += " admin-tab"
         tabs_html += f'<span class="{cls}">{lbl}</span>'
     tabs_html += '</div>'
     st.markdown(tabs_html, unsafe_allow_html=True)
 
-    # Functional buttons — visually zeroed out, positioned to sit under the tab bar
-    st.markdown('<div style="height:0;overflow:hidden;opacity:0;pointer-events:auto;">', unsafe_allow_html=True)
-    cols = st.columns(n)
-    for i, (k, lbl, _) in enumerate(pages):
+    # Invisible but clickable button row — zero height, sits under the tab strip
+    st.markdown('<div style="height:0;overflow:hidden;opacity:0;">', unsafe_allow_html=True)
+    cols = st.columns(len(pages))
+    for i,(k,lbl,_) in enumerate(pages):
         with cols[i]:
             if st.button(lbl, key=f"tab_{k}", use_container_width=True):
                 st.session_state.page = k; st.rerun()
@@ -896,7 +893,7 @@ def page_verify():
     lim   = daily_limit()
     used  = queries_today()
 
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
 
     # ── Header
     st.markdown("""
@@ -1165,7 +1162,7 @@ def page_verify():
 # ══════════════════════════════════════════════
 def page_history():
     hist = st.session_state.history
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Verification <em>History</em></div>
@@ -1248,7 +1245,7 @@ def page_account():
     lim   = daily_limit()
     used  = queries_today()
 
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
     st.markdown("""
     <div class="vg-page-head"><div class="vg-h1">Your <em>Account</em></div></div>
     """, unsafe_allow_html=True)
@@ -1393,7 +1390,7 @@ def page_account():
 #  PAGE: ADMIN DASHBOARD
 # ══════════════════════════════════════════════
 def page_admin():
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Admin <em>Dashboard</em></div>
@@ -1502,7 +1499,7 @@ def page_admin():
 #  PAGE: SITE TESTER  (full original logic, restyled)
 # ══════════════════════════════════════════════
 def page_tester():
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Site <em>Tester</em></div>
@@ -1770,6 +1767,20 @@ def main():
 
     render_nav()
     render_tabs()
+
+    # Apply page-content width constraint
+    st.markdown("""
+    <style>
+    /* On logged-in pages: constrain and centre the Streamlit container */
+    [data-testid="stAppViewBlockContainer"],
+    [data-testid="stMainBlockContainer"],
+    .block-container {
+        max-width: 1080px !important;
+        margin: 0 auto !important;
+        padding: 0 2rem !important;
+        padding-top: 0 !important;
+    }
+    </style>""", unsafe_allow_html=True)
 
     p    = st.session_state.page
     admin = is_admin()
