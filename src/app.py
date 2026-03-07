@@ -552,12 +552,7 @@ section[data-testid="stSidebar"]{display:none!important;}
 .vg-tab-item.active{color:#e2e8f0;font-weight:500;border-bottom-color:#2563eb;}
 .vg-tab-item.admin-tab{color:#5a4830;}
 .vg-tab-item.admin-tab.active{color:#fbbf24;border-bottom-color:#d97706;}
-.vg-tab-btns{position:relative;height:0;overflow:visible;}
-.vg-tab-btns .stButton>button{position:absolute!important;inset:0!important;
-  width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;
-  padding:0!important;margin:0!important;border:none!important;}
-.vg-tab-btns [data-testid="stHorizontalBlock"]{gap:0!important;align-items:stretch!important;}
-.vg-tab-btns [data-testid="column"]{padding:0!important;}
+/* tab nav handled via JS query params — no hidden buttons needed */
 
 /* ─── PAGE SHELL ─── */
 .vg-shell{background:#0f2240;width:100%;}
@@ -960,24 +955,31 @@ def render_tabs():
         ("account", "Account",      False),
     ]
     if admin:
-        pages += [("admin","Admin",True),("tester","Site Tester",True)]
+        pages += [("admin", "Admin", True), ("tester", "Site Tester", True)]
 
+    # Handle tab navigation via query param set by JS onclick below
+    nav = st.query_params.get("nav", "")
+    valid = [k for k, _, _ in pages]
+    if nav in valid and nav != page:
+        st.session_state.page = nav
+        st.query_params.clear()
+        st.rerun()
+
+    # Single visual tab strip — clicking each span sets ?nav=<key> which Python reads above
     tabs_html = '<div class="vg-tabbar">'
     for k, lbl, is_adm in pages:
         cls = "vg-tab-item"
-        if k == page: cls += " active"
-        if is_adm:    cls += " admin-tab"
-        tabs_html += f'<span class="{cls}">{lbl}</span>'
+        if k == page:  cls += " active"
+        if is_adm:     cls += " admin-tab"
+        # JS: update URL param without full reload first, Streamlit picks it up on next run
+        onclick = (
+            "var u=new URL(window.location.href);"
+            f"u.searchParams.set('nav','{k}');"
+            "window.location.href=u.toString();"
+        )
+        tabs_html += f'<span class="{cls}" onclick="{onclick}" style="cursor:pointer;">{lbl}</span>'
     tabs_html += '</div>'
     st.markdown(tabs_html, unsafe_allow_html=True)
-
-    st.markdown('<div style="height:0;overflow:hidden;opacity:0;">', unsafe_allow_html=True)
-    cols = st.columns(len(pages))
-    for i,(k,lbl,_) in enumerate(pages):
-        with cols[i]:
-            if st.button(lbl, key=f"tab_{k}", use_container_width=True):
-                st.session_state.page = k; st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
