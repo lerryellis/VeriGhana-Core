@@ -12,10 +12,13 @@ with all original logic from the working app.py preserved:
   • Live progress + summary counters in Site Tester
   • Database stats sidebar with trusted-source list
   • Skip-existing checkbox, category filter, custom URL tester
+  • Cookie + localStorage session persistence (survives refresh/reopen)
 """
 
 import streamlit as st
-import sys, os, time, hashlib
+import streamlit.components.v1
+import sys, os, time, hashlib, hmac, json, base64
+from typing import Optional
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -55,7 +58,10 @@ try:
 except ImportError:
     BACKEND_OK = False
 
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
+ADMIN_EMAIL  = os.getenv("ADMIN_EMAIL", "")
+_COOKIE_NAME = "vg_session"
+_COOKIE_DAYS = 30
+_SECRET      = os.getenv("SESSION_SECRET", "vg-default-secret-change-me")
 
 TIER_LIMITS = {"free": 5, "pro": None, "institutional": None}
 TIER_MODELS = {
@@ -63,6 +69,181 @@ TIER_MODELS = {
     "pro":           list(FREE_MODELS.keys()),
     "institutional": list(FREE_MODELS.keys()),
 }
+
+
+# ══════════════════════════════════════════════
+#  SESSION PERSISTENCE
+#  Token = base64(json_payload) + "." + HMAC-SHA256
+#  Stored in browser cookie AND localStorage.
+#  On every reload the JS sets ?_vg=<token> so
+#  Python can restore session_state without extra packages.
+# ══════════════════════════════════════════════
+
+def _sign(payload: dict) -> str:
+    body = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode()
+    ).decode().rstrip("=")
+    sig = hmac.new(_SECRET.encode(), body.encode(), hashlib.sha256).hexdigest()
+    return f"{body}.{sig}"
+
+
+def _verify_token(token: str) -> Optional[dict]:
+    """Return payload if token is valid and not expired, else None."""
+    try:
+        body, sig = token.rsplit(".", 1)
+        expected  = hmac.new(_SECRET.encode(), body.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return None
+        padding = 4 - len(body) % 4
+        payload = json.loads(base64.urlsafe_b64decode(body + "=" * padding))
+        if payload.get("exp", 0) < time.time():
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _make_session_token(email: str, name: str, role: str,
+                        tier: str, user_id: str) -> str:
+    return _sign({
+        "email": email,
+        "name":  name,
+        "role":  role,
+        "tier":  tier,
+        "uid":   user_id,
+        "exp":   int(time.time()) + _COOKIE_DAYS * 86400,
+    })
+
+
+def _cookie_js(token: str) -> str:
+    """Write token to both cookie and localStorage."""
+    token_json = json.dumps(token)
+    return f"""
+<script>
+(function() {{
+  var token  = {token_json};
+  var days   = {_COOKIE_DAYS};
+  var exp    = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = "vg_session=" + encodeURIComponent(token)
+                  + "; expires=" + exp + "; path=/; SameSite=Lax";
+  try {{ localStorage.setItem("vg_token", token); }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _clear_cookie_js() -> str:
+    """Delete cookie and localStorage on sign-out."""
+    return """
+<script>
+(function() {
+  document.cookie = "vg_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+  try { localStorage.removeItem("vg_token"); } catch(e) {}
+  var url = new URL(window.location.href);
+  url.searchParams.delete("_vg");
+  window.history.replaceState({}, document.title, url.toString());
+})();
+</script>"""
+
+
+def _read_session_js() -> str:
+    """
+    Injected on every page load when not yet logged in.
+    Reads cookie (or localStorage fallback), sets ?_vg= to trigger a
+    Streamlit re-run so Python can restore session_state.
+    sessionStorage flag prevents infinite redirect loops.
+    """
+    return """
+<script>
+(function() {
+  if (sessionStorage.getItem("vg_redirected") === "1") return;
+
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  var token = getCookie("vg_session");
+
+  // Restore cookie from localStorage if it was cleared
+  if (!token) {
+    try { token = localStorage.getItem("vg_token"); } catch(e) {}
+    if (token) {
+      var exp = new Date(Date.now() + 30 * 864e5).toUTCString();
+      document.cookie = "vg_session=" + encodeURIComponent(token)
+                      + "; expires=" + exp + "; path=/; SameSite=Lax";
+    }
+  }
+
+  if (!token) return;
+
+  var params = new URLSearchParams(window.location.search);
+  if (params.get("_vg") === token) return;  // already set, avoid loop
+
+  sessionStorage.setItem("vg_redirected", "1");
+  params.set("_vg", token);
+  window.location.search = params.toString();
+})();
+</script>"""
+
+
+def _clear_redirect_flag_js() -> str:
+    return """<script>
+(function() { try { sessionStorage.removeItem("vg_redirected"); } catch(e) {} })();
+</script>"""
+
+
+def restore_session_from_cookie():
+    """Called once at the top of main(). Restores session from ?_vg= token."""
+    if st.session_state.get("logged_in"):
+        save_session_cookie()   # silently roll the 30-day window
+        return
+
+    token = st.query_params.get("_vg", "")
+    if not token:
+        return
+
+    payload = _verify_token(token)
+    if not payload:
+        st.query_params.clear()
+        return
+
+    st.session_state.update(
+        logged_in  = True,
+        user_email = payload["email"],
+        user_name  = payload.get("name", ""),
+        user_role  = payload["role"],
+        user_tier  = payload["tier"],
+        user_id    = payload["uid"],
+    )
+    st.query_params.clear()
+    st.components.v1.html(_clear_redirect_flag_js(), height=0)
+
+
+def save_session_cookie():
+    """Write / refresh cookie + localStorage. Safe to call on every load."""
+    token = _make_session_token(
+        email   = st.session_state.user_email or "",
+        name    = st.session_state.user_name  or "",
+        role    = st.session_state.user_role  or "client",
+        tier    = st.session_state.user_tier  or "free",
+        user_id = str(st.session_state.user_id or ""),
+    )
+    st.components.v1.html(_cookie_js(token), height=0)
+
+
+def clear_session_cookie():
+    """Delete cookie + localStorage and wipe relevant session_state keys."""
+    st.components.v1.html(_clear_cookie_js(), height=0)
+    for key in ("logged_in", "user_email", "user_name",
+                "user_role", "user_tier", "user_id"):
+        st.session_state.pop(key, None)
+
+
+def inject_session_reader():
+    """Injected every page load when not logged in — JS does the cookie read."""
+    if not st.session_state.get("logged_in"):
+        st.components.v1.html(_read_session_js(), height=0)
+
 
 # ══════════════════════════════════════════════
 #  PAGE CONFIG
@@ -75,7 +256,7 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════
-#  SITE TESTER CONSTANTS  (from original app.py)
+#  SITE TESTER CONSTANTS
 # ══════════════════════════════════════════════
 HEADERS = {
     "User-Agent": (
@@ -193,7 +374,7 @@ STATUS_LABEL = {
 
 
 # ══════════════════════════════════════════════
-#  SITE TESTER CORE  (from original app.py, untouched)
+#  SITE TESTER CORE
 # ══════════════════════════════════════════════
 def test_single_site(site: dict) -> dict:
     name     = site["name"]
@@ -286,8 +467,6 @@ init_state()
 #  GLOBAL CSS
 # ══════════════════════════════════════════════
 def inject_css():
-    # Fonts injected separately — mixing <link> + <style> in one st.markdown
-    # call causes Streamlit to render the <style> content as raw text.
     st.markdown(
         '<link rel="preconnect" href="https://fonts.googleapis.com">'
         '<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800'
@@ -295,8 +474,6 @@ def inject_css():
         '&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">',
         unsafe_allow_html=True,
     )
-    # CSS is injected in its own call so the <style> block is never mixed with
-    # other tags — the only reliable pattern in current Streamlit versions.
     _CSS = """
 /* ─── GLOBAL RESET ─── */
 *{box-sizing:border-box;}
@@ -306,7 +483,6 @@ html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
 .stApp{background:#0f2240!important;min-height:100vh;}
 
 /* ─── NUKE ALL STREAMLIT PADDING ─── */
-/* Streamlit injects padding-top via inline style AND class — target both */
 .block-container{padding:0!important;padding-top:0!important;max-width:100%!important;margin:0!important;}
 [data-testid="stAppViewBlockContainer"]{padding:0!important;padding-top:0!important;max-width:100%!important;}
 [data-testid="stMainBlockContainer"]{padding:0!important;padding-top:0!important;max-width:100%!important;}
@@ -314,9 +490,7 @@ html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
 section.main > div{padding:0!important;padding-top:0!important;}
 section.main > div > div{padding:0!important;}
 section[data-testid="stSidebar"]{display:none!important;}
-/* Remove default vertical gap between blocks */
 [data-testid="stVerticalBlock"]{gap:0 !important;}
-/* But restore gap inside content areas */
 .vg-wrap [data-testid="stVerticalBlock"]{gap:.4rem !important;}
 
 /* ─── SCROLLBAR ─── */
@@ -325,13 +499,11 @@ section[data-testid="stSidebar"]{display:none!important;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
 
 /* ─── AUTH PAGE ─── */
-/* The entire stApp becomes the centred login screen */
 .auth-mode .stApp{
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
   min-height:100vh;
-  background:
-    linear-gradient(160deg,#0a1628 0%,#0d1f42 60%,#0f2240 100%) !important;
+  background:linear-gradient(160deg,#0a1628 0%,#0d1f42 60%,#0f2240 100%) !important;
 }
 .auth-mode .block-container,
 .auth-mode [data-testid="stAppViewBlockContainer"],
@@ -339,7 +511,6 @@ section[data-testid="stSidebar"]{display:none!important;}
   width:100%!important;max-width:440px!important;
   margin:0 auto!important;padding:0 1rem!important;
 }
-/* Grid overlay */
 .auth-bg-grid{
   position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
@@ -358,117 +529,69 @@ section[data-testid="stSidebar"]{display:none!important;}
   position:sticky;top:0;z-index:300;
   width:100%;
 }
-.vg-logo{
-  font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;
-  color:#fff;letter-spacing:-.02em;text-decoration:none;white-space:nowrap;
-}
+.vg-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;
+  color:#fff;letter-spacing:-.02em;text-decoration:none;white-space:nowrap;}
 .vg-logo em{font-style:normal;color:#60a5fa;}
 .vg-sep{width:1px;height:16px;background:rgba(255,255,255,.1);}
-.vg-nav-sub{
-  font-family:'DM Mono',monospace;font-size:.62rem;color:#334155;
-  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
-}
-.vg-nav-right{
-  margin-left:auto;display:flex;align-items:center;gap:.75rem;
-}
-.vg-avatar{
-  width:24px;height:24px;border-radius:50%;
+.vg-nav-sub{font-family:'DM Mono',monospace;font-size:.62rem;color:#334155;
+  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+.vg-nav-right{margin-left:auto;display:flex;align-items:center;gap:.75rem;}
+.vg-avatar{width:24px;height:24px;border-radius:50%;
   background:linear-gradient(135deg,#1e40af,#3b82f6);
   display:flex;align-items:center;justify-content:center;
   font-family:'Syne',sans-serif;font-weight:700;
-  font-size:.6rem;color:#fff;flex-shrink:0;
-}
+  font-size:.6rem;color:#fff;flex-shrink:0;}
 
 /* ─── TAB BAR ─── */
-.vg-tabbar{
-  background:rgba(7,15,32,.97);
-  border-bottom:1px solid rgba(255,255,255,.06);
-  display:flex;align-items:stretch;
-  padding:0 2rem;
-  position:sticky;top:52px;z-index:200;
-  overflow-x:auto;
-}
-.vg-tab-item{
-  padding:.6rem 1.1rem;
-  font-size:.8rem;font-weight:400;color:#3d5068;
-  border-bottom:2px solid transparent;
-  white-space:nowrap;letter-spacing:.01em;cursor:pointer;
-  transition:color .15s,border-color .15s;
-}
+.vg-tabbar{background:rgba(7,15,32,.97);border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:stretch;padding:0 2rem;
+  position:sticky;top:52px;z-index:200;overflow-x:auto;}
+.vg-tab-item{padding:.6rem 1.1rem;font-size:.8rem;font-weight:400;color:#3d5068;
+  border-bottom:2px solid transparent;white-space:nowrap;letter-spacing:.01em;cursor:pointer;
+  transition:color .15s,border-color .15s;}
 .vg-tab-item.active{color:#e2e8f0;font-weight:500;border-bottom-color:#2563eb;}
 .vg-tab-item.admin-tab{color:#5a4830;}
 .vg-tab-item.admin-tab.active{color:#fbbf24;border-bottom-color:#d97706;}
-/* Zero-height clickable button row sits here */
-.vg-tab-btns{
-  position:relative;height:0;overflow:visible;
-}
-.vg-tab-btns .stButton>button{
-  position:absolute!important;inset:0!important;
-  width:100%!important;height:100%!important;
-  opacity:0!important;cursor:pointer!important;
-  padding:0!important;margin:0!important;border:none!important;
-}
-/* Tab columns need zero gap */
+.vg-tab-btns{position:relative;height:0;overflow:visible;}
+.vg-tab-btns .stButton>button{position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;
+  padding:0!important;margin:0!important;border:none!important;}
 .vg-tab-btns [data-testid="stHorizontalBlock"]{gap:0!important;align-items:stretch!important;}
 .vg-tab-btns [data-testid="column"]{padding:0!important;}
 
 /* ─── PAGE SHELL ─── */
-.vg-shell{
-  background:#0f2240;
-  width:100%;
-}
-.vg-wrap{
-  max-width:1080px;margin:0 auto;
-  padding:.75rem 2rem 2rem;
-}
+.vg-shell{background:#0f2240;width:100%;}
+.vg-wrap{max-width:1080px;margin:0 auto;padding:.75rem 2rem 2rem;}
 
 /* ─── PAGE HEADER ─── */
-.vg-page-head{
-  border-bottom:1px solid rgba(255,255,255,.05);
-  padding:.75rem 0 .75rem;
-  margin-bottom:1rem;
-}
+.vg-page-head{border-bottom:1px solid rgba(255,255,255,.05);
+  padding:.75rem 0 .75rem;margin-bottom:1rem;}
 
 /* ─── CARDS ─── */
-.vg-card{
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:10px;padding:1.25rem;margin-bottom:.75rem;
-}
-.vg-card-flat{
-  background:rgba(255,255,255,.02);
-  border:1px solid rgba(255,255,255,.06);
-  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;
-}
+.vg-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:1.25rem;margin-bottom:.75rem;}
+.vg-card-flat{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;}
 
 /* ─── TYPOGRAPHY ─── */
-.vg-h1{
-  font-family:'Syne',sans-serif;font-size:1.45rem;font-weight:800;
-  color:#f1f5f9;letter-spacing:-.03em;margin:0 0 .2rem;line-height:1.2;
-  display:inline;
-}
+.vg-h1{font-family:'Syne',sans-serif;font-size:1.45rem;font-weight:800;
+  color:#f1f5f9;letter-spacing:-.03em;margin:0 0 .2rem;line-height:1.2;display:inline;}
 .vg-h1 em{font-style:normal;color:#60a5fa;}
 .vg-h2{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
   color:#e2e8f0;margin:0 0 .6rem;}
 .vg-h3{font-family:'Syne',sans-serif;font-size:.875rem;font-weight:700;
   color:#cbd5e1;margin:0 0 .3rem;}
-.vg-sub{
-  color:#4b6080;font-size:.8rem;font-weight:400;
-  line-height:1.55;margin:.3rem 0 0;display:block;
-}
-.vg-mono{
-  font-family:'DM Mono',monospace;font-size:.65rem;color:#3d5068;
-  letter-spacing:.06em;text-transform:uppercase;
-}
+.vg-sub{color:#4b6080;font-size:.8rem;font-weight:400;
+  line-height:1.55;margin:.3rem 0 0;display:block;}
+.vg-mono{font-family:'DM Mono',monospace;font-size:.65rem;color:#3d5068;
+  letter-spacing:.06em;text-transform:uppercase;}
 
 /* ─── BADGE ─── */
-.vg-badge{
-  display:inline-flex;align-items:center;gap:.3rem;
+.vg-badge{display:inline-flex;align-items:center;gap:.3rem;
   background:rgba(37,99,235,.1);border:1px solid rgba(59,130,246,.2);
   color:#93c5fd;font-size:.62rem;font-weight:600;
   letter-spacing:.08em;text-transform:uppercase;
-  padding:.2rem .7rem;border-radius:999px;
-}
+  padding:.2rem .7rem;border-radius:999px;}
 
 /* ─── VERDICT CHIPS ─── */
 .v-VERIFIED      {background:rgba(22,163,74,.1); color:#4ade80;border:1px solid rgba(22,163,74,.2);}
@@ -520,54 +643,40 @@ section[data-testid="stSidebar"]{display:none!important;}
 /* ─── INPUTS ─── */
 .stTextInput>div>div>input,
 .stTextArea>div>div>textarea{
-  background:rgba(255,255,255,.05)!important;
-  border:1px solid rgba(255,255,255,.1)!important;
+  background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;
   border-radius:7px!important;color:#f1f5f9!important;
-  font-family:'DM Sans',sans-serif!important;font-size:.9rem!important;
-}
+  font-family:'DM Sans',sans-serif!important;font-size:.9rem!important;}
 .stTextInput>div>div>input::placeholder,
 .stTextArea>div>div>textarea::placeholder{color:rgba(255,255,255,.2)!important;}
 .stTextInput>div>div>input:focus,
 .stTextArea>div>div>textarea:focus{
   border-color:rgba(59,130,246,.5)!important;
-  box-shadow:0 0 0 3px rgba(37,99,235,.1)!important;
-}
-.stSelectbox>div>div{
-  background:rgba(255,255,255,.05)!important;
+  box-shadow:0 0 0 3px rgba(37,99,235,.1)!important;}
+.stSelectbox>div>div{background:rgba(255,255,255,.05)!important;
   border:1px solid rgba(255,255,255,.1)!important;
-  border-radius:7px!important;color:#f1f5f9!important;
-}
+  border-radius:7px!important;color:#f1f5f9!important;}
 div[data-baseweb="select"] *{color:#e2e8f0!important;}
-label{
-  color:#3d5068!important;font-size:.62rem!important;
+label{color:#3d5068!important;font-size:.62rem!important;
   font-family:'DM Mono',monospace!important;
-  letter-spacing:.06em!important;text-transform:uppercase!important;
-}
+  letter-spacing:.06em!important;text-transform:uppercase!important;}
 
 /* ─── BUTTONS ─── */
-/* Default = orange CTA */
 .stButton>button{
   background:#ea580c!important;color:#fff!important;border:none!important;
   border-radius:6px!important;font-family:'DM Sans',sans-serif!important;
   font-weight:600!important;font-size:.85rem!important;
-  padding:.55rem 1.25rem!important;
-  transition:background .15s!important;letter-spacing:.01em!important;
-  width:100%;
-}
+  padding:.55rem 1.25rem!important;transition:background .15s!important;
+  letter-spacing:.01em!important;width:100%;}
 .stButton>button:hover{background:#f97316!important;}
-.btn-ghost .stButton>button{
-  background:transparent!important;
-  border:1px solid rgba(255,255,255,.1)!important;
-  color:#64748b!important;
-}
-.btn-ghost .stButton>button:hover{
-  background:rgba(255,255,255,.05)!important;color:#94a3b8!important;
-}
+.btn-ghost .stButton>button{background:transparent!important;
+  border:1px solid rgba(255,255,255,.1)!important;color:#64748b!important;}
+.btn-ghost .stButton>button:hover{background:rgba(255,255,255,.05)!important;color:#94a3b8!important;}
 .btn-blue .stButton>button{background:#1d4ed8!important;}
 .btn-blue .stButton>button:hover{background:#2563eb!important;}
 .btn-green .stButton>button{background:#15803d!important;}
 .btn-green .stButton>button:hover{background:#16a34a!important;}
-.btn-red .stButton>button{background:transparent!important;border:1px solid rgba(220,38,38,.3)!important;color:#f87171!important;}
+.btn-red .stButton>button{background:transparent!important;
+  border:1px solid rgba(220,38,38,.3)!important;color:#f87171!important;}
 .btn-red .stButton>button:hover{background:rgba(220,38,38,.1)!important;}
 
 /* ─── ALERTS ─── */
@@ -581,38 +690,29 @@ div[data-testid="stAlert"]{border-radius:7px!important;}
 hr{border:none!important;border-top:1px solid rgba(255,255,255,.06)!important;margin:.9rem 0!important;}
 
 /* ─── EXPANDER ─── */
-.streamlit-expanderHeader{
-  background:rgba(255,255,255,.03)!important;
-  border:1px solid rgba(255,255,255,.07)!important;
-  border-radius:7px!important;color:#64748b!important;
-  font-family:'DM Sans',sans-serif!important;font-size:.82rem!important;
-}
+.streamlit-expanderHeader{background:rgba(255,255,255,.03)!important;
+  border:1px solid rgba(255,255,255,.07)!important;border-radius:7px!important;
+  color:#64748b!important;font-family:'DM Sans',sans-serif!important;font-size:.82rem!important;}
 
 /* ─── SPINNER / PROGRESS ─── */
 .stSpinner>div{border-top-color:#2563eb!important;}
 .stProgress>div>div{background:#2563eb!important;}
 
 /* ─── INNER TABS (login) ─── */
-.stTabs [data-baseweb="tab-list"]{
-  background:rgba(255,255,255,.03)!important;
-  border:1px solid rgba(255,255,255,.07)!important;
-  border-radius:7px!important;padding:.15rem!important;gap:.15rem!important;
-}
-.stTabs [data-baseweb="tab"]{
-  background:transparent!important;color:#3d5068!important;
+.stTabs [data-baseweb="tab-list"]{background:rgba(255,255,255,.03)!important;
+  border:1px solid rgba(255,255,255,.07)!important;border-radius:7px!important;
+  padding:.15rem!important;gap:.15rem!important;}
+.stTabs [data-baseweb="tab"]{background:transparent!important;color:#3d5068!important;
   border-radius:5px!important;font-family:'DM Sans',sans-serif!important;
-  font-size:.82rem!important;border:none!important;padding:.4rem .85rem!important;
-}
+  font-size:.82rem!important;border:none!important;padding:.4rem .85rem!important;}
 .stTabs [aria-selected="true"]{background:rgba(37,99,235,.18)!important;color:#e2e8f0!important;}
 
 /* ─── ADMIN TABLE ─── */
 .admin-table{width:100%;border-collapse:collapse;}
-.admin-table th{
-  padding:.5rem .85rem;text-align:left;font-family:'DM Mono',monospace;
+.admin-table th{padding:.5rem .85rem;text-align:left;font-family:'DM Mono',monospace;
   font-size:.62rem;color:#3d5068;letter-spacing:.06em;font-weight:500;
   border-bottom:1px solid rgba(255,255,255,.06);}
-.admin-table td{
-  padding:.6rem .85rem;font-size:.8rem;color:#e2e8f0;
+.admin-table td{padding:.6rem .85rem;font-size:.8rem;color:#e2e8f0;
   border-bottom:1px solid rgba(255,255,255,.04);}
 .admin-table tr:hover td{background:rgba(255,255,255,.015);}
 
@@ -669,6 +769,7 @@ def do_login(email, password):
         st.session_state.update(logged_in=True, user_email=email,
                                 user_name="Admin", user_role="admin",
                                 user_tier="institutional", user_id="admin-001")
+        save_session_cookie()
         return True, ""
 
     # ── Real Supabase auth
@@ -682,6 +783,7 @@ def do_login(email, password):
                 user_role="client", user_tier="free",
                 user_id=str(res.user.id) if res.user else None,
             )
+            save_session_cookie()
             return True, ""
         except Exception as e:
             err = str(e)
@@ -706,6 +808,7 @@ def do_login(email, password):
                 user_role=user["role"], user_tier=user["tier"],
                 user_id=str(user["id"]),
             )
+            save_session_cookie()
             return True, ""
         except Exception as e:
             return False, f"Login error: {e}"
@@ -749,11 +852,9 @@ def do_register(email, password):
 #  PAGE: AUTH
 # ══════════════════════════════════════════════
 def page_auth():
-    # Inject auth-mode class so CSS can target this state
     st.markdown("""
     <div class="auth-bg-grid"></div>
     <style>
-    /* Auth-mode: constrain and centre the Streamlit block container */
     [data-testid="stAppViewBlockContainer"],
     [data-testid="stMainBlockContainer"],
     .block-container {
@@ -762,12 +863,10 @@ def page_auth():
         padding: 0 1rem !important;
         padding-top: 0 !important;
     }
-    /* Push content down from top */
     [data-testid="stVerticalBlock"] > div:first-child { margin-top: 3rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Logo + brand
     st.markdown("""
     <div style="text-align:center;padding:2.5rem 0 1.5rem;">
       <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;
@@ -781,7 +880,6 @@ def page_auth():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Card
     st.markdown('<div class="vg-card">', unsafe_allow_html=True)
     tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
 
@@ -790,7 +888,7 @@ def page_auth():
         li_email = st.text_input("Email", placeholder="you@example.com", key="li_em")
         li_pass  = st.text_input("Password", type="password", placeholder="••••••••", key="li_pw")
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Sign In →", key="li_btn", use_container_width=True):
+        if st.button("Sign In", key="li_btn", use_container_width=True):
             with st.spinner(""):
                 ok, err = do_login(li_email, li_pass)
             if ok:
@@ -810,7 +908,7 @@ def page_auth():
         r_email = st.text_input("Email", placeholder="you@example.com", key="r_em")
         r_pass  = st.text_input("Password", type="password", placeholder="Minimum 6 characters", key="r_pw")
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Create Account →", key="r_btn", use_container_width=True):
+        if st.button("Create Account", key="r_btn", use_container_width=True):
             with st.spinner(""):
                 ok, msg = do_register(r_email, r_pass)
             if ok:
@@ -864,7 +962,6 @@ def render_tabs():
     if admin:
         pages += [("admin","Admin",True),("tester","Site Tester",True)]
 
-    # Visual tab strip
     tabs_html = '<div class="vg-tabbar">'
     for k, lbl, is_adm in pages:
         cls = "vg-tab-item"
@@ -874,7 +971,6 @@ def render_tabs():
     tabs_html += '</div>'
     st.markdown(tabs_html, unsafe_allow_html=True)
 
-    # Invisible but clickable button row — zero height, sits under the tab strip
     st.markdown('<div style="height:0;overflow:hidden;opacity:0;">', unsafe_allow_html=True)
     cols = st.columns(len(pages))
     for i,(k,lbl,_) in enumerate(pages):
@@ -893,9 +989,8 @@ def page_verify():
     lim   = daily_limit()
     used  = queries_today()
 
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
 
-    # ── Header
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Verify a <em>Claim</em></div>
@@ -903,7 +998,6 @@ def page_verify():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Usage bar
     if lim is not None:
         rem   = max(0, lim - used)
         pct   = min(100, int(used / lim * 100))
@@ -930,7 +1024,6 @@ def page_verify():
         </div>
         """, unsafe_allow_html=True)
 
-    # ── Two-column layout: input left, controls right
     in1, in2 = st.columns([3, 1])
 
     with in1:
@@ -943,19 +1036,15 @@ def page_verify():
         )
 
     with in2:
-        # Model selector — same logic as original: keys are display names, values are model IDs
         st.markdown("**Select AI Model**", unsafe_allow_html=False)
         model_names = list(FREE_MODELS.keys())
-        # Default to Flash Lite for free tier
         default_idx = 0
         for i, n in enumerate(model_names):
             if "Lite" in n or "lite" in n:
                 default_idx = i
                 break
         selected_model_name = st.selectbox(
-            "AI Model",
-            options=model_names,
-            index=default_idx,
+            "AI Model", options=model_names, index=default_idx,
             help="If one model hits its daily quota, switch to another.",
             label_visibility="collapsed",
         )
@@ -970,7 +1059,7 @@ def page_verify():
         if not can:
             st.markdown('<div class="btn-ghost">', unsafe_allow_html=True)
         run_btn = st.button(
-            "🔍  Check This Claim" if can else "⛔  Daily Limit Reached",
+            "Check This Claim" if can else "Daily Limit Reached",
             key="run_btn", use_container_width=True, disabled=not can,
         )
         if not can:
@@ -982,7 +1071,6 @@ def page_verify():
             unsafe_allow_html=True,
         )
 
-    # ── Run verification
     if run_btn:
         if not user_input or not user_input.strip():
             st.warning("Please enter a claim to verify.")
@@ -994,18 +1082,17 @@ def page_verify():
                 try:
                     result = verify_claim(user_input.strip(), model_id=selected_model_id)
                     result.update(
-                        claim        = user_input.strip(),
-                        date         = datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        model        = selected_model_id,
-                        model_name   = selected_model_name,
-                        processing_ms= int((time.time() - t0) * 1000),
+                        claim         = user_input.strip(),
+                        date          = datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        model         = selected_model_id,
+                        model_name    = selected_model_name,
+                        processing_ms = int((time.time() - t0) * 1000),
                     )
                     st.session_state.result = result
                     st.session_state.history.insert(0, result)
                 except Exception as e:
                     st.error(f"Verification error: {e}")
 
-    # ── Results
     res = st.session_state.result
     if res:
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -1016,15 +1103,14 @@ def page_verify():
         sources      = res.get("sources", [])
         source_notes = res.get("source_notes", [])
         model_used   = res.get("model_used", res.get("model", selected_model_id))
+        provider     = res.get("provider", "")
         color        = sc(score)
 
-        # Normalise verdict casing for CSS classes
         if verdict not in ("VERIFIED", "PARTIAL", "FALSE", "UNCORROBORATED", "ERROR"):
             verdict = "UNCORROBORATED"
 
         r1, r2, r3 = st.columns([1, 2.2, 1.8])
 
-        # ── Score card
         with r1:
             st.markdown(f"""
             <div class="vg-card" style="text-align:center;padding:2rem 1rem;">
@@ -1034,12 +1120,14 @@ def page_verify():
                 <span class="vchip v-{verdict}">{verdict}</span>
               </div>
               <div class="vg-mono" style="margin-top:.75rem;color:#334155;">
-                {res.get("processing_ms",0)}ms · {model_used}
+                {res.get("processing_ms",0)}ms
+              </div>
+              <div class="vg-mono" style="margin-top:.25rem;color:#475569;font-size:.65rem;">
+                via {provider} · {model_used.split(":")[-1][:28]}
               </div>
             </div>
             """, unsafe_allow_html=True)
 
-        # ── Truth meter + explanation
         with r2:
             st.markdown(f"""
             <div class="vg-card">
@@ -1054,104 +1142,103 @@ def page_verify():
             </div>
             """, unsafe_allow_html=True)
 
-            # ── AI summary with source nuances (shown below meter)
             if summary and summary != explanation:
                 st.markdown(f"""
                 <div class="vg-card" style="margin-top:.75rem;border-left:3px solid #2563eb;">
-                  <div class="vg-mono" style="margin-bottom:.5rem;color:#60a5fa;">
-                    AI ANALYSIS SUMMARY
-                  </div>
-                  <div style="font-size:.875rem;color:#cbd5e1;line-height:1.7;">
-                    {summary}
-                  </div>
+                  <div class="vg-mono" style="margin-bottom:.5rem;color:#60a5fa;">AI ANALYSIS SUMMARY</div>
+                  <div style="font-size:.875rem;color:#cbd5e1;line-height:1.7;">{summary}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # ── Sources with per-source stance
         with r3:
-            src_html = ('<div class="vg-card">'
-                        '<div class="vg-mono" style="margin-bottom:.75rem;">SOURCES</div>')
-            if sources:
-                # Build stance lookup
-                stance_map: dict[str, str] = {}
-                for note in source_notes:
-                    k = note.get("source", "").lower()
-                    if k:
-                        stance_map[k] = note.get("stance", "")
+            from html import escape as _esc
+            stance_map = {}
+            for note in source_notes:
+                k = note.get("source", "").lower()
+                if k:
+                    stance_map[k] = note.get("stance", "")
 
-                for s in sources[:5]:
-                    if isinstance(s, dict):
-                        title   = s.get("title", "Untitled")[:65]
-                        url     = s.get("url_link", s.get("url", "#"))
-                        src_name = s.get("source_name", s.get("source", ""))
-                        # stance from source or from source_notes
-                        stance  = s.get("stance", "") or stance_map.get(src_name.lower(), "")
-                    else:
-                        title, url, src_name, stance = str(s)[:65], "#", "", ""
+            src_rows = ""
+            for s in sources[:5]:
+                if isinstance(s, dict):
+                    raw_title  = s.get("title", "Untitled") or "Untitled"
+                    url        = s.get("url_link", s.get("url", "#")) or "#"
+                    raw_name   = s.get("source_name", s.get("source", "")) or ""
+                    raw_stance = s.get("stance", "") or stance_map.get(raw_name.lower(), "")
+                else:
+                    raw_title, url, raw_name, raw_stance = str(s), "#", "", ""
 
-                    stance_html = (
-                        f'<div style="font-size:.72rem;color:#64748b;margin-top:.2rem;'
-                        f'font-style:italic;">{stance[:120]}</div>'
-                        if stance else ""
-                    )
-                    src_html += f"""
-                    <div class="src-row">
-                      <div class="src-dot"></div>
-                      <div style="flex:1;">
-                        <div class="src-title">
-                          <a href="{url}" target="_blank">{title}</a>
-                        </div>
-                        <div class="src-by">{src_name}</div>
-                        {stance_html}
-                      </div>
-                    </div>"""
-            else:
-                src_html += ('<div style="color:#475569;font-size:.875rem;">'
-                             'No direct source matches found in the indexed database.</div>')
-            src_html += '</div>'
-            st.markdown(src_html, unsafe_allow_html=True)
+                title    = _esc(raw_title[:70])
+                src_name = _esc(raw_name[:60])
+                stance   = _esc(raw_stance[:130]) if raw_stance else ""
 
-        # Claim echo + clear
+                if not url.startswith(("http://", "https://")):
+                    url = "#"
+
+                stance_row = (
+                    f'<div style="font-size:.71rem;color:#64748b;font-style:italic;'
+                    f'margin-top:.2rem;line-height:1.4;">{stance}</div>'
+                ) if stance else ""
+
+                src_rows += (
+                    '<div class="src-row">'
+                      '<div class="src-dot"></div>'
+                      '<div style="flex:1;min-width:0;">'
+                        f'<div class="src-title">'
+                          f'<a href="{url}" target="_blank" rel="noopener">{title}</a>'
+                        '</div>'
+                        f'<div class="src-by">{src_name}</div>'
+                        f'{stance_row}'
+                      '</div>'
+                    '</div>'
+                )
+
+            if not src_rows:
+                src_rows = (
+                    '<div style="color:#475569;font-size:.875rem;padding:.5rem 0;">'
+                    'No source matches found in the indexed database.</div>'
+                )
+
+            st.markdown(
+                f'<div class="vg-card">'
+                f'<div class="vg-mono" style="margin-bottom:.75rem;">SOURCES</div>'
+                f'{src_rows}</div>',
+                unsafe_allow_html=True,
+            )
+
         st.markdown(f"""
         <div class="vg-card-flat" style="padding:1rem 1.5rem;">
           <span class="vg-mono">Claim checked</span><br>
           <span style="color:#94a3b8;font-size:.875rem;font-style:italic;">
-            "{res.get('claim','')[:300]}{"…" if len(res.get('claim',''))>300 else ""}"
+            "{res.get('claim','')[:300]}{"..." if len(res.get('claim',''))>300 else ""}"
           </span>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown('<div class="btn-ghost" style="display:inline-block;margin-top:.5rem;">',
                     unsafe_allow_html=True)
-        if st.button("✕  Clear Result", key="clear_btn"):
+        if st.button("Clear Result", key="clear_btn"):
             st.session_state.result = None; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Right sidebar: DB stats (mirrors original)
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Database Stats</div>',
                 unsafe_allow_html=True)
     db1, db2 = st.columns(2)
     if DB_OK:
         try:
-            supabase    = get_supabase_client()
-            count_resp  = supabase.table("fact_entries").select("id", count="exact").execute()
-            total       = count_resp.count or 0
-            src_resp    = supabase.table("trusted_sources").select("source_name,category").execute()
+            supabase   = get_supabase_client()
+            count_resp = supabase.table("fact_entries").select("id", count="exact").execute()
+            total      = count_resp.count or 0
+            src_resp   = supabase.table("trusted_sources").select("source_name,category").execute()
             with db1:
-                st.markdown(f"""
-                <div class="spill">
-                  <span class="spill-n">{total:,}</span>
-                  <span class="spill-l">Facts Indexed</span>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="spill"><span class="spill-n">{total:,}</span>'
+                            f'<span class="spill-l">Facts Indexed</span></div>',
+                            unsafe_allow_html=True)
             with db2:
-                st.markdown(f"""
-                <div class="spill">
-                  <span class="spill-n">{len(src_resp.data or [])}</span>
-                  <span class="spill-l">Trusted Sources</span>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="spill"><span class="spill-n">{len(src_resp.data or [])}</span>'
+                            f'<span class="spill-l">Trusted Sources</span></div>',
+                            unsafe_allow_html=True)
             if src_resp.data:
                 with st.expander("View trusted sources"):
                     for s in src_resp.data:
@@ -1178,7 +1265,7 @@ def page_verify():
 # ══════════════════════════════════════════════
 def page_history():
     hist = st.session_state.history
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Verification <em>History</em></div>
@@ -1214,7 +1301,7 @@ def page_history():
             color   = sc(score)
             claim   = h.get("claim","")
             label   = claim[:80] + "…" if len(claim) > 80 else claim
-            with st.expander(f"{STATUS_ICON.get(verdict,'❓')} {label}"):
+            with st.expander(f"{STATUS_ICON.get(verdict,'?')} {label}"):
                 c1, c2 = st.columns([1,3])
                 with c1:
                     st.markdown(f"""
@@ -1261,7 +1348,7 @@ def page_account():
     lim   = daily_limit()
     used  = queries_today()
 
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
     <div class="vg-page-head"><div class="vg-h1">Your <em>Account</em></div></div>
     """, unsafe_allow_html=True)
@@ -1299,7 +1386,7 @@ def page_account():
         st.markdown(f"""
         <div class="vg-card">
           <div class="vg-mono" style="margin-bottom:1rem;">TODAY'S USAGE</div>
-          {"<div style='color:#4ade80;font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;'>♾ Unlimited</div>"
+          {"<div style='color:#4ade80;font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;'>Unlimited</div>"
             if lim is None else
            f"<div style='font-family:Syne,sans-serif;font-size:1.75rem;font-weight:800;color:#fff;'>{used}"
            f"<span style='color:#475569;font-size:1rem;font-weight:400;'>/{lim}</span></div>"
@@ -1311,7 +1398,6 @@ def page_account():
         </div>
         """, unsafe_allow_html=True)
 
-    # Plan upgrade (free users)
     if tier == "free":
         st.markdown('<hr>', unsafe_allow_html=True)
         st.markdown('<div class="vg-h2">Upgrade Your Plan</div>', unsafe_allow_html=True)
@@ -1322,7 +1408,7 @@ def page_account():
               <div class="plan-header pro">
                 <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">MOST POPULAR</div>
                 <div class="vg-h3" style="color:#fff;">Pro — $9.99/mo</div>
-                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Journalists & researchers</div>
+                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Journalists &amp; researchers</div>
               </div>
               <div class="plan-body">
                 <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
@@ -1334,10 +1420,10 @@ def page_account():
               </div>
             </div>
             """, unsafe_allow_html=True)
-            promo_pro = st.text_input("Promo code", placeholder="GIMPA2026 · PRESS50", key="promo_pro")
+            st.text_input("Promo code", placeholder="GIMPA2026 · PRESS50", key="promo_pro")
             st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-            if st.button("Upgrade to Pro →", key="up_pro", use_container_width=True):
-                st.info("💳 Payment integration coming soon. Use code **GIMPA2026** for 50% off.")
+            if st.button("Upgrade to Pro", key="up_pro", use_container_width=True):
+                st.info("Payment integration coming soon. Use code GIMPA2026 for 50% off.")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with p2:
@@ -1346,7 +1432,7 @@ def page_account():
               <div class="plan-header inst">
                 <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">INSTITUTIONAL</div>
                 <div class="vg-h3" style="color:#fff;">Institutional — $79.99/mo</div>
-                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Newsrooms, NGOs & gov't</div>
+                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Newsrooms, NGOs &amp; gov't</div>
               </div>
               <div class="plan-body">
                 <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
@@ -1359,11 +1445,10 @@ def page_account():
             </div>
             """, unsafe_allow_html=True)
             st.markdown('<div class="btn-green">', unsafe_allow_html=True)
-            if st.button("Contact Sales →", key="up_inst", use_container_width=True):
-                st.info("📧 sales@verighana.gh")
+            if st.button("Contact Sales", key="up_inst", use_container_width=True):
+                st.info("sales@verighana.gh")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # Promo validator
     st.markdown('<hr>', unsafe_allow_html=True)
     st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Redeem Promo Code</div>',
                 unsafe_allow_html=True)
@@ -1381,11 +1466,11 @@ def page_account():
                 "LAUNCH100": "100% off first month",
             }
             match = known.get((promo_val or "").upper())
-            if match: st.success(f"✅ Valid: {match}")
-            else:      st.error("❌ Invalid or expired promo code.")
+            if match: st.success(f"Valid: {match}")
+            else:      st.error("Invalid or expired promo code.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Sign out
+    # ── Sign Out
     st.markdown('<hr>', unsafe_allow_html=True)
     st.markdown('<div class="btn-red" style="display:inline-block;">', unsafe_allow_html=True)
     if st.button("Sign Out", key="signout"):
@@ -1394,9 +1479,9 @@ def page_account():
                 get_supabase_client().auth.sign_out()
         except Exception:
             pass
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
-        init_state(); st.rerun()
+        clear_session_cookie()   # deletes cookie, localStorage, and session keys
+        init_state()
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div></div>', unsafe_allow_html=True)
@@ -1406,7 +1491,7 @@ def page_account():
 #  PAGE: ADMIN DASHBOARD
 # ══════════════════════════════════════════════
 def page_admin():
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Admin <em>Dashboard</em></div>
@@ -1414,11 +1499,11 @@ def page_admin():
     </div>
     """, unsafe_allow_html=True)
 
-    articles, sources_count, reqs = 0, 0, 0
+    articles, sources_count = 0, 0
     if DB_OK:
         try:
-            sb       = get_supabase_client()
-            articles = sb.table("fact_entries").select("id",count="exact").execute().count or 0
+            sb            = get_supabase_client()
+            articles      = sb.table("fact_entries").select("id",count="exact").execute().count or 0
             sources_count = sb.table("trusted_sources").select("id",count="exact").execute().count or 0
         except Exception: pass
 
@@ -1470,19 +1555,18 @@ def page_admin():
         st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
         if st.button("Create Code", key="create_promo", use_container_width=True):
             if np_code:
-                st.success(f"✅ Code **{np_code.upper()}** created.")
+                st.success(f"Code {np_code.upper()} created.")
             else:
                 st.error("Enter a code name.")
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # Scraper controls
     st.markdown('<hr>', unsafe_allow_html=True)
     st.markdown('<div class="vg-h2" style="margin-bottom:1rem;">Scraper Controls</div>',
                 unsafe_allow_html=True)
     sc1, sc2, sc3 = st.columns(3)
     with sc1:
         st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-        if st.button("▶  Run RSS Scraper", key="run_rss", use_container_width=True):
+        if st.button("Run RSS Scraper", key="run_rss", use_container_width=True):
             with st.spinner("Running…"):
                 try:
                     from scraper import run_scraper; run_scraper()
@@ -1491,7 +1575,7 @@ def page_admin():
         st.markdown('</div>', unsafe_allow_html=True)
     with sc2:
         st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-        if st.button("▶  Run HTML Scraper", key="run_html", use_container_width=True):
+        if st.button("Run HTML Scraper", key="run_html", use_container_width=True):
             with st.spinner("Running…"):
                 try:
                     from scrapers.html_scraper import run_html_ingestion
@@ -1500,7 +1584,7 @@ def page_admin():
         st.markdown('</div>', unsafe_allow_html=True)
     with sc3:
         st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-        if st.button("▶  Run Embedder", key="run_embed", use_container_width=True):
+        if st.button("Run Embedder", key="run_embed", use_container_width=True):
             with st.spinner("Running…"):
                 try:
                     from embedder import run_embedder
@@ -1508,14 +1592,350 @@ def page_admin():
                 except Exception as e: st.error(str(e))
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # ── LLM Diagnostics
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="vg-h2" style="margin-bottom:.25rem;">LLM Diagnostics</div>
+    <div class="vg-sub" style="margin-bottom:1.5rem;">
+      Run live checks against each AI provider and your Supabase database.<br>
+      Tests: API reachability &nbsp;·&nbsp; DB index readable &nbsp;·&nbsp; Narrative from facts
+    </div>
+    """, unsafe_allow_html=True)
+
+    diag_claim = st.text_input(
+        "Test claim",
+        value="The government of Ghana has increased fuel prices",
+        key="diag_claim",
+        help="Use a real claim you know exists in your database for the best DB read test."
+    )
+
+    run_diag = st.button("Run Full Diagnostics", key="run_diag", type="primary")
+
+    def _badge(status, msg=""):
+        cfg = {
+            "PASS": ("#4ade80", "#052e16", "PASS"),
+            "FAIL": ("#f87171", "#2d0a0a", "FAIL"),
+            "SKIP": ("#94a3b8", "#1e293b", "SKIP"),
+        }
+        c, bg, lbl = cfg.get(status, cfg["SKIP"])
+        detail = f' <span style="color:#94a3b8;font-size:.74rem;">{msg}</span>' if msg else ""
+        return (f'<span style="background:{bg};color:{c};border:1px solid {c}33;'
+                f'padding:.2rem .6rem;border-radius:4px;font-size:.74rem;'
+                f'font-family:\'DM Mono\',monospace;font-weight:600;">{lbl}</span>{detail}')
+
+    def _row(prov, check, status, detail=""):
+        return (f"<tr><td style='color:#cbd5e1;font-weight:600;'>{prov}</td>"
+                f"<td style='color:#94a3b8;'>{check}</td>"
+                f"<td>{_badge(status, detail)}</td></tr>")
+
+    if run_diag:
+        import re as _re, json as _json
+        import requests as _req
+        rows_html = ""
+        full_log  = []
+
+        def _safe_key(k):
+            return (k or "").encode("ascii", errors="ignore").decode("ascii").strip()
+
+        providers = [
+            ("Gemini",     _safe_key(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY","")), "gemini"),
+            ("Groq",       _safe_key(os.getenv("GROQ_API_KEY","")),        "groq"),
+            ("Cohere",     _safe_key(os.getenv("COHERE_API_KEY","")),      "cohere"),
+            ("OpenRouter", _safe_key(os.getenv("OPENROUTER_API_KEY","")),  "openrouter"),
+        ]
+
+        total_steps = len(providers) * 3 + 2
+        step_n = [0]
+        bar = st.progress(0, text="Starting diagnostics...")
+
+        def _tick(msg=""):
+            step_n[0] = min(step_n[0] + 1, total_steps)
+            bar.progress(step_n[0] / total_steps, text=msg)
+
+        _tick("Checking Supabase connection...")
+        try:
+            sb  = get_supabase_client()
+            cnt = sb.table("fact_entries").select("id", count="exact").execute().count or 0
+            rows_html += _row("Supabase", "1. Connection + row count", "PASS", f"{cnt:,} rows in fact_entries")
+            full_log.append(f"[DB-CONNECT] PASS - {cnt:,} rows")
+        except Exception as e:
+            cnt = 0
+            rows_html += _row("Supabase", "1. Connection + row count", "FAIL", str(e)[:80])
+            full_log.append(f"[DB-CONNECT] FAIL - {e}")
+
+        _tick("Testing keyword search...")
+        db_results = []
+        db_search_errors = []
+        try:
+            sb2   = get_supabase_client()
+            probe = sb2.table("fact_entries").select("*").limit(1).execute()
+            actual_cols = list(probe.data[0].keys()) if probe.data else []
+            full_log.append(f"[DB-COLS] {actual_cols}")
+
+            import re as _re2
+            raw_words = [w.lower() for w in _re2.findall(r"[a-zA-Z]{3,}", diag_claim)]
+            full_log.append(f"[DB-WORDS] extracted: {raw_words}")
+
+            text_cols = [c for c in ["title","content","headline","body","text","description"]
+                         if c in actual_cols]
+            full_log.append(f"[DB-TEXT-COLS] searchable: {text_cols}")
+
+            for word in raw_words[:8]:
+                if db_results:
+                    break
+                for col in text_cols[:2]:
+                    try:
+                        r = sb2.table("fact_entries").select("*").ilike(col, f"%{word}%").limit(5).execute()
+                        if r.data:
+                            db_results.extend(r.data)
+                            full_log.append(f"[DB-SEARCH] ilike {col} LIKE %{word}% -> {len(r.data)} rows")
+                            break
+                        else:
+                            full_log.append(f"[DB-SEARCH] ilike {col} LIKE %{word}% -> 0 rows")
+                    except Exception as ce:
+                        full_log.append(f"[DB-SEARCH] ilike {col} error: {ce}")
+                        db_search_errors.append(str(ce)[:60])
+
+            if not db_results:
+                full_log.append("[DB-SEARCH] no ilike hits - trying recent rows fallback")
+                order_col = "published_date" if "published_date" in actual_cols else (
+                    "created_at" if "created_at" in actual_cols else None)
+                try:
+                    q = sb2.table("fact_entries").select("*")
+                    if order_col:
+                        q = q.order(order_col, desc=True)
+                    r = q.limit(5).execute()
+                    if r.data:
+                        db_results.extend(r.data)
+                        full_log.append(f"[DB-FALLBACK] got {len(r.data)} recent rows")
+                except Exception as fe:
+                    full_log.append(f"[DB-FALLBACK] failed: {fe}")
+
+            if db_results:
+                def _norm(row):
+                    return {
+                        "id":             row.get("id",""),
+                        "title":          row.get("title") or row.get("headline") or row.get("body","")[:80],
+                        "content":        row.get("content") or row.get("body") or row.get("text",""),
+                        "url_link":       row.get("url_link") or row.get("url","#"),
+                        "source_name":    row.get("source_name") or row.get("source","Unknown"),
+                        "published_date": row.get("published_date") or row.get("created_at",""),
+                    }
+                db_results = [_norm(r) for r in db_results]
+                sample = " | ".join(r.get("title","?")[:40] for r in db_results[:2])
+                rows_html += _row("Supabase", "2. Keyword search (fact_entries)", "PASS",
+                                  f"{len(db_results)} rows - e.g. {sample}")
+                full_log.append(f"[DB-SEARCH] PASS - {len(db_results)} results")
+            else:
+                err_detail = (" | ".join(db_search_errors[:2])) if db_search_errors else "unknown"
+                rows_html += _row("Supabase", "2. Keyword search (fact_entries)", "FAIL",
+                                  f"0 results. Cols={actual_cols[:5]} Words={raw_words[:4]} Err={err_detail}")
+                full_log.append(f"[DB-SEARCH] FAIL - cols={actual_cols} words={raw_words}")
+        except Exception as e:
+            rows_html += _row("Supabase", "2. Keyword search (fact_entries)", "FAIL", str(e)[:120])
+            full_log.append(f"[DB-SEARCH] FAIL - {e}")
+
+        src_block = "\n".join(
+            f"[{i+1}] {r.get('source_name','?')} - {r.get('title','?')}: {(r.get('content') or '')[:150]}"
+            for i, r in enumerate(db_results[:3])
+        ) or "(no sources found in database)"
+
+        narr_prompt = (
+            "You are VeriGhana, a Ghana fact-checker.\n\n"
+            f"CLAIM: {diag_claim}\n\nSOURCES:\n{src_block}\n\n"
+            "Return ONLY valid JSON: "
+            '{"verdict":"VERIFIED or PARTIAL or FALSE or UNCORROBORATED",'
+            '"score":50,"summary":"2-3 sentence narrative from the sources above"}'
+        )
+
+        for pname, akey, pkey in providers:
+            _tick(f"Testing {pname} API...")
+
+            if not akey:
+                for chk in ("1. API reachability", "2. DB index readable", "3. Narrative from facts"):
+                    rows_html += _row(pname, chk, "SKIP", "No API key in .env")
+                full_log.append(f"[{pname.upper()}] SKIP - no key")
+                step_n[0] = min(step_n[0] + 2, total_steps)
+                continue
+
+            api_ok, api_msg, narr_raw = False, "", None
+            try:
+                ping = '{"ok": true}'
+                if pkey == "gemini":
+                    try:
+                        import google.generativeai as _gnai
+                        _gnai.configure(api_key=akey)
+                        _gnai.GenerativeModel("gemini-2.0-flash").generate_content(
+                            ping, generation_config={"max_output_tokens": 10, "temperature": 0}
+                        )
+                        api_ok, api_msg = True, "gemini-2.0-flash responded"
+                    except ImportError:
+                        api_msg = "google-generativeai not installed. Run: pip install google-generativeai"
+                elif pkey == "groq":
+                    r = _req.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json"},
+                        json={"model": "llama-3.1-8b-instant",
+                              "messages": [{"role": "user", "content": ping}],
+                              "max_tokens": 10, "temperature": 0,
+                              "response_format": {"type": "json_object"}},
+                        timeout=15
+                    )
+                    r.raise_for_status()
+                    api_ok, api_msg = True, f"llama-3.1-8b-instant responded (HTTP {r.status_code})"
+                elif pkey == "cohere":
+                    r = _req.post(
+                        "https://api.cohere.com/v2/chat",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json",
+                                 "Accept": "application/json"},
+                        json={"model": "command-r", "messages": [{"role": "user", "content": ping}],
+                              "max_tokens": 10, "temperature": 0},
+                        timeout=15
+                    )
+                    r.raise_for_status()
+                    api_ok, api_msg = True, f"command-r responded (HTTP {r.status_code})"
+                elif pkey == "openrouter":
+                    r = _req.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json",
+                                 "HTTP-Referer": "https://verighana.gh", "X-Title": "VeriGhana"},
+                        json={"model": "meta-llama/llama-3.3-70b-instruct:free",
+                              "messages": [{"role": "user", "content": ping}],
+                              "max_tokens": 10, "temperature": 0},
+                        timeout=15
+                    )
+                    r.raise_for_status()
+                    api_ok, api_msg = True, f"llama-3.3-70b:free responded (HTTP {r.status_code})"
+            except Exception as e:
+                api_msg = str(e)[:90]
+
+            rows_html += _row(pname, "1. API reachability (ping)", "PASS" if api_ok else "FAIL", api_msg)
+            full_log.append(f"[{pname.upper()}-API] {'PASS' if api_ok else 'FAIL'} - {api_msg}")
+            _tick(f"{pname}: narrative test...")
+
+            if not api_ok:
+                rows_html += _row(pname, "2. DB index readable", "SKIP", "API unreachable")
+                rows_html += _row(pname, "3. Narrative from facts", "SKIP", "API unreachable")
+                step_n[0] = min(step_n[0] + 1, total_steps)
+                continue
+
+            narr_ok, narr_msg, db_ok, db_msg = False, "", False, ""
+            try:
+                if pkey == "gemini":
+                    import google.generativeai as _gnai2
+                    _gnai2.configure(api_key=akey)
+                    narr_raw = _gnai2.GenerativeModel("gemini-2.0-flash").generate_content(
+                        narr_prompt, generation_config={"max_output_tokens": 400, "temperature": 0.1}
+                    ).text
+                elif pkey == "groq":
+                    r2 = _req.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json"},
+                        json={"model": "llama-3.3-70b-versatile",
+                              "messages": [{"role": "system", "content": "Return only valid JSON."},
+                                           {"role": "user", "content": narr_prompt}],
+                              "max_tokens": 400, "temperature": 0.1,
+                              "response_format": {"type": "json_object"}},
+                        timeout=25
+                    )
+                    r2.raise_for_status()
+                    narr_raw = r2.json()["choices"][0]["message"]["content"]
+                elif pkey == "cohere":
+                    r2 = _req.post(
+                        "https://api.cohere.com/v2/chat",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json",
+                                 "Accept": "application/json"},
+                        json={"model": "command-r-plus",
+                              "messages": [{"role": "user", "content": narr_prompt}],
+                              "max_tokens": 400, "temperature": 0.1},
+                        timeout=25
+                    )
+                    r2.raise_for_status()
+                    d2 = r2.json()
+                    narr_raw = (d2.get("message", {}).get("content", [{}])[0].get("text")
+                                or d2.get("text", ""))
+                elif pkey == "openrouter":
+                    r2 = _req.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {akey}", "Content-Type": "application/json",
+                                 "HTTP-Referer": "https://verighana.gh", "X-Title": "VeriGhana"},
+                        json={"model": "meta-llama/llama-3.3-70b-instruct:free",
+                              "messages": [{"role": "user", "content": narr_prompt}],
+                              "max_tokens": 400, "temperature": 0.1},
+                        timeout=25
+                    )
+                    r2.raise_for_status()
+                    narr_raw = r2.json()["choices"][0]["message"]["content"]
+
+                if narr_raw:
+                    _clean = _re.sub(r"```(?:json)?", "", narr_raw).strip().rstrip("`")
+                    _m3    = _re.search(r"\{.*\}", _clean, _re.DOTALL)
+                    _obj   = _json.loads(_m3.group()) if _m3 else {}
+                    summary = _obj.get("summary", "")
+                    score   = _obj.get("score", "?")
+                    verdict = _obj.get("verdict", "?")
+
+                    if db_results and summary:
+                        _sw = set(_re.findall(r"\b[A-Za-z]{5,}\b",
+                                              " ".join(r.get("title", "") for r in db_results[:3])))
+                        _nw = set(_re.findall(r"\b[A-Za-z]{5,}\b", narr_raw))
+                        _ov = len(_sw & _nw)
+                        db_ok  = _ov >= 3
+                        db_msg = (f"Model references DB content ({_ov} shared keywords)"
+                                  if db_ok else f"Low keyword overlap ({_ov}) - model may not be using DB")
+                    elif summary:
+                        db_ok, db_msg = True, "Valid response (no DB sources to cross-check)"
+                    else:
+                        db_ok, db_msg = False, "JSON missing summary field"
+
+                    narr_ok  = bool(summary) and len(summary) > 20
+                    narr_msg = (f"[{verdict} | {score}/100] {summary[:130]}..."
+                                if narr_ok else f"Summary missing or short: {str(_obj)[:80]}")
+
+            except Exception as e:
+                db_msg   = f"Error: {str(e)[:80]}"
+                narr_msg = db_msg
+
+            rows_html += _row(pname, "2. DB index readable by model", "PASS" if db_ok else "FAIL", db_msg)
+            rows_html += _row(pname, "3. Narrative from facts", "PASS" if narr_ok else "FAIL", narr_msg)
+            full_log.append(f"[{pname.upper()}-DB]   {'PASS' if db_ok else 'FAIL'} - {db_msg}")
+            full_log.append(f"[{pname.upper()}-NARR] {'PASS' if narr_ok else 'FAIL'} - {narr_msg}")
+            _tick(f"{pname} done.")
+
+        bar.empty()
+
+        st.markdown(f"""
+        <div class="vg-card" style="padding:0;overflow:hidden;margin-top:1rem;">
+          <table class="admin-table">
+            <thead><tr>
+              <th style="width:120px;">PROVIDER</th>
+              <th>CHECK</th>
+              <th>RESULT</th>
+            </tr></thead>
+            <tbody>{rows_html}</tbody>
+          </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("Raw diagnostic log"):
+            st.code("\n".join(full_log), language="text")
+
+        passes = rows_html.count(">PASS<")
+        fails  = rows_html.count(">FAIL<")
+        skips  = rows_html.count(">SKIP<")
+        if fails == 0:
+            st.success(f"All checks passed ({passes} PASS, {skips} SKIP)")
+        else:
+            st.warning(f"{fails} check(s) failed | {passes} passed | {skips} skipped")
+
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
-#  PAGE: SITE TESTER  (full original logic, restyled)
+#  PAGE: SITE TESTER
 # ══════════════════════════════════════════════
 def page_tester():
-    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)  # layout anchor
+    st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
     st.markdown("""
     <div class="vg-page-head">
       <div class="vg-h1">Site <em>Tester</em></div>
@@ -1528,7 +1948,6 @@ def page_tester():
     </div>
     """, unsafe_allow_html=True)
 
-    # Source manager stats
     try:
         from source_manager import get_scraper_source_count, get_existing_urls
         current_count = get_scraper_source_count()
@@ -1551,15 +1970,12 @@ def page_tester():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Controls
     ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 1])
     with ctrl1:
         all_categories = sorted(set(s["category"] for s in SITES_TO_TEST))
         selected_cats  = st.multiselect(
-            "Filter by Category",
-            options=["All"] + all_categories,
-            default=["All"],
-            key="tst_cats",
+            "Filter by Category", options=["All"] + all_categories,
+            default=["All"], key="tst_cats",
         )
     with ctrl2:
         skip_existing = st.checkbox(
@@ -1570,18 +1986,17 @@ def page_tester():
         st.write("")
         st.write("")
         st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-        run_button = st.button("▶️  Run Tests", key="run_tst", use_container_width=True)
+        run_button = st.button("Run Tests", key="run_tst", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Custom URL tester
-    with st.expander("➕  Test a Custom URL"):
+    with st.expander("Test a Custom URL"):
         c1, c2, c3 = st.columns([2, 2, 1])
         custom_name = c1.text_input("Site Name", placeholder="My News Site", key="c_name")
         custom_url  = c2.text_input("URL",       placeholder="https://example.com/news/", key="c_url")
         custom_cat  = c3.text_input("Category",  placeholder="Media", key="c_cat")
         if st.button("Test Custom URL", key="test_cu"):
             if custom_url.strip():
-                with st.spinner(f"Testing {custom_url}…"):
+                with st.spinner(f"Testing {custom_url}..."):
                     result = test_single_site({
                         "name":     custom_name or custom_url,
                         "url":      custom_url.strip(),
@@ -1589,7 +2004,7 @@ def page_tester():
                     })
                 if result["status"] == "scrapeable":
                     st.success(
-                        f"✅ Scrapeable — {result['count']} headlines via "
+                        f"Scrapeable — {result['count']} headlines via "
                         f"`{result['article_tag']}` / `{result['article_class']}`"
                     )
                     add_res = auto_add_to_scraper(result)
@@ -1597,16 +2012,15 @@ def page_tester():
                     elif add_res["success"]: st.success(add_res["message"])
                     else:                    st.error(add_res["message"])
                     for s in result["samples"]:
-                        st.write(f"  • [{s['text']}]({s['href']})")
+                        st.write(f"  - [{s['text']}]({s['href']})")
                 else:
-                    icon = STATUS_ICON.get(result["status"],"❓")
+                    icon = STATUS_ICON.get(result["status"],"?")
                     st.warning(f"{icon} {STATUS_LABEL.get(result['status'], result['status'])}")
             else:
                 st.warning("Please enter a URL.")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    # ── Run tests (original live-progress logic, restyled output)
     if run_button:
         sites_to_run = []
         for site in SITES_TO_TEST:
@@ -1629,11 +2043,10 @@ def page_tester():
             </div>
             """, unsafe_allow_html=True)
 
-            progress_bar = st.progress(0)
-            status_text  = st.empty()
+            progress_bar  = st.progress(0)
+            status_text   = st.empty()
             results_store = []
 
-            # Live summary counters
             sm1, sm2, sm3, sm4 = st.columns(4)
             cnt_s = sm1.empty(); cnt_n = sm2.empty()
             cnt_b = sm3.empty(); cnt_u = sm4.empty()
@@ -1645,16 +2058,16 @@ def page_tester():
                 u_c = sum(1 for r in results if r["status"] not in
                           ["scrapeable","no_headlines","blocked"])
                 cnt_s.markdown(f'<div class="spill"><span class="spill-n">{s_c}</span>'
-                               f'<span class="spill-l">✅ Scrapeable</span></div>',
+                               f'<span class="spill-l">Scrapeable</span></div>',
                                unsafe_allow_html=True)
                 cnt_n.markdown(f'<div class="spill"><span class="spill-n">{n_c}</span>'
-                               f'<span class="spill-l">⚠️ No Headlines</span></div>',
+                               f'<span class="spill-l">No Headlines</span></div>',
                                unsafe_allow_html=True)
                 cnt_b.markdown(f'<div class="spill"><span class="spill-n">{b_c}</span>'
-                               f'<span class="spill-l">🚫 Blocked</span></div>',
+                               f'<span class="spill-l">Blocked</span></div>',
                                unsafe_allow_html=True)
                 cnt_u.markdown(f'<div class="spill"><span class="spill-n">{u_c}</span>'
-                               f'<span class="spill-l">❌ Unreachable</span></div>',
+                               f'<span class="spill-l">Unreachable</span></div>',
                                unsafe_allow_html=True)
 
             refresh_counters([])
@@ -1670,20 +2083,15 @@ def page_tester():
                 result = test_single_site(site)
                 results_store.append(result)
 
-                # Auto-add
                 add_msg = ""
                 if result["status"] == "scrapeable":
                     add_res = auto_add_to_scraper(result)
-                    if add_res["skipped"]:
-                        add_msg = "_(already in html_scraper.py)_"
-                    elif add_res["success"]:
-                        add_msg = "🆕 **Auto-added**"
-                    else:
-                        add_msg = f"⚠️ Could not add: {add_res['message']}"
+                    if add_res["skipped"]:   add_msg = "_(already in html_scraper.py)_"
+                    elif add_res["success"]: add_msg = "**Auto-added**"
+                    else:                    add_msg = f"Could not add: {add_res['message']}"
 
-                # Show result
                 with results_container:
-                    icon  = STATUS_ICON.get(result["status"],"❓")
+                    icon  = STATUS_ICON.get(result["status"],"?")
                     label = STATUS_LABEL.get(result["status"], result["status"])
                     if result["status"] == "scrapeable":
                         with st.expander(
@@ -1700,7 +2108,7 @@ def page_tester():
                             """, unsafe_allow_html=True)
                             st.write("**Sample Headlines:**")
                             for s in result["samples"]:
-                                st.write(f"  • [{s['text']}]({s['href']})")
+                                st.write(f"  - [{s['text']}]({s['href']})")
                             st.code(
                                 f'{{\n'
                                 f'    "name":          "{result["name"]}",\n'
@@ -1724,26 +2132,24 @@ def page_tester():
                 time.sleep(delay)
 
             status_text.markdown(
-                '<div class="vg-mono" style="color:#4ade80;">✅ All tests complete.</div>',
+                '<div class="vg-mono" style="color:#4ade80;">All tests complete.</div>',
                 unsafe_allow_html=True,
             )
             st.session_state.test_results = results_store
 
-    # ── Previous results
     elif st.session_state.test_results:
         results = st.session_state.test_results
         sc_l = [r for r in results if r["status"]=="scrapeable"]
         nh_l = [r for r in results if r["status"]=="no_headlines"]
         bl_l = [r for r in results if r["status"]=="blocked"]
-        un_l = [r for r in results if r["status"] not in
-                ["scrapeable","no_headlines","blocked"]]
+        un_l = [r for r in results if r["status"] not in ["scrapeable","no_headlines","blocked"]]
 
         st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Last Test Run</div>',
                     unsafe_allow_html=True)
         pm1,pm2,pm3,pm4 = st.columns(4)
         for col,(val,lbl) in zip([pm1,pm2,pm3,pm4],[
-            (len(sc_l),"✅ Scrapeable"),(len(nh_l),"⚠️ No Headlines"),
-            (len(bl_l),"🚫 Blocked"),  (len(un_l),"❌ Unreachable"),
+            (len(sc_l),"Scrapeable"),(len(nh_l),"No Headlines"),
+            (len(bl_l),"Blocked"),  (len(un_l),"Unreachable"),
         ]):
             with col:
                 st.markdown(f'<div class="spill"><span class="spill-n">{val}</span>'
@@ -1751,7 +2157,7 @@ def page_tester():
 
         st.markdown("<br>", unsafe_allow_html=True)
         for result in results:
-            icon  = STATUS_ICON.get(result["status"],"❓")
+            icon  = STATUS_ICON.get(result["status"],"?")
             label = STATUS_LABEL.get(result["status"], result["status"])
             if result["status"] == "scrapeable":
                 with st.expander(
@@ -1759,7 +2165,7 @@ def page_tester():
                     f"`{result['article_tag']}` / `{result['article_class']}`"
                 ):
                     for s in result["samples"]:
-                        st.write(f"  • [{s['text']}]({s['href']})")
+                        st.write(f"  - [{s['text']}]({s['href']})")
             else:
                 st.markdown(
                     f'<div style="padding:.4rem 0;color:#94a3b8;font-size:.875rem;">'
@@ -1777,17 +2183,20 @@ def page_tester():
 def main():
     inject_css()
 
+    # Step 1: try to restore session from browser cookie / localStorage
+    restore_session_from_cookie()
+
+    # Step 2: if still not logged in, inject JS reader and show auth page
     if not st.session_state.logged_in:
+        inject_session_reader()   # JS reads cookie/localStorage → sets ?_vg= → triggers re-run
         page_auth()
         return
 
     render_nav()
     render_tabs()
 
-    # Apply page-content width constraint
     st.markdown("""
     <style>
-    /* On logged-in pages: constrain and centre the Streamlit container */
     [data-testid="stAppViewBlockContainer"],
     [data-testid="stMainBlockContainer"],
     .block-container {
@@ -1798,14 +2207,14 @@ def main():
     }
     </style>""", unsafe_allow_html=True)
 
-    p    = st.session_state.page
+    p     = st.session_state.page
     admin = is_admin()
 
-    if   p == "verify":                    page_verify()
-    elif p == "history":                   page_history()
-    elif p == "account":                   page_account()
-    elif p == "admin"  and admin:          page_admin()
-    elif p == "tester" and admin:          page_tester()
+    if   p == "verify":               page_verify()
+    elif p == "history":              page_history()
+    elif p == "account":              page_account()
+    elif p == "admin"  and admin:     page_admin()
+    elif p == "tester" and admin:     page_tester()
     else:
         st.session_state.page = "verify"; st.rerun()
 
