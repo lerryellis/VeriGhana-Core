@@ -1,23 +1,11 @@
 """
-VeriGhana Verifier
-==================
-Core claim-verification engine with multi-provider AI cascade.
+VeriGhana Verifier — multi-provider AI cascade
+================================================
+Provider order: Gemini → Groq → Cohere → OpenRouter → Heuristic
 
-Provider priority order (auto-failover on quota / rate-limit):
-  Tier 1  Gemini      gemini-2.0-flash → gemini-2.0-flash-lite
-                      → gemini-1.5-flash → gemini-1.5-flash-8b
-  Tier 2  Groq        llama-3.3-70b-versatile → llama-3.1-8b-instant
-                      → gemma2-9b-it
-  Tier 3  Cohere      command-r-plus → command-r
-  Tier 4  OpenRouter  llama-3.3-70b:free → gemma-3-27b:free
-                      → mistral-7b:free
-  Tier 5  Heuristic   keyword-overlap score (never fails)
-
-Required .env keys  (add whichever you have — the more the better):
-  GOOGLE_API_KEY   or GEMINI_API_KEY   — aistudio.google.com  (free)
-  GROQ_API_KEY                         — console.groq.com     (free)
-  COHERE_API_KEY                       — dashboard.cohere.com (free tier)
-  OPENROUTER_API_KEY                   — openrouter.ai        (free models)
+HTTP backend: `requests` (fixes urllib latin-1 encoding bug).
+Gemini: requires  pip install google-generativeai
+Groq  : uses requests directly (no groq package needed).
 """
 
 import os, re, time, json, logging
@@ -27,25 +15,34 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+# ── Try importing requests (should always be available with Streamlit) ──
+try:
+    import requests as _requests
+    _REQUESTS_OK = True
+except ImportError:
+    _REQUESTS_OK = False
+    logger.warning("requests not installed — HTTP providers will be skipped")
+
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  MODEL REGISTRY  (shown in the UI dropdown)
+#  MODEL REGISTRY
 # ──────────────────────────────────────────────────────────────────────────────
 FREE_MODELS: dict[str, str] = {
-    "Gemini 2.0 Flash":        "gemini-2.0-flash",
-    "Gemini 2.0 Flash Lite":   "gemini-2.0-flash-lite",
-    "Gemini 1.5 Flash":        "gemini-1.5-flash",
-    "Gemini 1.5 Flash 8B":     "gemini-1.5-flash-8b",
-    "Groq Llama 3.3 70B":      "groq:llama-3.3-70b-versatile",
-    "Groq Llama 3.1 8B Fast":  "groq:llama-3.1-8b-instant",
-    "Cohere Command-R+":       "cohere:command-r-plus",
-    "Cohere Command-R":        "cohere:command-r",
-    "OpenRouter Llama 3.3 70B":"openrouter:llama-3.3-70b",
+    "Gemini 2.0 Flash":         "gemini-2.0-flash",
+    "Gemini 2.0 Flash Lite":    "gemini-2.0-flash-lite",
+    "Gemini 1.5 Flash":         "gemini-1.5-flash",
+    "Gemini 1.5 Flash 8B":      "gemini-1.5-flash-8b",
+    "Groq Llama 3.3 70B":       "groq:llama-3.3-70b-versatile",
+    "Groq Llama 3.1 8B Fast":   "groq:llama-3.1-8b-instant",
+    "Cohere Command-R+":        "cohere:command-r-plus",
+    "Cohere Command-R":         "cohere:command-r",
+    "OpenRouter Llama 3.3 70B": "openrouter:llama-3.3-70b",
 }
 
 DEFAULT_MODEL = "gemini-2.0-flash"
 
-_GEMINI_CASCADE     = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+_GEMINI_CASCADE     = ["gemini-2.0-flash", "gemini-2.0-flash-lite",
+                        "gemini-1.5-flash", "gemini-1.5-flash-8b"]
 _GROQ_CASCADE       = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
 _COHERE_CASCADE     = ["command-r-plus", "command-r"]
 _OPENROUTER_CASCADE = [
@@ -59,11 +56,16 @@ _OPENROUTER_CASCADE = [
 #  SHARED UTILITIES
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _is_quota(exc: Exception) -> bool:
+def _is_quota(exc) -> bool:
     msg = str(exc).lower()
-    return any(t in msg for t in ("429","quota","rate limit","rate_limit",
-               "resource_exhausted","too many requests","overloaded","tokens per"))
+    return any(t in msg for t in (
+        "429", "quota", "rate limit", "rate_limit", "resource_exhausted",
+        "too many requests", "overloaded", "tokens per",
+    ))
 
+def _safe_key(raw: str) -> str:
+    """Strip any non-ASCII characters that would break HTTP headers."""
+    return raw.encode("ascii", errors="ignore").decode("ascii").strip()
 
 def _parse_json(text: str) -> Optional[dict]:
     if not text:
@@ -77,8 +79,7 @@ def _parse_json(text: str) -> Optional[dict]:
     except json.JSONDecodeError:
         return None
 
-
-def _sources_text(sources: list[dict], max_chars: int = 2500) -> str:
+def _sources_text(sources: list, max_chars: int = 2500) -> str:
     parts = []
     for i, s in enumerate(sources[:6], 1):
         title   = s.get("title", "Untitled")
@@ -86,11 +87,10 @@ def _sources_text(sources: list[dict], max_chars: int = 2500) -> str:
         content = (s.get("content") or s.get("snippet") or "")[:300]
         date    = s.get("published_date", "")
         ds      = f" ({date[:10]})" if date else ""
-        parts.append(f"[{i}] {src}{ds} — {title}\n    {content}")
+        parts.append(f"[{i}] {src}{ds} - {title}\n    {content}")
         if sum(len(p) for p in parts) > max_chars:
             break
     return "\n\n".join(parts) if parts else "(no matching sources found in database)"
-
 
 _PROMPT = """You are VeriGhana, an AI fact-checker for Ghana. Analyse the claim against the provided source excerpts.
 
@@ -100,19 +100,19 @@ CLAIM:
 SOURCE EXCERPTS ({count} sources):
 {sources_text}
 
-Return ONLY valid JSON — no markdown, no code fences, nothing else:
+Return ONLY valid JSON - no markdown, no code fences, nothing else:
 {{
-  "verdict": "VERIFIED" | "PARTIAL" | "FALSE" | "UNCORROBORATED",
+  "verdict": "VERIFIED or PARTIAL or FALSE or UNCORROBORATED",
   "score": <integer 0-100>,
   "explanation": "<1-2 sentence plain-language verdict explanation>",
-  "summary": "<2-3 sentence synthesis of what the sources collectively say, noting any differences or nuances between them, e.g. 'Citi Newsroom reports X while Joy Online adds Y...'. If sources agree, note that.>",
+  "summary": "<2-3 sentence synthesis of what the sources collectively say. Note any differences or nuances between sources. If they agree, note that.>",
   "source_notes": [
     {{"source": "<source_name>", "stance": "<what this specific source says about the claim in 1 sentence>"}}
   ]
 }}
 
-Scoring: 85-100=fully confirmed, 65-84=mostly confirmed, 45-64=partially, 20-44=weakly, 0-19=not supported/contradicted.
-UNCORROBORATED = no relevant sources found, not necessarily false."""
+Scoring: 85-100=fully confirmed, 65-84=mostly confirmed, 45-64=partially, 20-44=weakly, 0-19=not supported.
+UNCORROBORATED means no relevant sources found, not necessarily false."""
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -122,19 +122,24 @@ UNCORROBORATED = no relevant sources found, not necessarily false."""
 def _get_genai():
     try:
         import google.generativeai as genai
-        key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
+        key = _safe_key(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", ""))
         if key:
             genai.configure(api_key=key)
             return genai
+        logger.warning("Gemini: GOOGLE_API_KEY not set in .env")
     except ImportError:
-        pass
+        logger.warning(
+            "Gemini: google-generativeai not installed. "
+            "Run: pip install google-generativeai"
+        )
     return None
 
 
 def _call_gemini(prompt: str, preferred: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
-    key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
+    key = _safe_key(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", ""))
     if not key:
         return None, preferred
+
     genai = _get_genai()
     if genai is None:
         return None, preferred
@@ -155,7 +160,7 @@ def _call_gemini(prompt: str, preferred: str, max_tokens: int = 900) -> tuple[Op
                     if attempt < 2:
                         time.sleep(4 ** attempt)
                     else:
-                        logger.info("Gemini quota on %s — next", mid)
+                        logger.info("Gemini quota on %s - next", mid)
                         break
                 else:
                     logger.warning("Gemini error on %s: %s", mid, exc)
@@ -165,67 +170,51 @@ def _call_gemini(prompt: str, preferred: str, max_tokens: int = 900) -> tuple[Op
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  TIER 2 — GROQ
+#  TIER 2 — GROQ  (via requests — no groq package needed)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _call_groq(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
-    # SAFEGUARD 1: load key securely from .env — never hardcode
-    load_dotenv()
-    key = os.environ.get("GROQ_API_KEY", "")
+    if not _REQUESTS_OK:
+        return None, "groq-unavailable"
+
+    key = _safe_key(os.getenv("GROQ_API_KEY", ""))
     if not key:
         return None, "groq-unavailable"
 
-    # SAFEGUARD 2: use official groq package when available, raw HTTP as fallback
-    try:
-        from groq import Groq as GroqClient
-        client = GroqClient(api_key=key)
-        use_package = True
-    except ImportError:
-        use_package = False
-
-    import urllib.request as _urlreq
-
-    # SAFEGUARD 3: split system instructions from user content (same as the example)
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are VeriGhana, a Ghana fact-checking AI. "
-                "Return ONLY valid JSON — no markdown, no code fences, no extra text."
-            ),
-        },
-        {"role": "user", "content": prompt},
-    ]
+    url     = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type":  "application/json",
+    }
 
     for mid in _GROQ_CASCADE:
+        payload = {
+            "model":   mid,
+            "messages": [
+                {
+                    "role":    "system",
+                    "content": (
+                        "You are VeriGhana, a Ghana fact-checking AI. "
+                        "Return ONLY valid JSON - no markdown, no extra text."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens":     max_tokens,
+            "temperature":    0.1,
+            "response_format": {"type": "json_object"},
+        }
         for attempt in range(2):
             try:
-                if use_package:
-                    resp = client.chat.completions.create(
-                        model=mid,
-                        messages=messages,
-                        max_tokens=max_tokens,
-                        temperature=0.1,                          # SAFEGUARD 4: 0.1 = more deterministic JSON
-                        response_format={"type": "json_object"}, # SAFEGUARD 5: forces valid JSON output
-                    )
-                    text = resp.choices[0].message.content
-                else:
-                    payload = json.dumps({
-                        "model": mid,
-                        "messages": messages,
-                        "max_tokens": max_tokens,
-                        "temperature": 0.1,                           # SAFEGUARD 4
-                        "response_format": {"type": "json_object"},  # SAFEGUARD 5
-                    }).encode()
-                    req = _urlreq.Request(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        data=payload,
-                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        method="POST",
-                    )
-                    with _urlreq.urlopen(req, timeout=30) as r:
-                        text = json.loads(r.read())["choices"][0]["message"]["content"]
-
+                resp = _requests.post(url, headers=headers, json=payload, timeout=30)
+                if resp.status_code == 429 or "rate" in resp.text.lower():
+                    if attempt == 0:
+                        time.sleep(3)
+                        continue
+                    logger.info("Groq quota on %s - next", mid)
+                    break
+                resp.raise_for_status()
+                text = resp.json()["choices"][0]["message"]["content"]
                 if text:
                     return text, f"groq:{mid}"
                 break
@@ -234,7 +223,6 @@ def _call_groq(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
                     if attempt == 0:
                         time.sleep(3)
                         continue
-                    logger.info("Groq quota on %s — next", mid)
                     break
                 logger.warning("Groq error on %s: %s", mid, exc)
                 break
@@ -243,40 +231,48 @@ def _call_groq(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  TIER 3 — COHERE
+#  TIER 3 — COHERE  (via requests)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _call_cohere(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
-    key = os.getenv("COHERE_API_KEY", "")
+    if not _REQUESTS_OK:
+        return None, "cohere-unavailable"
+
+    key = _safe_key(os.getenv("COHERE_API_KEY", ""))
     if not key:
         return None, "cohere-unavailable"
 
-    import urllib.request as _urlreq
+    url     = "https://api.cohere.com/v2/chat"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type":  "application/json",
+        "Accept":        "application/json",
+    }
 
     for mid in _COHERE_CASCADE:
-        payload = json.dumps({
-            "model": mid, "message": prompt,
-            "max_tokens": max_tokens, "temperature": 0.2,
-        }).encode()
-        req = _urlreq.Request(
-            "https://api.cohere.com/v1/chat",
-            data=payload,
-            headers={"Authorization": f"Bearer {key}",
-                     "Content-Type": "application/json",
-                     "Accept": "application/json"},
-            method="POST",
-        )
+        payload = {
+            "model":    mid,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.1,
+        }
         try:
-            with _urlreq.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read())
-                text = data.get("text") or (
-                    data.get("message", {}).get("content", [{}])[0].get("text", "")
-                )
-                if text:
-                    return text, f"cohere:{mid}"
+            resp = _requests.post(url, headers=headers, json=payload, timeout=30)
+            if resp.status_code == 429:
+                logger.info("Cohere quota on %s - next", mid)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            text = (data.get("message", {})
+                        .get("content", [{}])[0]
+                        .get("text", ""))
+            if not text:
+                text = data.get("text", "")
+            if text:
+                return text, f"cohere:{mid}"
         except Exception as exc:
             if _is_quota(exc):
-                logger.info("Cohere quota on %s — next", mid)
+                logger.info("Cohere quota on %s - next", mid)
                 continue
             logger.warning("Cohere error on %s: %s", mid, exc)
             break
@@ -285,40 +281,45 @@ def _call_cohere(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  TIER 4 — OPENROUTER
+#  TIER 4 — OPENROUTER  (via requests)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _call_openrouter(prompt: str, max_tokens: int = 900) -> tuple[Optional[str], str]:
-    key = os.getenv("OPENROUTER_API_KEY", "")
+    if not _REQUESTS_OK:
+        return None, "openrouter-unavailable"
+
+    key = _safe_key(os.getenv("OPENROUTER_API_KEY", ""))
     if not key:
         return None, "openrouter-unavailable"
 
-    import urllib.request as _urlreq
+    url     = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type":  "application/json",
+        "HTTP-Referer":  "https://verighana.gh",
+        "X-Title":       "VeriGhana",
+    }
 
     for mid in _OPENROUTER_CASCADE:
-        payload = json.dumps({
-            "model": mid,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens, "temperature": 0.2,
-        }).encode()
-        req = _urlreq.Request(
-            "https://openrouter.ai/api/v1/chat/completions",
-            data=payload,
-            headers={"Authorization": f"Bearer {key}",
-                     "Content-Type": "application/json",
-                     "HTTP-Referer": "https://verighana.gh",
-                     "X-Title": "VeriGhana"},
-            method="POST",
-        )
+        payload = {
+            "model":       mid,
+            "messages":    [{"role": "user", "content": prompt}],
+            "max_tokens":  max_tokens,
+            "temperature": 0.1,
+        }
         try:
-            with _urlreq.urlopen(req, timeout=30) as r:
-                text = json.loads(r.read())["choices"][0]["message"]["content"]
-                if text:
-                    label = mid.split("/")[-1].split(":")[0]
-                    return text, f"openrouter:{label}"
+            resp = _requests.post(url, headers=headers, json=payload, timeout=30)
+            if resp.status_code in (429, 402):
+                logger.info("OpenRouter quota on %s - next", mid)
+                continue
+            resp.raise_for_status()
+            text = resp.json()["choices"][0]["message"]["content"]
+            if text:
+                label = mid.split("/")[-1].split(":")[0]
+                return text, f"openrouter:{label}"
         except Exception as exc:
-            if _is_quota(exc) or "402" in str(exc):
-                logger.info("OpenRouter quota on %s — next", mid)
+            if _is_quota(exc):
+                logger.info("OpenRouter quota on %s - next", mid)
                 continue
             logger.warning("OpenRouter error on %s: %s", mid, exc)
             break
@@ -327,15 +328,13 @@ def _call_openrouter(prompt: str, max_tokens: int = 900) -> tuple[Optional[str],
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  MASTER CALLER — walks all tiers
+#  MASTER CALLER
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _run_ai_analysis(claim: str, sources: list[dict], preferred_model: str) -> tuple[Optional[dict], str]:
-    # Resolve display name → model ID
+def _run_ai_analysis(claim: str, sources: list, preferred_model: str) -> tuple[Optional[dict], str]:
     if preferred_model in FREE_MODELS:
         preferred_model = FREE_MODELS[preferred_model]
 
-    # If user selected a non-Gemini model, still start Gemini first for speed
     gemini_pref = preferred_model if not any(
         preferred_model.startswith(p) for p in ("groq:", "cohere:", "openrouter:")
     ) else _GEMINI_CASCADE[0]
@@ -346,11 +345,11 @@ def _run_ai_analysis(claim: str, sources: list[dict], preferred_model: str) -> t
         sources_text=_sources_text(sources),
     )
 
-    for caller, label in [
-        (lambda p: _call_gemini(p, gemini_pref), "gemini"),
-        (_call_groq,        "groq"),
-        (_call_cohere,      "cohere"),
-        (_call_openrouter,  "openrouter"),
+    for caller in [
+        lambda p: _call_gemini(p, gemini_pref),
+        _call_groq,
+        _call_cohere,
+        _call_openrouter,
     ]:
         text, used = caller(prompt)
         if text:
@@ -381,56 +380,112 @@ def _get_supabase():
     return None
 
 
-def _keyword_search(claim: str, limit: int = 8) -> list[dict]:
+def _keyword_search(claim: str, limit: int = 8) -> list:
+    """
+    Multi-strategy keyword search.
+    1. Detects actual column names in fact_entries (never assumes)
+    2. ilike on every text column for each word in claim
+    3. Falls back to most recent rows so AI always has something to work with
+    """
     supabase = _get_supabase()
     if supabase is None:
+        logger.error("_keyword_search: no supabase client")
         return []
-    words = [w.lower() for w in re.findall(r"\b[a-zA-Z]{4,}\b", claim)]
-    if not words:
-        return []
-    results: list[dict] = []
-    sel = "id,title,content,url_link,source_name,published_date"
 
+    # --- Probe actual columns once ---
+    actual_cols: list[str] = []
     try:
-        r = (supabase.table("fact_entries").select(sel)
-             .text_search("title", " | ".join(words[:12])).limit(limit).execute())
-        if r.data:
-            results.extend(r.data)
-    except Exception:
-        pass
+        probe = supabase.table("fact_entries").select("*").limit(1).execute()
+        if probe.data:
+            actual_cols = list(probe.data[0].keys())
+            logger.debug("fact_entries columns: %s", actual_cols)
+        else:
+            logger.warning("fact_entries probe returned 0 rows")
+    except Exception as e:
+        logger.error("Column probe failed: %s", e)
+
+    # Text columns we will search, in priority order
+    text_cols = [c for c in ["title", "content", "headline", "body", "text", "description"]
+                 if c in actual_cols] or ["title", "content"]   # fallback guess
+
+    # Order column for recency fallback
+    order_col = next((c for c in ["published_date", "created_at", "date", "id"]
+                      if c in actual_cols), None)
+
+    # --- Extract words (no heavy stopword filter — trust ilike to be fast enough) ---
+    words = sorted(
+        set(w.lower() for w in re.findall(r"[a-zA-Z]{3,}", claim)
+            if w.lower() not in {"the", "and", "for", "are", "but", "not", "you",
+                                  "all", "any", "can", "was", "one", "our", "out",
+                                  "get", "has", "how", "its", "let", "may", "see",
+                                  "who", "did", "into", "that", "this", "with",
+                                  "from", "they", "been", "have", "more", "will",
+                                  "were", "said", "each", "which", "their"}),
+        key=len, reverse=True
+    )
+
+    if not words:
+        # No usable words — skip straight to recency fallback
+        logger.warning("_keyword_search: no usable words extracted from claim: %r", claim[:80])
+        words = []
+
+    results: list[dict] = []
+    seen_ids: set = set()
+
+    def _add(rows):
+        for row in (rows or []):
+            rid = row.get("id")
+            if rid not in seen_ids:
+                seen_ids.add(rid)
+                # Normalise to consistent keys regardless of actual column names
+                results.append({
+                    "id":             rid,
+                    "title":          row.get("title") or row.get("headline") or row.get("body", "")[:80],
+                    "content":        row.get("content") or row.get("body") or row.get("text", ""),
+                    "url_link":       row.get("url_link") or row.get("url", "#"),
+                    "source_name":    row.get("source_name") or row.get("source", "Unknown"),
+                    "published_date": row.get("published_date") or row.get("created_at", ""),
+                })
+
+    # --- Strategy 1 & 2: ilike on text columns ---
+    for word in words[:8]:
+        if len(results) >= limit:
+            break
+        for col in text_cols[:2]:
+            try:
+                r = (supabase.table("fact_entries")
+                             .select("*")
+                             .ilike(col, f"%{word}%")
+                             .limit(limit)
+                             .execute())
+                if r.data:
+                    _add(r.data)
+                    logger.debug("ilike %s LIKE %%%s%% -> %d hits", col, word, len(r.data))
+                    break
+            except Exception as e:
+                logger.warning("ilike %s/%s failed: %s", col, word, e)
+
+    # --- Strategy 3: always return recent rows as additional context ---
+    if len(results) < limit:
+        try:
+            q = supabase.table("fact_entries").select("*")
+            if order_col:
+                q = q.order(order_col, desc=True)
+            r = q.limit(limit - len(results)).execute()
+            _add(r.data)
+            logger.debug("recency fallback added %d rows", len(r.data or []))
+        except Exception as e:
+            logger.error("recency fallback failed: %s — order_col=%s actual_cols=%s",
+                         e, order_col, actual_cols)
 
     if not results:
-        for w in words[:5]:
-            try:
-                r = (supabase.table("fact_entries").select(sel)
-                     .ilike("title", f"%{w}%").limit(limit).execute())
-                if r.data:
-                    results.extend(r.data)
-                    break
-            except Exception:
-                pass
+        logger.error("_keyword_search returned 0 results for: %r  cols=%s  words=%s",
+                     claim[:80], actual_cols, words)
 
-    if not results:
-        for w in words[:3]:
-            try:
-                r = (supabase.table("fact_entries").select(sel)
-                     .ilike("content", f"%{w}%").limit(limit).execute())
-                if r.data:
-                    results.extend(r.data)
-                    break
-            except Exception:
-                pass
-
-    seen: set = set()
-    unique: list[dict] = []
-    for r in results:
-        if r.get("id") not in seen:
-            seen.add(r.get("id"))
-            unique.append(r)
-    return unique[:limit]
+    return results[:limit]
 
 
-def _vector_search(claim: str, model_id: str, limit: int = 6) -> list[dict]:
+def _vector_search(claim: str, model_id: str, limit: int = 6) -> list:
     genai    = _get_genai()
     supabase = _get_supabase()
     if genai is None or supabase is None:
@@ -446,7 +501,7 @@ def _vector_search(claim: str, model_id: str, limit: int = 6) -> list[dict]:
         return []
 
     for fn, kwargs in [
-        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.55}),
+        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.50}),
         ("search_facts",       {"query_embedding": emb, "limit_count": limit}),
     ]:
         try:
@@ -459,10 +514,10 @@ def _vector_search(claim: str, model_id: str, limit: int = 6) -> list[dict]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  TIER 5 — HEURISTIC (never fails)
+#  TIER 5 — HEURISTIC  (never fails)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _overlap_score(claim: str, sources: list[dict]) -> int:
+def _overlap_score(claim: str, sources: list) -> int:
     if not sources:
         return 5
     cw = set(re.findall(r"\b[a-zA-Z]{3,}\b", claim.lower()))
@@ -487,11 +542,8 @@ def _h_verdict(score: int) -> str:
 #  PUBLIC API
 # ──────────────────────────────────────────────────────────────────────────────
 
-def verify_claim(claim: str, model: str = DEFAULT_MODEL, model_id: Optional[str] = None) -> dict:
-    """
-    Verify a claim. Cascades through Gemini → Groq → Cohere → OpenRouter
-    → heuristic, so a result is always returned.
-    """
+def verify_claim(claim: str, model: str = DEFAULT_MODEL,
+                 model_id: Optional[str] = None) -> dict:
     start = time.time()
     eff   = model_id or model or DEFAULT_MODEL
 
@@ -511,32 +563,38 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL, model_id: Optional[str]
         explanation  = ai.get("explanation", "No explanation returned.")
         summary      = ai.get("summary", explanation)
         source_notes = ai.get("source_notes", [])
-        if verdict not in ("VERIFIED","PARTIAL","FALSE","UNCORROBORATED"):
+        if verdict not in ("VERIFIED", "PARTIAL", "FALSE", "UNCORROBORATED"):
             verdict = "UNCORROBORATED"
         if not sources and score > 15:
             score = max(5, score // 4)
             verdict = "UNCORROBORATED"
-        if "groq:"        in used: provider = "Groq"
-        elif "cohere:"    in used: provider = "Cohere"
-        elif "openrouter:" in used: provider = "OpenRouter"
-        else:                       provider = "Gemini"
+        if   "groq:"        in used: provider = "Groq"
+        elif "cohere:"      in used: provider = "Cohere"
+        elif "openrouter:"  in used: provider = "OpenRouter"
+        else:                        provider = "Gemini"
     else:
         score        = _overlap_score(claim, sources)
         verdict      = _h_verdict(score)
-        explanation  = ("All AI providers are currently rate-limited. "
-                        "Score is estimated from keyword overlap.")
-        summary      = (
-            f"Found {len(sources)} related source(s). "
-            "AI summarisation unavailable — Gemini, Groq, Cohere and OpenRouter "
-            "are all quota-limited right now. Please try again shortly."
-        ) if sources else "No matching records found and all AI providers are unavailable."
+        explanation  = (
+            "All AI providers unavailable right now. "
+            "Score estimated from keyword overlap with database records."
+        )
+        summary = (
+            f"Found {len(sources)} related source(s) in the database. "
+            "AI summarisation temporarily unavailable — all providers quota-limited. "
+            "Please try again shortly."
+        ) if sources else (
+            "No matching records found and all AI providers are currently unavailable."
+        )
         source_notes = []
         used         = "heuristic"
         provider     = "Heuristic"
         search_method = search_method + "+heuristic"
 
-    # Format sources
-    stance_map = {n.get("source","").lower(): n.get("stance","") for n in source_notes}
+    stance_map = {
+        n.get("source", "").lower(): n.get("stance", "")
+        for n in source_notes
+    }
     fmt_sources = []
     for s in sources:
         nm = s.get("source_name", s.get("source", "Unknown"))
@@ -547,7 +605,7 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL, model_id: Optional[str]
             "source_name":    nm,
             "source":         nm,
             "published_date": s.get("published_date", ""),
-            "stance":         s.get("stance","") or stance_map.get(nm.lower(),""),
+            "stance":         s.get("stance", "") or stance_map.get(nm.lower(), ""),
         })
 
     return {
