@@ -43,5 +43,5 @@ jobs:
         run: |
           python src/scraper.py
           python src/embedder.py
-          python src/html_scraper.py
+          python src/scrapers/html_scraper.py
           
