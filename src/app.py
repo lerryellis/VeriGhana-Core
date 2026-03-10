@@ -2408,7 +2408,9 @@ def main():
 
     st.markdown(
         '<div style="text-align:center;padding:2rem;font-size:.72rem;color:#334155;">'
-        'VeriGhana © 2026 — GIMPA Computer Science Research — '
+        '<span class="vg-logo" style="font-size:.78rem;vertical-align:middle;">'
+        'Veri<em>Ghana</em></span>'
+        ' © 2026 — GIMPA Computer Science Research — '
         'Combating information disorder in Ghana with AI.</div>',
         unsafe_allow_html=True,
     )
