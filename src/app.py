@@ -72,11 +72,19 @@ TIER_MODELS = {
 
 
 # ══════════════════════════════════════════════
-#  SESSION PERSISTENCE
+#  SESSION PERSISTENCE  (v3 — query-param primary)
 #  Token = base64(json_payload) + "." + HMAC-SHA256
-#  Stored in browser cookie AND localStorage.
-#  On every reload the JS sets ?_vg=<token> so
-#  Python can restore session_state without extra packages.
+#
+#  PRIMARY path  (always works):
+#    Login  →  Python writes st.query_params["_vg"] = token
+#    Refresh →  ?_vg= is preserved in URL → Python reads & restores
+#              → rolls to a fresh token so it never expires silently
+#
+#  BACKUP path  (fresh tab / shared link without ?_vg=):
+#    JS writes token to localStorage on every authenticated render.
+#    st.markdown script (main-page context, NOT iframe) reads
+#    localStorage on the first unauthenticated load and redirects
+#    window.location with ?_vg= so Python can pick it up.
 # ══════════════════════════════════════════════
 
 def _sign(payload: dict) -> str:
@@ -147,64 +155,60 @@ def _clear_cookie_js() -> str:
 
 def _read_session_js() -> str:
     """
-    Injected on every page load when not yet logged in.
-    Reads cookie (or localStorage fallback), sets ?_vg= to trigger a
-    Streamlit re-run so Python can restore session_state.
-    sessionStorage flag prevents infinite redirect loops.
+    Fallback: injected via st.markdown (runs in the MAIN page window,
+    not an iframe) when Python has no ?_vg= token in the URL.
+    Reads localStorage → redirects window.location with ?_vg= token.
+    Only fires when the browser has a stored token but the URL doesn't.
     """
     return """
 <script>
 (function() {
-  if (sessionStorage.getItem("vg_redirected") === "1") return;
-
-  function getCookie(name) {
-    var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
-  var token = getCookie("vg_session");
-
-  // Restore cookie from localStorage if it was cleared
-  if (!token) {
-    try { token = localStorage.getItem("vg_token"); } catch(e) {}
-    if (token) {
-      var exp = new Date(Date.now() + 30 * 864e5).toUTCString();
-      document.cookie = "vg_session=" + encodeURIComponent(token)
-                      + "; expires=" + exp + "; path=/; SameSite=Lax";
-    }
-  }
-
-  if (!token) return;
-
-  var params = new URLSearchParams(window.location.search);
-  if (params.get("_vg") === token) return;  // already set, avoid loop
-
-  sessionStorage.setItem("vg_redirected", "1");
-  params.set("_vg", token);
-  window.location.search = params.toString();
+  try {
+    var token = localStorage.getItem("vg_token");
+    if (!token) return;
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("_vg") === token) return;  // already present
+    params.set("_vg", token);
+    window.location.replace(window.location.pathname + "?" + params.toString());
+  } catch(e) {}
 })();
 </script>"""
 
 
 def _clear_redirect_flag_js() -> str:
-    return """<script>
-(function() { try { sessionStorage.removeItem("vg_redirected"); } catch(e) {} })();
-</script>"""
+    """Kept for backwards compatibility — sessionStorage guard removed."""
+    return ""  # no-op
+
+
+def _ls_write_js(token: str) -> str:
+    """Write token to localStorage only (backup for fresh-tab recovery)."""
+    token_json = __import__("json").dumps(token)
+    return f"<script>try{{localStorage.setItem('vg_token',{token_json});}}catch(e){{}}</script>"
 
 
 def restore_session_from_cookie():
-    """Called once at the top of main(). Restores session from ?_vg= token."""
+    """
+    Called once at the top of main().
+    PRIMARY path: reads ?_vg= from URL (Python, no JS needed).
+    After restoring, rolls the token (fresh expiry) so it stays alive.
+    Never clears ?_vg= — keeping it in the URL is what makes refresh work.
+    """
     if st.session_state.get("logged_in"):
-        save_session_cookie()   # silently roll the 30-day window
+        # Already logged in this server run — just roll the token
+        save_session_cookie()
         return
 
     token = st.query_params.get("_vg", "")
     if not token:
-        return
+        return  # no token in URL → fallback JS will handle it
 
     payload = _verify_token(token)
     if not payload:
-        st.query_params.clear()
+        # Token invalid/expired — wipe it and force fresh login
+        try:
+            st.query_params.pop("_vg")
+        except Exception:
+            st.query_params.clear()
         return
 
     st.session_state.update(
@@ -215,12 +219,16 @@ def restore_session_from_cookie():
         user_tier  = payload["tier"],
         user_id    = payload["uid"],
     )
-    st.query_params.clear()
-    st.components.v1.html(_clear_redirect_flag_js(), height=0)
+    # Roll to a fresh 30-day token — writes new ?_vg= in same rerun
+    save_session_cookie()
 
 
 def save_session_cookie():
-    """Write / refresh cookie + localStorage. Safe to call on every load."""
+    """
+    Persist session two ways:
+      1. Python sets st.query_params["_vg"] = token  (primary — survives refresh)
+      2. JS writes to localStorage via st.markdown    (backup — survives new tabs)
+    """
     token = _make_session_token(
         email   = st.session_state.user_email or "",
         name    = st.session_state.user_name  or "",
@@ -228,21 +236,43 @@ def save_session_cookie():
         tier    = st.session_state.user_tier  or "free",
         user_id = str(st.session_state.user_id or ""),
     )
-    st.components.v1.html(_cookie_js(token), height=0)
+    # PRIMARY: Python sets query param — guaranteed to be in URL on next load
+    try:
+        st.query_params["_vg"] = token
+    except Exception:
+        pass
+    # BACKUP: also write to localStorage for fresh-tab recovery
+    st.markdown(_ls_write_js(token), unsafe_allow_html=True)
 
 
 def clear_session_cookie():
-    """Delete cookie + localStorage and wipe relevant session_state keys."""
-    st.components.v1.html(_clear_cookie_js(), height=0)
+    """Delete query param, localStorage and wipe session_state keys."""
+    # Clear the query param so ?_vg= doesn't auto-restore after sign-out
+    try:
+        st.query_params.pop("_vg")
+    except Exception:
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+    # Clear localStorage via st.markdown (runs in main window)
+    st.markdown(
+        "<script>try{localStorage.removeItem('vg_token');}catch(e){}</script>",
+        unsafe_allow_html=True,
+    )
     for key in ("logged_in", "user_email", "user_name",
                 "user_role", "user_tier", "user_id"):
         st.session_state.pop(key, None)
 
 
 def inject_session_reader():
-    """Injected every page load when not logged in — JS does the cookie read."""
+    """
+    Fallback for fresh tabs that have no ?_vg= in the URL.
+    Uses st.markdown so the script runs in the MAIN window (not an iframe).
+    The JS reads localStorage and redirects with ?_vg= if a token exists.
+    """
     if not st.session_state.get("logged_in"):
-        st.components.v1.html(_read_session_js(), height=0)
+        st.markdown(_read_session_js(), unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
