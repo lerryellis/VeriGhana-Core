@@ -1038,15 +1038,21 @@ div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid=
 </style>"""
     st.markdown(css_rules, unsafe_allow_html=True)
 
-    cols = st.columns(len(pages), gap="small")
+    # Fixed-width columns so tabs stay compact and don't spread across the full page
+    # Extra spacer column on the right absorbs leftover space
+    col_widths = [1] * len(pages) + [8 - len(pages)]  # right spacer
+    all_cols   = st.columns(col_widths, gap="small")
     for i, (k, lbl, is_adm) in enumerate(pages):
-        with cols[i]:
+        with all_cols[i]:
             is_active = (k == page)
             if st.button(lbl, key=f"nav_{k}",
                          type="primary" if is_active else "secondary",
-                         use_container_width=False):
+                         use_container_width=True):
                 st.session_state.page = k
                 st.rerun()
+    # spacer column — empty, absorbs remaining width
+    with all_cols[-1]:
+        st.markdown("&nbsp;", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
@@ -1469,54 +1475,137 @@ def page_account():
 
     if tier == "free":
         st.markdown('<hr>', unsafe_allow_html=True)
-        st.markdown('<div class="vg-h2">Upgrade Your Plan</div>', unsafe_allow_html=True)
-        p1, p2 = st.columns(2)
-        with p1:
-            st.markdown("""
-            <div class="plan-card featured">
-              <div class="plan-header pro">
-                <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">MOST POPULAR</div>
-                <div class="vg-h3" style="color:#fff;">Pro — $9.99/mo</div>
-                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Journalists &amp; researchers</div>
-              </div>
-              <div class="plan-body">
-                <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
-                  <li>Unlimited verifications</li>
-                  <li>All 4 AI models</li>
-                  <li>3 REST API keys</li>
-                  <li>Export history · Real-time alerts</li>
-                </ul>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.text_input("Promo code", placeholder="GIMPA2026 · PRESS50", key="promo_pro")
-            st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-            if st.button("Upgrade to Pro", key="up_pro", use_container_width=True):
-                st.info("Payment integration coming soon. Use code GIMPA2026 for 50% off.")
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        with p2:
-            st.markdown("""
-            <div class="plan-card">
-              <div class="plan-header inst">
-                <div class="vg-mono" style="color:rgba(255,255,255,.5);margin-bottom:.4rem;">INSTITUTIONAL</div>
-                <div class="vg-h3" style="color:#fff;">Institutional — $79.99/mo</div>
-                <div style="color:rgba(255,255,255,.6);font-size:.8rem;">Newsrooms, NGOs &amp; gov't</div>
+        # ── Pricing section header
+        st.markdown("""
+        <div style="margin-bottom:1.5rem;">
+          <div class="vg-h2" style="font-size:1.2rem;margin-bottom:.35rem;">Upgrade Your Plan</div>
+          <div class="vg-sub">Choose the plan that fits your verification needs.
+            All plans include access to our full database of Ghanaian sources.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Render both plan cards as pure HTML so they match in height
+        pro_features = [
+            ("∞", "Unlimited daily verifications"),
+            ("4",  "All AI models — Gemini, Groq, Cohere, OpenRouter"),
+            ("3",  "REST API keys for integrations"),
+            ("✓",  "Export full verification history as CSV"),
+            ("✓",  "Real-time alert webhooks"),
+            ("✓",  "Priority model queue — no rate-limit delays"),
+            ("✓",  "Advanced truth-score breakdown per source"),
+            ("✓",  "Email digest of daily fact-checks"),
+        ]
+        inst_features = [
+            ("∞",  "Everything in Pro, for your whole team"),
+            ("20", "Team seats with individual logins"),
+            ("20", "API keys for newsroom integrations"),
+            ("20", "Bulk verify up to 20 claims at once"),
+            ("✓",  "White-label PDF & HTML reports"),
+            ("✓",  "Custom source watchlist & alerts"),
+            ("✓",  "Dedicated onboarding & support"),
+            ("✓",  "SLA-backed uptime guarantee"),
+        ]
+
+        def _feature_row(stat, text):
+            return (
+                '<div style="display:flex;align-items:flex-start;gap:.75rem;'
+                'padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.04);">'
+                '<span style="font-family:DM Mono,monospace;font-size:.72rem;'
+                'font-weight:700;color:#60a5fa;min-width:20px;text-align:center;'
+                f'margin-top:.05rem;">{stat}</span>'
+                f'<span style="color:#cbd5e1;font-size:.85rem;line-height:1.5;">{text}</span>'
+                '</div>'
+            )
+
+        pro_rows  = "".join(_feature_row(s, t) for s, t in pro_features)
+        inst_rows = "".join(_feature_row(s, t) for s, t in inst_features)
+
+        st.markdown(f"""
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:stretch;">
+
+          <!-- PRO CARD -->
+          <div style="display:flex;flex-direction:column;
+                      background:rgba(255,255,255,.03);
+                      border:1px solid rgba(37,99,235,.35);
+                      border-radius:12px;overflow:hidden;position:relative;">
+            <!-- Popular badge -->
+            <div style="position:absolute;top:1rem;right:1rem;
+                        background:#2563eb;color:#fff;
+                        font-family:'DM Mono',monospace;font-size:.58rem;
+                        font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                        padding:.2rem .6rem;border-radius:999px;">MOST POPULAR</div>
+            <!-- Header -->
+            <div style="padding:1.5rem 1.5rem 1.25rem;
+                        background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);
+                        border-bottom:1px solid rgba(255,255,255,.08);">
+              <div style="font-family:'DM Mono',monospace;font-size:.62rem;
+                           color:rgba(255,255,255,.45);letter-spacing:.1em;
+                           text-transform:uppercase;margin-bottom:.5rem;">PRO PLAN</div>
+              <div style="font-family:'Syne',sans-serif;font-weight:800;
+                           font-size:1.75rem;color:#fff;letter-spacing:-.02em;
+                           line-height:1.1;margin-bottom:.35rem;">$9.99
+                <span style="font-size:.9rem;font-weight:400;color:rgba(255,255,255,.55);">/month</span>
               </div>
-              <div class="plan-body">
-                <ul style="color:#e2e8f0;font-size:.875rem;padding-left:1.25rem;line-height:2.1;margin:0;">
-                  <li>Everything in Pro</li>
-                  <li>Bulk verify (20 claims)</li>
-                  <li>20 API keys · 20 team seats</li>
-                  <li>White-label reports</li>
-                </ul>
+              <div style="color:rgba(255,255,255,.65);font-size:.82rem;">
+                For journalists, researchers &amp; fact-checkers
               </div>
             </div>
-            """, unsafe_allow_html=True)
+            <!-- Features -->
+            <div style="padding:1.25rem 1.5rem;flex:1;">
+              {pro_rows}
+            </div>
+          </div>
+
+          <!-- INSTITUTIONAL CARD -->
+          <div style="display:flex;flex-direction:column;
+                      background:rgba(255,255,255,.03);
+                      border:1px solid rgba(22,163,74,.3);
+                      border-radius:12px;overflow:hidden;">
+            <!-- Header -->
+            <div style="padding:1.5rem 1.5rem 1.25rem;
+                        background:linear-gradient(135deg,#064e3b 0%,#065f46 100%);
+                        border-bottom:1px solid rgba(255,255,255,.08);">
+              <div style="font-family:'DM Mono',monospace;font-size:.62rem;
+                           color:rgba(255,255,255,.45);letter-spacing:.1em;
+                           text-transform:uppercase;margin-bottom:.5rem;">INSTITUTIONAL PLAN</div>
+              <div style="font-family:'Syne',sans-serif;font-weight:800;
+                           font-size:1.75rem;color:#fff;letter-spacing:-.02em;
+                           line-height:1.1;margin-bottom:.35rem;">$79.99
+                <span style="font-size:.9rem;font-weight:400;color:rgba(255,255,255,.55);">/month</span>
+              </div>
+              <div style="color:rgba(255,255,255,.65);font-size:.82rem;">
+                For newsrooms, NGOs &amp; government agencies
+              </div>
+            </div>
+            <!-- Features -->
+            <div style="padding:1.25rem 1.5rem;flex:1;">
+              {inst_rows}
+            </div>
+          </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── CTA buttons below the cards
+        st.markdown("<div style='margin-top:1rem;'>", unsafe_allow_html=True)
+        b1, b2 = st.columns(2)
+        with b1:
+            pi1, pi2 = st.columns([2, 1])
+            with pi1:
+                st.text_input("", placeholder="Promo code: GIMPA2026 · PRESS50",
+                              key="promo_pro", label_visibility="collapsed")
+            with pi2:
+                st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+                if st.button("Upgrade to Pro →", key="up_pro", use_container_width=True):
+                    st.info("Payment integration coming soon. Use code GIMPA2026 for 50% off.")
+                st.markdown('</div>', unsafe_allow_html=True)
+        with b2:
             st.markdown('<div class="btn-green">', unsafe_allow_html=True)
-            if st.button("Contact Sales", key="up_inst", use_container_width=True):
-                st.info("sales@verighana.gh")
+            if st.button("Contact Sales for Institutional →", key="up_inst", use_container_width=True):
+                st.info("Contact us at sales@verighana.gh")
             st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<hr>', unsafe_allow_html=True)
     st.markdown('<div class="vg-h3" style="margin-bottom:1rem;">Redeem Promo Code</div>',
