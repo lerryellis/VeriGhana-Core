@@ -543,16 +543,38 @@ section[data-testid="stSidebar"]{display:none!important;}
   font-size:.6rem;color:#fff;flex-shrink:0;}
 
 /* ─── TAB BAR ─── */
-.vg-tabbar{background:rgba(7,15,32,.97);border-bottom:1px solid rgba(255,255,255,.06);
-  display:flex;align-items:stretch;padding:0 2rem;
-  position:sticky;top:52px;z-index:200;overflow-x:auto;}
-.vg-tab-item{padding:.6rem 1.1rem;font-size:.8rem;font-weight:400;color:#3d5068;
-  border-bottom:2px solid transparent;white-space:nowrap;letter-spacing:.01em;cursor:pointer;
-  transition:color .15s,border-color .15s;}
-.vg-tab-item.active{color:#e2e8f0;font-weight:500;border-bottom-color:#2563eb;}
-.vg-tab-item.admin-tab{color:#5a4830;}
-.vg-tab-item.admin-tab.active{color:#fbbf24;border-bottom-color:#d97706;}
-/* tab nav handled via JS query params — no hidden buttons needed */
+/* Sticky wrapper sits under the nav bar */
+div[data-testid="stHorizontalBlock"].vg-tabrow{
+  background:rgba(7,15,32,.97)!important;
+  border-bottom:1px solid rgba(255,255,255,.06)!important;
+  position:sticky!important;top:52px!important;z-index:200!important;
+  padding:0 2rem!important;gap:0!important;
+}
+/* All tab buttons: flat, transparent */
+.vg-tabrow div[data-testid="column"] .stButton>button{
+  background:transparent!important;border:none!important;border-radius:0!important;
+  color:#3d5068!important;font-family:'DM Sans',sans-serif!important;
+  font-size:.8rem!important;font-weight:400!important;
+  padding:.65rem 1.1rem!important;width:auto!important;
+  border-bottom:2px solid transparent!important;
+  white-space:nowrap!important;letter-spacing:.01em!important;
+  transition:color .15s,border-color .15s!important;
+}
+.vg-tabrow div[data-testid="column"] .stButton>button:hover{
+  background:transparent!important;color:#94a3b8!important;
+}
+/* Active tab: use primary type → style as active */
+.vg-tabrow div[data-testid="column"] .stButton>button[kind="primary"]{
+  color:#e2e8f0!important;font-weight:500!important;
+  border-bottom-color:#2563eb!important;background:transparent!important;
+}
+/* Admin tabs */
+.vg-tabrow div[data-testid="column"].admin-col .stButton>button{color:#5a4830!important;}
+.vg-tabrow div[data-testid="column"].admin-col .stButton>button[kind="primary"]{
+  color:#fbbf24!important;border-bottom-color:#d97706!important;
+}
+/* Remove Streamlit column padding inside tabrow */
+.vg-tabrow div[data-testid="column"]{padding:0!important;flex:0 0 auto!important;}
 
 /* ─── PAGE SHELL ─── */
 .vg-shell{background:#0f2240;width:100%;}
@@ -950,36 +972,81 @@ def render_tabs():
     page  = st.session_state.page
     admin = is_admin()
     pages = [
-        ("verify",  "Verify",       False),
-        ("history", "History",      False),
-        ("account", "Account",      False),
+        ("verify",  "Verify",  False),
+        ("history", "History", False),
+        ("account", "Account", False),
     ]
     if admin:
         pages += [("admin", "Admin", True), ("tester", "Site Tester", True)]
 
-    # Handle tab navigation via query param set by JS onclick below
-    nav = st.query_params.get("nav", "")
-    valid = [k for k, _, _ in pages]
-    if nav in valid and nav != page:
-        st.session_state.page = nav
-        st.query_params.clear()
-        st.rerun()
+    # Build per-key CSS so each button is styled as a tab item.
+    # Active key gets blue underline + bright text; admin keys get amber tint.
+    css_rules = """
+<style>
+/* Tab row container */
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid="baseButton-secondary"],
+                                          > div > div > div > button[data-testid="baseButton-primary"]) {
+  background: rgba(7,15,32,.97) !important;
+  border-bottom: 1px solid rgba(255,255,255,.06) !important;
+  position: sticky !important;
+  top: 52px !important;
+  z-index: 200 !important;
+  padding: 0 2rem !important;
+  gap: 0 !important;
+}
+/* Column sizing */
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid="baseButton-secondary"],
+                                          > div > div > div > button[data-testid="baseButton-primary"])
+  > div[data-testid="column"] {
+  flex: 0 0 auto !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+}
+/* All tab buttons base style */
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid="baseButton-secondary"],
+                                          > div > div > div > button[data-testid="baseButton-primary"])
+  button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  color: #3d5068 !important;
+  font-family: "DM Sans", sans-serif !important;
+  font-size: .8rem !important;
+  font-weight: 400 !important;
+  padding: .65rem 1.1rem !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  transition: color .15s, border-color .15s !important;
+}
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid="baseButton-secondary"],
+                                          > div > div > div > button[data-testid="baseButton-primary"])
+  button:hover {
+  background: transparent !important;
+  color: #94a3b8 !important;
+}
+/* Active tab = primary button type */
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[data-testid="baseButton-secondary"],
+                                          > div > div > div > button[data-testid="baseButton-primary"])
+  button[data-testid="baseButton-primary"] {
+  color: #e2e8f0 !important;
+  font-weight: 500 !important;
+  border-bottom-color: #2563eb !important;
+  background: transparent !important;
+}
+</style>"""
+    st.markdown(css_rules, unsafe_allow_html=True)
 
-    # Single visual tab strip — clicking each span sets ?nav=<key> which Python reads above
-    tabs_html = '<div class="vg-tabbar">'
-    for k, lbl, is_adm in pages:
-        cls = "vg-tab-item"
-        if k == page:  cls += " active"
-        if is_adm:     cls += " admin-tab"
-        # JS: update URL param without full reload first, Streamlit picks it up on next run
-        onclick = (
-            "var u=new URL(window.location.href);"
-            f"u.searchParams.set('nav','{k}');"
-            "window.location.href=u.toString();"
-        )
-        tabs_html += f'<span class="{cls}" onclick="{onclick}" style="cursor:pointer;">{lbl}</span>'
-    tabs_html += '</div>'
-    st.markdown(tabs_html, unsafe_allow_html=True)
+    cols = st.columns(len(pages), gap="small")
+    for i, (k, lbl, is_adm) in enumerate(pages):
+        with cols[i]:
+            is_active = (k == page)
+            if st.button(lbl, key=f"nav_{k}",
+                         type="primary" if is_active else "secondary",
+                         use_container_width=False):
+                st.session_state.page = k
+                st.rerun()
 
 
 # ══════════════════════════════════════════════
