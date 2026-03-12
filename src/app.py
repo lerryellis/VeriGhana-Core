@@ -974,7 +974,7 @@ def page_auth():
         st.markdown("""
         <div style="text-align:center;margin-top:.75rem;">
           <span style="font-size:.72rem;color:#94a3b8;">
-            Admin access: set <code style="color:#2563eb;font-size:.7rem;">ADMIN_EMAIL</code> in .env
+            Login: set <code style="color:#2563eb;font-size:.7rem;">Email and password are protected</code> VeriGhana
           </span>
         </div>""", unsafe_allow_html=True)
 
