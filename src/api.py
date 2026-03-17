@@ -187,27 +187,57 @@ class User(BaseModel):
 def _decode_supabase_jwt(token: str) -> dict:
     """
     Verify a Supabase-issued JWT.
-    If SUPABASE_JWT_SECRET is not set (local dev), decode without verification.
-    Raises HTTPException 401 on any failure.
+
+    Strategy (in order):
+    1. Use the Supabase admin client (get_user) — algorithm-agnostic, works with
+       both HS256 and RS256 projects, and validates the token server-side.
+    2. Fall back to PyJWT with HS256 if the Supabase service key is unavailable
+       but SUPABASE_JWT_SECRET is set.
+    3. Dev-only last resort: decode without verification.
     """
-    if not SUPABASE_JWT_SEC:
-        # Dev-only fallback: decode without signature check
+    # ── Strategy 1: Supabase admin get_user (preferred) ──────────────────────
+    if SUPABASE_URL and SUPABASE_SVC_KEY:
         try:
-            padding = "=" * (4 - len(token.split(".")[1]) % 4)
-            return json.loads(base64.urlsafe_b64decode(token.split(".")[1] + padding))
-        except Exception:
-            raise HTTPException(status_code=401, detail="Invalid token.")
+            from supabase import create_client
+            admin = create_client(SUPABASE_URL, SUPABASE_SVC_KEY)
+            response = admin.auth.get_user(token)
+            user = response.user
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid or expired session.")
+            return {
+                "sub":   user.id,
+                "email": user.email or "",
+                "role":  getattr(user, "role", "authenticated"),
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            err = str(exc).lower()
+            if "expired" in err or "invalid" in err:
+                raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+            # Supabase client unavailable — fall through to PyJWT
+            pass
+
+    # ── Strategy 2: PyJWT with project JWT secret ────────────────────────────
+    if SUPABASE_JWT_SEC:
+        try:
+            return PyJWT.decode(
+                token,
+                SUPABASE_JWT_SEC,
+                algorithms=["HS256", "RS256"],
+                options={"verify_aud": False},
+            )
+        except PyJWT.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+        except PyJWT.InvalidTokenError as exc:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+
+    # ── Strategy 3: Dev-only — decode without verification ───────────────────
     try:
-        return PyJWT.decode(
-            token,
-            SUPABASE_JWT_SEC,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-    except PyJWT.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-    except PyJWT.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+        padding = "=" * (4 - len(token.split(".")[1]) % 4)
+        return json.loads(base64.urlsafe_b64decode(token.split(".")[1] + padding))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token.")
 
 
 def _profile_for(user_id: str, email: str) -> tuple[str, str]:
@@ -364,21 +394,23 @@ class BulkVerifyResponse(BaseModel):
 
 
 class SupportReplyRequest(BaseModel):
-    to_email:  str
-    to_name:   str
-    subject:   str
-    body:      str
-    ticket_id: Optional[str] = None
+    to_email:   str
+    to_name:    str
+    subject:    str
+    body:       str
+    ticket_id:  Optional[str] = None
+    new_status: Optional[str] = None
 
 
 class TestSiteRequest(BaseModel):
-    name:     str
     url:      str
+    name:     Optional[str] = None
     category: Optional[str] = "Custom"
 
 
 class TicketStatusUpdate(BaseModel):
-    status: str
+    status:              Optional[str]  = None
+    user_followup_read:  Optional[bool] = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -700,7 +732,7 @@ async def test_single_site(
     if not _TESTER_OK or test_site is None:
         raise HTTPException(status_code=503, detail="site_tester.py not available.")
     try:
-        result = test_site({"name": req.name, "url": req.url, "category": req.category})
+        result = test_site({"name": req.name or req.url, "url": req.url, "category": req.category})
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Site test failed: {exc}")
@@ -716,14 +748,29 @@ async def send_support_reply(
     _:   str = Depends(require_admin_key),
 ):
     """
-    Send an email reply to a support ticket via Resend.
-    Called from the Next.js tickets admin page when an agent clicks Send Reply.
+    Save admin reply in-app (always) and attempt email via Resend (best-effort).
     """
-    if not RESEND_API_KEY:
-        raise HTTPException(status_code=503, detail="RESEND_API_KEY not configured.")
+    if not req.ticket_id:
+        raise HTTPException(status_code=400, detail="ticket_id is required.")
 
-    ticket_ref = f"#{req.ticket_id[:7].upper()}" if req.ticket_id else ""
-    html_body = f"""
+    # ── Step 1: Save reply + status to DB (always succeeds or raises) ──────────
+    update_payload: dict = {"admin_reply": req.body}
+    if req.new_status:
+        update_payload["status"] = req.new_status
+    try:
+        _supa(service=True).table("support_tickets").update(
+            update_payload
+        ).eq("id", req.ticket_id).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to save reply: {exc}")
+
+    # ── Step 2: Attempt email (best-effort, never blocks the response) ─────────
+    email_sent  = False
+    email_error = None
+
+    if RESEND_API_KEY:
+        ticket_ref = f"#{req.ticket_id[:7].upper()}"
+        html_body = f"""
 <div style="font-family:Arial,sans-serif;font-size:15px;color:#1e293b;
             max-width:600px;margin:0 auto;line-height:1.6;">
   <div style="background:#0f172a;padding:18px 24px;border-radius:8px 8px 0 0;">
@@ -737,54 +784,37 @@ async def send_support_reply(
     <div style="white-space:pre-wrap;">{req.body}</div>
     <hr style="margin:24px 0;border:none;border-top:1px solid #e2e8f0;">
     <p style="font-size:12px;color:#94a3b8;margin:0;">
-      {NOTIFY_NAME}{'<br>Ticket ref: ' + ticket_ref if ticket_ref else ''}
+      {NOTIFY_NAME}<br>Ticket ref: {ticket_ref}
     </p>
   </div>
 </div>"""
-
-    plain = f"Hi {req.to_name},\n\n{req.body}\n\n— {NOTIFY_NAME}"
-    if ticket_ref:
-        plain += f"\nTicket ref: {ticket_ref}"
-
-    try:
-        resp = _http.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type":  "application/json",
-            },
-            json={
-                "from":     f"{NOTIFY_NAME} <{RESEND_FROM}>",
-                "to":       [req.to_email],
-                "subject":  f"Re: {req.subject}",
-                "html":     html_body,
-                "text":     plain,
-                "reply_to": os.getenv("NOTIFY_FROM_EMAIL", RESEND_FROM),
-            },
-            timeout=10,
-        )
-        if resp.status_code in (200, 201):
-            return {"sent": True, "to": req.to_email}
-
+        plain = f"Hi {req.to_name},\n\n{req.body}\n\n— {NOTIFY_NAME}\nTicket ref: {ticket_ref}"
         try:
-            err = resp.json().get("message", resp.text[:200])
-        except Exception:
-            err = resp.text[:200]
-
-        if resp.status_code == 403 and "domain" in err.lower():
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Resend domain not verified. Set RESEND_FROM_EMAIL=onboarding@resend.dev "
-                    "in .env, or verify verighana.gh at resend.com/domains."
-                ),
+            resp = _http.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "from":     f"{NOTIFY_NAME} <{RESEND_FROM}>",
+                    "to":       [req.to_email],
+                    "subject":  f"Re: {req.subject}",
+                    "html":     html_body,
+                    "text":     plain,
+                    "reply_to": os.getenv("NOTIFY_FROM_EMAIL", RESEND_FROM),
+                },
+                timeout=10,
             )
-        raise HTTPException(status_code=502, detail=f"Resend {resp.status_code}: {err}")
+            email_sent = resp.status_code in (200, 201)
+            if not email_sent:
+                try:
+                    email_error = resp.json().get("message", resp.text[:200])
+                except Exception:
+                    email_error = resp.text[:200]
+        except Exception as exc:
+            email_error = str(exc)
+    else:
+        email_error = "RESEND_API_KEY not configured"
 
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Email send failed: {exc}")
+    return {"saved": True, "email_sent": email_sent, "email_error": email_error}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -824,27 +854,100 @@ async def admin_stats(_: str = Depends(require_admin_key)):
 
 @app.get("/admin/payments", tags=["Admin"])
 async def admin_payments(
-    limit: int = 200,
-    _:     str = Depends(require_admin_key),
+    limit:     int           = 500,
+    date_from: Optional[str] = None,   # ISO date e.g. 2025-01-01
+    date_to:   Optional[str] = None,   # ISO date e.g. 2025-12-31
+    plan_key:  Optional[str] = None,   # pro | institutional
+    status:    Optional[str] = None,   # succeeded | failed | pending
+    _:         str           = Depends(require_admin_key),
 ):
-    """Last N payment records, most recent first."""
+    """Payment records with optional date/plan/status filtering."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        q = (
+            _supa(service=True)
+            .table("payments")
+            .select("id,order_ref,created_at,user_email,full_name,plan_label,"
+                    "amount,currency,payment_method,status,email_sent,sms_sent,"
+                    "promo_code,country,plan_key")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if date_from:
+            q = q.gte("created_at", date_from)
+        if date_to:
+            # include full day
+            q = q.lte("created_at", date_to + "T23:59:59Z")
+        if plan_key:
+            q = q.eq("plan_key", plan_key)
+        if status:
+            q = q.eq("status", status)
+        rows = q.execute().data or []
+        return {"payments": rows, "total": len(rows)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/admin/payments/{payment_id}/invoice", tags=["Admin"])
+async def download_invoice(
+    payment_id: str,
+    _: str = Depends(require_admin_key),
+):
+    """Return invoice data for a single payment (rendered as PDF in the browser)."""
     if not (SUPABASE_URL and SUPABASE_SVC_KEY):
         raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
     try:
         rows = (
             _supa(service=True)
             .table("payments")
-            .select(
-                "order_ref,created_at,user_email,full_name,plan_label,"
-                "amount,currency,payment_method,status,email_sent,sms_sent,"
-                "promo_code,country,plan_key"
-            )
-            .order("created_at", desc=True)
-            .limit(limit)
+            .select("id,order_ref,created_at,user_email,full_name,plan_label,"
+                    "amount,currency,payment_method,status,country,plan_key,promo_code")
+            .eq("id", payment_id)
+            .limit(1)
             .execute()
             .data or []
         )
-        return {"payments": rows, "total": len(rows)}
+        if not rows:
+            raise HTTPException(status_code=404, detail="Payment not found.")
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/admin/users", tags=["Admin"])
+async def admin_users(
+    limit:  int           = 500,
+    search: Optional[str] = None,   # email or name substring
+    tier:   Optional[str] = None,   # free | pro | institutional
+    role:   Optional[str] = None,   # client | admin
+    _:      str           = Depends(require_admin_key),
+):
+    """All user profiles, most recent first."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        q = (
+            _supa(service=True)
+            .table("user_profiles")
+            .select("user_id,email,full_name,organisation,country,tier,role,"
+                    "subscription_status,subscription_expires_at,daily_queries_used,created_at")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if tier:
+            q = q.eq("tier", tier)
+        if role:
+            q = q.eq("role", role)
+        rows = q.execute().data or []
+        # Search filter (case-insensitive in Python since PostgREST ilike needs %text%)
+        if search:
+            s = search.lower()
+            rows = [r for r in rows if s in (r.get("email") or "").lower()
+                    or s in (r.get("full_name") or "").lower()]
+        return {"users": rows, "total": len(rows)}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -865,7 +968,7 @@ async def admin_tickets(
         query = (
             _supa(service=True)
             .table("support_tickets")
-            .select("id,created_at,updated_at,name,email,category,subject,message,status")
+            .select("id,created_at,updated_at,name,email,category,subject,message,status,user_followup")
             .order("created_at", desc=True)
             .limit(limit)
         )
@@ -890,11 +993,13 @@ async def update_ticket_status(
     if not (SUPABASE_URL and SUPABASE_SVC_KEY):
         raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
     try:
-        _supa(service=True).table("support_tickets").update({
-            "status":     body.status,
-            "updated_at": datetime.utcnow().isoformat() + "Z",
-        }).eq("id", ticket_id).execute()
-        return {"updated": True, "ticket_id": ticket_id, "status": body.status}
+        payload: dict = {"updated_at": datetime.utcnow().isoformat() + "Z"}
+        if body.status is not None:
+            payload["status"] = body.status
+        if body.user_followup_read is not None:
+            payload["user_followup_read"] = body.user_followup_read
+        _supa(service=True).table("support_tickets").update(payload).eq("id", ticket_id).execute()
+        return {"updated": True, "ticket_id": ticket_id}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

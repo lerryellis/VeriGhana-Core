@@ -647,15 +647,12 @@ def run_html_ingestion(sources=None, max_per_source=15):
         print(f"\n── Scraping: {name}  [{mode}]")
         print(f"   URL: {url}")
 
-        source_id = get_source_id(supabase, name)
+        parsed   = urlparse(url)
+        base_url = source.get("base_url", f"{parsed.scheme}://{parsed.netloc}")
+        category = source.get("category", "Media")
+        source_id = get_source_id(supabase, name, official_url=base_url, category=category)
         if not source_id:
-            parsed   = urlparse(url)
-            base_url = source.get("base_url", f"{parsed.scheme}://{parsed.netloc}")
-            print(f"   '{name}' not found in trusted_sources. Skipping.")
-            print(f"   Add it with:")
-            print(f"   INSERT INTO trusted_sources (source_name, official_url, category)")
-            print(f"   VALUES ('{name}', '{base_url}', 'Media')")
-            print(f"   ON CONFLICT (official_url) DO NOTHING;")
+            print(f"   Could not register '{name}' in trusted_sources. Skipping.")
             continue
 
         response = fetch_page(url)

@@ -514,9 +514,9 @@
     <li><a href="#">Home</a></li>
     <li><a href="#how">How It Works</a></li>
     <li><a href="#pricing">Pricing</a></li>
-    <li><a href="http://localhost:8501" target="_blank">Dashboard</a></li>
+    <li><a href="https://app.verighana.com/app/verify" target="_blank">Dashboard</a></li>
   </ul>
-  <a href="http://localhost:8501" target="_blank" class="btn-nav">Open App →</a>
+  <a href="https://app.verighana.com/register" target="_blank" class="btn-nav">Open App →</a>
 </nav>
 
 <!-- ── HERO ── -->
@@ -556,9 +556,7 @@
 
     <!-- API offline notice -->
     <div class="api-notice" id="apiNotice">
-      ⚠ API server not reachable. Start it with:
-      <code>uvicorn src.api:app --reload --port 8000</code>
-      — or use the <a href="http://localhost:8501" target="_blank">Streamlit dashboard</a> directly.
+      ⚠ API server not reachable. Please try again shortly.
     </div>
 
     <!-- Truth meter -->
@@ -685,7 +683,7 @@
           <li><span class="feat-icon green">✓</span>Public fact database access</li>
           <li><span class="feat-icon green">✓</span>Source citations included</li>
         </ul>
-        <a href="http://localhost:8501" target="_blank" class="btn-plan ghost">Get Started Free</a>
+        <a href="https://app.verighana.com/register" target="_blank" class="btn-plan ghost">Get Started Free</a>
       </div>
     </div>
 
@@ -707,7 +705,7 @@
           <li><span class="feat-icon blue">✓</span>Real-time misinformation alerts</li>
           <li><span class="feat-icon blue">✓</span>Verification history export</li>
         </ul>
-        <a href="http://localhost:8501" target="_blank" class="btn-plan solid-blue">Get Pro Access</a>
+        <a href="https://app.verighana.com/register?plan=pro" target="_blank" class="btn-plan solid-blue">Get Pro Access</a>
       </div>
     </div>
 
@@ -750,8 +748,8 @@
     <ul class="footer-links">
       <li><a href="#">Privacy Policy</a></li>
       <li><a href="#">Terms of Service</a></li>
-      <li><a href="http://localhost:8000/docs" target="_blank">API Docs</a></li>
-      <li><a href="http://localhost:8501" target="_blank">Dashboard</a></li>
+      <li><a href="https://api.verighana.com/docs" target="_blank">API Docs</a></li>
+      <li><a href="https://app.verighana.com/app/verify" target="_blank">Dashboard</a></li>
     </ul>
     <p class="footer-copy">
       VeriGhana © 2026 — A product of GIMPA Computer Science Research —
@@ -764,8 +762,8 @@
 // ═══════════════════════════════════════════════════
 //  CONFIG — update these if your ports change
 // ═══════════════════════════════════════════════════
-const API_BASE       = "http://localhost:8000";
-const STREAMLIT_URL  = "http://localhost:8501";
+const API_BASE       = "https://api.verighana.com";
+// Streamlit decommissioned — app now at https://app.verighana.com
 
 // ═══════════════════════════════════════════════════
 //  STATE

@@ -39,9 +39,9 @@ def run_ingestion_pipeline():
         feed_url    = source['url']
         print(f'Beginning ingestion from: {source_name}')
 
-        source_id = get_source_id(supabase_client, source_name)
+        source_id = get_source_id(supabase_client, source_name, official_url=feed_url, category='Media')
         if not source_id:
-            print(f'WARNING: {source_name} not found in trusted_sources. Skipping.')
+            print(f'WARNING: Could not register {source_name} in trusted_sources. Skipping.')
             continue
 
         parsed_feed = feedparser.parse(feed_url)
