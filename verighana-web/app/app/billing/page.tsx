@@ -5,6 +5,7 @@ import type { UserProfile } from '../account/page'
 
 export type PaymentRecord = {
   id: string
+  order_ref: string | null
   plan: string
   amount: number
   currency: string
@@ -26,7 +27,7 @@ export default async function BillingPage() {
 
   const { data: payments } = await supabase
     .from('payments')
-    .select('id, plan, amount, currency, status, payment_method, created_at')
+    .select('id, order_ref, plan, amount, currency, status, payment_method, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10)

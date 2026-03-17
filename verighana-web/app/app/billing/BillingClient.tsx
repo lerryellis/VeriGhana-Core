@@ -1,11 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TierChip } from '@/components/ui/TierChip'
 import type { UserProfile } from '../account/page'
 import type { PaymentRecord } from './page'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const API_URL         = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const PAYSTACK_PK     = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''
+
+// GHS pesewas (1 GHS = 100 pesewas). Rate: ~15 GHS per USD
+const USD_TO_GHS = 15
+function toKobo(usd: number) { return Math.round(usd * USD_TO_GHS * 100) }
+
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup(opts: Record<string, unknown>): { openIframe(): void }
+    }
+  }
+}
 
 type Plan = 'pro' | 'institutional'
 type Billing = 'monthly' | 'annual'
@@ -74,48 +87,86 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const plan = PLANS[selectedPlan]
-  const price = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
+  const plan       = PLANS[selectedPlan]
+  const price      = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
   const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
+
+  // Load Paystack script
+  useEffect(() => {
+    if (document.getElementById('paystack-js')) return
+    const s = document.createElement('script')
+    s.id  = 'paystack-js'
+    s.src = 'https://js.paystack.co/v1/inline.js'
+    document.body.appendChild(s)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) { setMsg({ type: 'error', text: 'Full name is required.' }); return }
-    if (payMethod !== 'card' && !phone.trim()) { setMsg({ type: 'error', text: 'Phone number is required for mobile money.' }); return }
+    if (!PAYSTACK_PK) { setMsg({ type: 'error', text: 'Payment not configured. Contact support.' }); return }
+    if (!window.PaystackPop) { setMsg({ type: 'error', text: 'Payment script not loaded. Refresh and try again.' }); return }
 
-    setSubmitting(true)
     setMsg(null)
 
-    try {
-      const res = await fetch(`${API_URL}/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          plan: selectedPlan,
-          billing_cycle: billing,
-          payment_method: payMethod,
-          phone: payMethod !== 'card' ? phone : undefined,
-          full_name: fullName,
-          promo_code: promoCode || undefined,
-          amount: price,
-          currency: 'USD',
-        }),
-      })
+    const isCard    = payMethod === 'card'
+    const channels  = isCard ? ['card'] : ['mobile_money']
+    const amount    = billing === 'annual' ? toKobo(price * 12) : toKobo(price)
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { detail?: string }
-        throw new Error(err.detail ?? `Error ${res.status}`)
-      }
+    const handler = window.PaystackPop.setup({
+      key:      PAYSTACK_PK,
+      email:    authEmail,
+      amount,
+      currency: 'GHS',
+      channels,
+      metadata: {
+        custom_fields: [
+          { display_name: 'Full Name',     variable_name: 'full_name',     value: fullName },
+          { display_name: 'Plan',          variable_name: 'plan_key',      value: selectedPlan },
+          { display_name: 'Billing Cycle', variable_name: 'billing_cycle', value: billing },
+          { display_name: 'Phone',         variable_name: 'phone',         value: phone },
+          { display_name: 'Promo Code',    variable_name: 'promo_code',    value: promoCode },
+        ],
+        plan_key:      selectedPlan,
+        billing_cycle: billing,
+        full_name:     fullName,
+        phone,
+        promo_code:    promoCode,
+      },
+      callback: (response: { reference: string }) => {
+        setSubmitting(true)
+        fetch(`${API_URL}/payment/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            reference:      response.reference,
+            plan_key:       selectedPlan,
+            billing_cycle:  billing,
+            full_name:      fullName,
+            phone:          phone || undefined,
+            promo_code:     promoCode || undefined,
+            payment_method: payMethod,
+          }),
+        })
+          .then(res => {
+            if (!res.ok) return res.json().catch(() => ({})).then((e: { detail?: string }) => { throw new Error(e.detail ?? `Verification failed (${res.status})`) })
+            setMsg({ type: 'success', text: `Payment successful! Your ${plan.name} plan is now active. Refresh the page to see your updated tier.` })
+          })
+          .catch((err: Error) => {
+            setMsg({ type: 'error', text: err.message })
+          })
+          .finally(() => {
+            setSubmitting(false)
+          })
+      },
+      onClose: () => {
+        setMsg({ type: 'error', text: 'Payment window closed. Try again when ready.' })
+      },
+    })
 
-      setMsg({ type: 'success', text: `Payment initiated! You will receive a ${payMethod === 'card' ? 'payment confirmation' : 'mobile money prompt'} shortly.` })
-    } catch (err: unknown) {
-      setMsg({ type: 'error', text: (err as Error).message ?? 'Payment failed. Please try again.' })
-    } finally {
-      setSubmitting(false)
-    }
+    handler.openIframe()
   }
 
   return (
@@ -325,6 +376,9 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
                     {new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     {p.payment_method && ` · ${p.payment_method.replace(/_/g, ' ')}`}
                   </p>
+                  {p.order_ref && (
+                    <p className="text-xs text-slate-400 font-mono-vg mt-0.5">Ref: {p.order_ref}</p>
+                  )}
                 </div>
                 <div className="text-right flex flex-col items-end gap-1">
                   <p className="text-sm font-display font-bold text-[#0f2240]">

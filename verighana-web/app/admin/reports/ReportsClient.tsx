@@ -197,19 +197,22 @@ export function ReportsClient({ payments }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100">
-                {['Date','Name / Email','Plan','Amount','Method','Status','Invoice'].map(h => (
+                {['Date','Reference','Name / Email','Plan','Amount','Method','Status','Invoice'].map(h => (
                   <th key={h} className="text-left text-[0.65rem] text-slate-400 font-mono-vg uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-slate-400 text-sm py-8">No records match the selected filters.</td></tr>
+                <tr><td colSpan={8} className="text-center text-slate-400 text-sm py-8">No records match the selected filters.</td></tr>
               ) : (
                 filtered.map(p => (
                   <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono-vg whitespace-nowrap">
                       {new Date(p.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 font-mono-vg whitespace-nowrap">
+                      {p.order_ref || '—'}
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-[#0f2240] text-xs">{p.full_name || '—'}</p>

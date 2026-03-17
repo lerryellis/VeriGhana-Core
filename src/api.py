@@ -75,10 +75,11 @@ SUPABASE_SVC_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 SUPABASE_JWT_SEC = os.getenv("SUPABASE_JWT_SECRET", "")
 ADMIN_EMAIL      = os.getenv("ADMIN_EMAIL", "")
 ADMIN_API_KEY    = os.getenv("ADMIN_API_KEY", "")
-RESEND_API_KEY   = os.getenv("RESEND_API_KEY", "")
-RESEND_FROM      = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
-NOTIFY_NAME      = os.getenv("NOTIFY_FROM_NAME", "VeriGhana Support")
-ROOT_DIR         = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RESEND_API_KEY    = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM       = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+NOTIFY_NAME       = os.getenv("NOTIFY_FROM_NAME", "VeriGhana Support")
+PAYSTACK_SECRET   = os.getenv("PAYSTACK_SECRET_KEY", "")
+ROOT_DIR          = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # ── Supabase helper ──────────────────────────────────────────────────────────
@@ -411,6 +412,16 @@ class TestSiteRequest(BaseModel):
 class TicketStatusUpdate(BaseModel):
     status:              Optional[str]  = None
     user_followup_read:  Optional[bool] = None
+
+
+class PaymentVerifyRequest(BaseModel):
+    reference:      str
+    plan_key:       str                   # pro | institutional
+    billing_cycle:  str                   # monthly | annual
+    full_name:      Optional[str] = None
+    phone:          Optional[str] = None
+    promo_code:     Optional[str] = None
+    payment_method: Optional[str] = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -815,6 +826,100 @@ async def send_support_reply(
         email_error = "RESEND_API_KEY not configured"
 
     return {"saved": True, "email_sent": email_sent, "email_error": email_error}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PAYMENT  [Supabase Auth required]
+# ══════════════════════════════════════════════════════════════════════════════
+
+PLAN_PRICES = {
+    "pro":           {"monthly": 9.99,  "annual": 7.99},
+    "institutional": {"monthly": 79.99, "annual": 63.99},
+}
+PLAN_EXPIRY_DAYS = {"monthly": 31, "annual": 366}
+
+@app.post("/payment/verify", tags=["Payment"])
+async def verify_payment(
+    req:  PaymentVerifyRequest,
+    user: User = Depends(get_current_user),
+):
+    """
+    Verify a Paystack transaction reference and upgrade the user's tier.
+    Called after Paystack popup callback with the transaction reference.
+    """
+    if not PAYSTACK_SECRET:
+        raise HTTPException(status_code=503, detail="Payment gateway not configured.")
+
+    # ── 1. Verify with Paystack ───────────────────────────────────────────────
+    try:
+        ps_resp = _http.get(
+            f"https://api.paystack.co/transaction/verify/{req.reference}",
+            headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"},
+            timeout=15,
+        )
+        ps_data = ps_resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Paystack unreachable: {exc}")
+
+    if not ps_data.get("status") or ps_data.get("data", {}).get("status") != "success":
+        raise HTTPException(status_code=402, detail="Payment not successful on Paystack.")
+
+    tx = ps_data["data"]
+
+    # ── 2. Guard against re-use of the same reference ────────────────────────
+    existing = (
+        _supa(service=True)
+        .table("payments")
+        .select("id")
+        .eq("order_ref", req.reference)
+        .execute()
+        .data
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="This payment reference has already been used.")
+
+    # ── 3. Determine plan details ─────────────────────────────────────────────
+    plan_key = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
+    cycle    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
+    amount   = PLAN_PRICES[plan_key][cycle]
+    expires  = datetime.utcnow().replace(microsecond=0)
+    from datetime import timedelta
+    expires += timedelta(days=PLAN_EXPIRY_DAYS[cycle])
+
+    # ── 4. Save payment record ────────────────────────────────────────────────
+    import uuid
+    _supa(service=True).table("payments").insert({
+        "id":             str(uuid.uuid4()),
+        "user_id":        user.id,
+        "order_ref":      req.reference,
+        "user_email":     tx.get("customer", {}).get("email", ""),
+        "full_name":      req.full_name or "",
+        "plan_key":       plan_key,
+        "plan_label":     f"{plan_key.title()} ({cycle})",
+        "amount":         amount,
+        "currency":       "USD",
+        "payment_method": req.payment_method or tx.get("channel", "card"),
+        "status":         "succeeded",
+        "promo_code":     req.promo_code,
+        "country":        tx.get("customer", {}).get("customer_code", ""),
+        "email_sent":     False,
+        "sms_sent":       False,
+    }).execute()
+
+    # ── 5. Upgrade user tier ──────────────────────────────────────────────────
+    _supa(service=True).table("user_profiles").update({
+        "tier":                    plan_key,
+        "subscription_status":     "active",
+        "subscription_expires_at": expires.isoformat() + "Z",
+        "cancelled_at":            None,
+    }).eq("user_id", user.id).execute()
+
+    return {
+        "success":    True,
+        "plan":       plan_key,
+        "expires_at": expires.isoformat() + "Z",
+        "reference":  req.reference,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
