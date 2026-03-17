@@ -15,11 +15,11 @@ def get_supabase_client() -> Client:
         )
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_source_id(supabase: Client, source_name: str):
+def get_source_id(supabase: Client, source_name: str, official_url: str = "", category: str = "Media"):
     """
-    Looks up the numeric ID of a trusted source by name.
-    Now accepts the supabase client as a parameter so a new
-    connection is not created on every single call.
+    Returns the ID of a trusted source by name.
+    If the source is not yet in the table it is inserted automatically,
+    so scrapers never skip a source just because it is missing from the DB.
     """
     response = (
         supabase.table("trusted_sources")
@@ -29,6 +29,21 @@ def get_source_id(supabase: Client, source_name: str):
     )
     if response.data:
         return response.data[0]["id"]
+
+    # Auto-register the missing source
+    insert = (
+        supabase.table("trusted_sources")
+        .insert({
+            "source_name":  source_name,
+            "official_url": official_url or "",
+            "category":     category,
+        })
+        .execute()
+    )
+    if insert.data:
+        print(f"   Auto-registered new source: '{source_name}'")
+        return insert.data[0]["id"]
+
     return None
 
 def save_fact_entry(supabase: Client, source_id, title, content, url, published_date):
