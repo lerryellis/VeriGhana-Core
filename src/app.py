@@ -2863,100 +2863,175 @@ def page_tester():
 # ══════════════════════════════════════════════
 def page_tickets():
     st.markdown('<div class="vg-shell"><div class="vg-wrap">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="vg-page-head">'
-        '<div class="vg-h1">Support <em>Tickets</em></div>'
-        '<div class="vg-sub">Review, reply and manage all user-submitted support requests.</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
 
-    # ── CSS scoped to this page ──────────────────────────────────────────
+    # ── Scoped CSS — every selector prefixed so it can't bleed ──────────
     st.markdown("""
 <style>
-/* Panel shells */
-.tk-box {
-    background:#fff;
-    border:1px solid #e2e8f0;
-    border-radius:10px;
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
+/* ── Ticket page panel shells ── */
+.tkt-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
 }
-.tk-hd {
-    padding:10px 14px;
-    border-bottom:1px solid #e2e8f0;
-    background:#f8fafc;
-    flex-shrink:0;
+.tkt-head {
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
-.tk-hd-label {
-    font-family:"DM Mono",monospace;
-    font-size:.6rem;
-    font-weight:700;
-    letter-spacing:.1em;
-    text-transform:uppercase;
-    color:#64748b;
+.tkt-head-label {
+    font-family: "DM Mono", monospace;
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #64748b;
 }
-.tk-body { padding:14px; }
-
-/* Ticket list */
-.tk-list { max-height:600px; overflow-y:auto; }
-.tk-row  {
-    padding:10px 14px;
-    border-bottom:1px solid #f1f5f9;
-    transition:background .12s;
-}
-.tk-row:hover  { background:#f8fafc; }
-.tk-row.sel    {
-    background:#eff6ff;
-    border-left:3px solid #2563eb;
-    padding-left:11px;
+.tkt-count-badge {
+    background: #e2e8f0;
+    color: #475569;
+    font-family: "DM Mono", monospace;
+    font-size: .6rem;
+    font-weight: 700;
+    padding: .1rem .45rem;
+    border-radius: 999px;
 }
 
-/* Message bubble */
-.tk-bubble {
-    background:#f0f4ff;
-    border-radius:0 10px 10px 10px;
-    padding:12px 14px;
-    font-size:.875rem;
-    color:#1e293b;
-    line-height:1.75;
-    white-space:pre-wrap;
-    margin:10px 0;
-    border:1px solid #dbeafe;
+/* ── LEFT PANEL: list buttons styled as rows ─────────────────────── */
+/* Wrap the list in div.tkt-list-wrap to scope styles */
+.tkt-list-wrap {
+    max-height: 580px;
+    overflow-y: auto;
+}
+.tkt-list-wrap > div[data-testid="stVerticalBlock"] > div > div[data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+/* Every button inside the list wrap becomes a row */
+.tkt-list-wrap .stButton > button {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    white-space: pre-line !important;
+    line-height: 1.55 !important;
+    padding: 9px 14px 8px !important;
+    font-size: .8rem !important;
+    font-weight: 400 !important;
+    height: auto !important;
+    min-height: 58px !important;
+    width: 100% !important;
+    letter-spacing: 0 !important;
+    display: block !important;
+    transition: background .1s !important;
+}
+.tkt-list-wrap .stButton > button:hover {
+    background: #f8fafc !important;
+    box-shadow: none !important;
 }
 
-/* Profile rows */
-.tk-pr {
-    display:flex;
-    justify-content:space-between;
-    padding:7px 0;
-    border-bottom:1px solid #f1f5f9;
-    font-size:.8rem;
+/* ── MID PANEL: message bubble ── */
+.tkt-bubble {
+    background: #f0f5ff;
+    border: 1px solid #dbeafe;
+    border-radius: 2px 10px 10px 10px;
+    padding: 12px 14px;
+    font-size: .875rem;
+    color: #1e293b;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    margin: 8px 0;
 }
-.tk-pr:last-child { border:none; }
 
-/* Compact Streamlit buttons inside ticket page only */
-section.main div[data-testid="column"] .stButton>button {
-    height:32px !important;
-    min-height:32px !important;
-    padding:0 14px !important;
-    font-size:.78rem !important;
-    font-weight:600 !important;
-    border-radius:6px !important;
-    line-height:1 !important;
+/* ── MID PANEL: reply textarea ── */
+.tkt-reply-wrap .stTextArea > div > div > textarea {
+    font-size: .875rem !important;
+    line-height: 1.7 !important;
+    min-height: 80px !important;
 }
-section.main div[data-testid="column"] .stTextArea textarea {
-    font-size:.875rem !important;
-    line-height:1.7 !important;
+
+/* ── MID PANEL: send + status row ── */
+.tkt-action-row .stButton > button {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 14px !important;
+    font-size: .8rem !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    line-height: 1 !important;
+    width: 100% !important;
 }
-section.main div[data-testid="column"] .stSelectbox>div {
-    font-size:.8rem !important;
+.tkt-action-row .stSelectbox > div > div {
+    min-height: 34px !important;
+    font-size: .8rem !important;
+}
+
+/* ── RIGHT PANEL: profile rows ── */
+.tkt-profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .8rem;
+}
+.tkt-profile-row:last-child { border: none; }
+
+/* ── RIGHT PANEL: quick action buttons ── */
+.tkt-qa-wrap .stButton > button {
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 10px !important;
+    font-size: .76rem !important;
+    font-weight: 600 !important;
+    border-radius: 5px !important;
+    line-height: 1 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    color: #475569 !important;
+    box-shadow: none !important;
+}
+.tkt-qa-wrap .stButton > button:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+    box-shadow: none !important;
+}
+
+/* ── Related ticket View buttons ── */
+.tkt-rel-wrap .stButton > button {
+    height: 22px !important;
+    min-height: 22px !important;
+    padding: 0 8px !important;
+    font-size: .68rem !important;
+    font-weight: 600 !important;
+    border-radius: 4px !important;
+    line-height: 1 !important;
+    width: auto !important;
+    background: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+    color: #2563eb !important;
+    box-shadow: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-    # ── Load all tickets ──────────────────────────────────────────────────
+    # ── Page header ──────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="border-bottom:1px solid #e2e8f0;padding:.6rem 0 .9rem;margin-bottom:1rem;">'
+        '<div class="vg-h1">Support <em>Tickets</em></div>'
+        '<div class="vg-sub">Review, respond and manage all user-submitted support requests.</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Load tickets ──────────────────────────────────────────────────────
     _tickets_all = []
     t_open = t_inprog = t_closed = 0
     if DB_OK:
@@ -2975,9 +3050,9 @@ section.main div[data-testid="column"] .stSelectbox>div {
         except Exception as _te:
             st.warning(f"Could not load tickets: {_te}")
     else:
-        st.info("Database not connected — showing empty state.")
+        st.info("Database not connected.")
 
-    # ── KPI row ───────────────────────────────────────────────────────────
+    # ── KPI pills ─────────────────────────────────────────────────────────
     k1, k2, k3, k4 = st.columns(4)
     for _col, (_val, _lbl, _clr) in zip([k1,k2,k3,k4], [
         (len(_tickets_all), "Total",           "#2563eb"),
@@ -2993,8 +3068,6 @@ section.main div[data-testid="column"] .stSelectbox>div {
                 unsafe_allow_html=True,
             )
 
-    st.markdown("<div style='margin-top:1rem;'>", unsafe_allow_html=True)
-
     # ── Helpers ──────────────────────────────────────────────────────────
     def _badge(status):
         cfg = {
@@ -3003,42 +3076,41 @@ section.main div[data-testid="column"] .stSelectbox>div {
             "resolved":    ("#f0fdf4","#15803d","#bbf7d0","Resolved"),
             "closed":      ("#f8fafc","#475569","#e2e8f0","Closed"),
         }
-        bg,fg,bd,lbl = cfg.get((status or "open").lower(), ("#f8fafc","#475569","#e2e8f0","?"))
+        bg,fg,bd,lbl = cfg.get((status or "open").lower(), ("#f8fafc","#475569","#e2e8f0","—"))
         return (f'<span style="background:{bg};color:{fg};border:1px solid {bd};'
-                f'font-size:.65rem;font-weight:700;font-family:DM Mono,monospace;'
-                f'padding:.2rem .6rem;border-radius:999px;">{lbl}</span>')
+                f'font-size:.62rem;font-weight:700;font-family:DM Mono,monospace;'
+                f'padding:.18rem .55rem;border-radius:999px;">{lbl}</span>')
 
     def _ts(iso, short=False):
         if not iso: return "—"
         try:
             dt = datetime.fromisoformat(iso.replace("Z","+00:00"))
-            return dt.strftime("%d %b %H:%M") if short else dt.strftime("%d %b %Y · %H:%M UTC")
+            return dt.strftime("%d %b  %H:%M") if short else dt.strftime("%d %b %Y · %H:%M")
         except Exception:
             return iso[:16].replace("T"," ")
 
-    def _av(name, sz=32):
-        palette = ["#2563eb","#7c3aed","#0891b2","#0d9488","#16a34a","#d97706"]
-        bg = palette[ord((name or "?")[0].upper()) % len(palette)]
-        return (f'<span style="display:inline-flex;align-items:center;'
-                f'justify-content:center;width:{sz}px;height:{sz}px;'
-                f'border-radius:50%;background:{bg};color:#fff;'
-                f'font-weight:800;font-size:{int(sz*.42)}px;'
-                f'font-family:Syne,sans-serif;flex-shrink:0;">'
-                f'{(name or "?")[0].upper()}</span>')
+    def _av(name, sz=34):
+        pal = ["#2563eb","#7c3aed","#0891b2","#0d9488","#16a34a","#b45309"]
+        bg  = pal[ord((name or "?")[0].upper()) % len(pal)]
+        return (f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+                f'width:{sz}px;height:{sz}px;border-radius:50%;background:{bg};color:#fff;'
+                f'font-weight:800;font-size:{int(sz*.42)}px;font-family:Syne,sans-serif;'
+                f'flex-shrink:0;">{(name or "?")[0].upper()}</span>')
 
-    # ── Filter bar ───────────────────────────────────────────────────────
-    sf1, sf2, sf3 = st.columns([1,1,2])
-    with sf1:
+    # ── Filter bar ────────────────────────────────────────────────────────
+    st.markdown("<div style='margin-top:.85rem;'>", unsafe_allow_html=True)
+    fc1, fc2, fc3 = st.columns([1, 1, 2])
+    with fc1:
         _fstat = st.selectbox("Status",
             ["All","Open","In Progress","Resolved","Closed"],
             key="tkt_fstat", label_visibility="collapsed")
-    with sf2:
+    with fc2:
         _fcat = st.selectbox("Category",
             ["All categories","Billing & payments","Account & login",
              "API & integrations","Verification results",
              "Feature request","Bug report","Other"],
             key="tkt_fcat", label_visibility="collapsed")
-    with sf3:
+    with fc3:
         _fsrch = st.text_input("Search",
             placeholder="Search name, email or subject…",
             key="tkt_srch", label_visibility="collapsed")
@@ -3046,94 +3118,103 @@ section.main div[data-testid="column"] .stSelectbox>div {
     # Apply filters
     _vis = list(_tickets_all)
     if _fstat != "All":
-        slug = _fstat.lower().replace(" ","_")
-        _vis = [t for t in _vis if (t.get("status") or "").lower().replace(" ","_") == slug]
+        sl = _fstat.lower().replace(" ","_")
+        _vis = [t for t in _vis if (t.get("status") or "").lower().replace(" ","_") == sl]
     if _fcat != "All categories":
         _vis = [t for t in _vis if t.get("category","") == _fcat]
     if _fsrch:
         q = _fsrch.lower()
-        _vis = [t for t in _vis if
-                q in (t.get("name","") or "").lower() or
-                q in (t.get("email","") or "").lower() or
-                q in (t.get("subject","") or "").lower() or
-                q in (t.get("message","") or "").lower()]
+        _vis = [t for t in _vis if any(
+            q in (t.get(k,"") or "").lower() for k in ("name","email","subject","message"))]
 
     if not _vis:
         st.markdown(
-            '<div class="vg-card" style="text-align:center;padding:3.5rem;margin-top:.75rem;">'
-            '<div style="font-size:2rem;margin-bottom:.5rem;">🎫</div>'
-            '<div style="color:#64748b;font-size:.9rem;">No tickets match the current filters.</div>'
-            '</div>',
-            unsafe_allow_html=True)
+            '<div class="vg-card" style="text-align:center;padding:3rem;margin-top:.75rem;">'
+            '<div style="font-size:1.8rem;">🎫</div>'
+            '<div style="color:#64748b;margin-top:.5rem;">No tickets match the current filters.</div>'
+            '</div>', unsafe_allow_html=True)
         st.markdown('</div></div></div>', unsafe_allow_html=True)
         return
 
-    # ── Selection state — keyed by ticket ID ─────────────────────────────
+    # ── Selection state ────────────────────────────────────────────────────
     if "tkt_sel_id" not in st.session_state:
         st.session_state.tkt_sel_id = _vis[0].get("id","")
-    if st.session_state.tkt_sel_id not in [t.get("id","") for t in _vis]:
-        st.session_state.tkt_sel_id = _vis[0].get("id","")
+    _vis_ids = [t.get("id","") for t in _vis]
+    if st.session_state.tkt_sel_id not in _vis_ids:
+        st.session_state.tkt_sel_id = _vis_ids[0] if _vis_ids else ""
 
-    sel = next((t for t in _vis if t.get("id","") == st.session_state.tkt_sel_id), _vis[0])
+    sel     = next((t for t in _vis if t.get("id","") == st.session_state.tkt_sel_id), _vis[0])
+    sel_idx = _vis_ids.index(st.session_state.tkt_sel_id) if st.session_state.tkt_sel_id in _vis_ids else 0
 
-    st.markdown(
-        f'<div style="color:#64748b;font-size:.75rem;margin-bottom:.6rem;">'
-        f'Showing <strong>{len(_vis)}</strong> of {len(_tickets_all)} ticket(s)</div>',
-        unsafe_allow_html=True)
+    s_dot = {"open":"🔴","in_progress":"🟡","resolved":"🟢","closed":"⚪"}
+    s_clr = {"open":"#dc2626","in_progress":"#d97706","resolved":"#16a34a","closed":"#94a3b8"}
 
     # ════════════════════════════════════════════════════════════
-    # THREE PANELS
+    # THREE COLUMNS
     # ════════════════════════════════════════════════════════════
-    col_list, col_detail, col_persona = st.columns([1, 2.1, 1.1], gap="small")
+    col_l, col_m, col_r = st.columns([1.05, 2.05, 1.05], gap="small")
 
-    sicons = {"open":"●","in_progress":"◑","resolved":"✓","closed":"○"}
-    sclrs  = {"open":"#dc2626","in_progress":"#d97706","resolved":"#16a34a","closed":"#94a3b8"}
-
-    # ── PANEL 1: list ────────────────────────────────────────────
-    with col_list:
+    # ── LEFT: ticket list ────────────────────────────────────────
+    with col_l:
         st.markdown(
-            f'<div class="tk-box" style="height:680px;">'
-            f'<div class="tk-hd" style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<span class="tk-hd-label">All Tickets</span>'
-            f'<span style="background:#e2e8f0;color:#475569;font-family:DM Mono,monospace;'
-            f'font-size:.6rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;">'
-            f'{len(_vis)}</span>'
-            f'</div>'
-            f'<div class="tk-list">',
+            f'<div class="tkt-panel">'
+            f'<div class="tkt-head">'
+            f'<span class="tkt-head-label">All Tickets</span>'
+            f'<span class="tkt-count-badge">{len(_vis)}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
-        for tk in _vis:
-            tid_i   = tk.get("id","")
-            is_sel  = tid_i == st.session_state.tkt_sel_id
-            ts_i    = (tk.get("status") or "open").lower()
-            subj_i  = tk.get("subject","(no subject)")
-            name_i  = tk.get("name","Unknown")
-            ts_str  = _ts(tk.get("created_at",""), short=True)
-            sel_cls = " sel" if is_sel else ""
+        st.markdown('<div class="tkt-list-wrap">', unsafe_allow_html=True)
 
-            st.markdown(
-                f'<div class="tk-row{sel_cls}">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'
-                f'<span style="font-family:DM Mono,monospace;font-size:.6rem;color:#2563eb;font-weight:700;">'
-                f'#{str(tid_i)[:7].upper()}</span>'
-                f'<span style="font-size:.62rem;color:#94a3b8;">{ts_str}</span>'
-                f'</div>'
-                f'<div style="font-size:.8rem;font-weight:600;color:#0f172a;line-height:1.35;margin-bottom:2px;">'
-                f'<span style="color:{sclrs.get(ts_i,"#94a3b8")};font-size:.7rem;">{sicons.get(ts_i,"●")}</span>'
-                f' {subj_i[:34]}{"…" if len(subj_i)>34 else ""}'
-                f'</div>'
-                f'<div style="font-size:.7rem;color:#64748b;">{name_i}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("View", key=f"tkt_view_{tid_i}", use_container_width=True):
+        for i, tk in enumerate(_vis):
+            tid_i  = tk.get("id","")
+            ts_i   = (tk.get("status") or "open").lower()
+            subj_i = tk.get("subject","(no subject)")
+            name_i = tk.get("name","Unknown")
+            time_i = _ts(tk.get("created_at",""), short=True)
+            dot    = s_dot.get(ts_i,"⚪")
+            # Multiline label — Streamlit renders \n with white-space:pre-line
+            btn_lbl = f"{dot}  {subj_i[:34]}{'…' if len(subj_i)>34 else ''}\n     {name_i}  ·  {time_i}"
+            if st.button(btn_lbl, key=f"tkt_view_{tid_i}", use_container_width=True):
                 st.session_state.tkt_sel_id = tid_i
                 st.rerun()
 
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # ── PANEL 2: detail + reply ──────────────────────────────────
-    with col_detail:
+        # JS: highlight the selected row after React renders
+        st.markdown(f"""
+<script>
+(function(){{
+    var SEL = {sel_idx};
+    function hl(){{
+        var wrap = document.querySelector('.tkt-list-wrap');
+        if (!wrap) return;
+        var btns = wrap.querySelectorAll('button');
+        if (!btns.length){{ setTimeout(hl, 80); return; }}
+        btns.forEach(function(b, i){{
+            if (i === SEL){{
+                b.style.background    = '#eff6ff';
+                b.style.borderLeft    = '3px solid #2563eb';
+                b.style.paddingLeft   = '11px';
+                b.style.fontWeight    = '600';
+                b.style.color         = '#0f172a';
+            }} else {{
+                b.style.background    = '';
+                b.style.borderLeft    = '';
+                b.style.paddingLeft   = '';
+                b.style.fontWeight    = '';
+                b.style.color         = '';
+            }}
+        }});
+    }}
+    setTimeout(hl, 100);
+    setTimeout(hl, 400);
+}})();
+</script>
+""", unsafe_allow_html=True)
+
+    # ── MIDDLE: ticket detail + reply ─────────────────────────────
+    with col_m:
         tid    = sel.get("id","")
         tname  = sel.get("name","Unknown")
         temail = sel.get("email","—")
@@ -3142,84 +3223,83 @@ section.main div[data-testid="column"] .stSelectbox>div {
         tstat  = (sel.get("status") or "open").lower()
         tts    = _ts(sel.get("created_at",""))
         tcat   = sel.get("category","Other")
-        tid_s  = str(tid)[:7].upper() or "——"
+        tid_s  = str(tid)[:7].upper() or "———"
 
         st.markdown(
-            f'<div class="tk-box" style="height:680px;">'
-            # header
-            f'<div class="tk-hd" style="display:flex;justify-content:space-between;align-items:flex-start;">'
+            f'<div class="tkt-panel">'
+            # ── header
+            f'<div class="tkt-head">'
             f'<div style="min-width:0;">'
-            f'<div class="tk-hd-label">Ticket Details</div>'
+            f'<span class="tkt-head-label">Ticket Detail</span>'
             f'<div style="font-size:.88rem;font-weight:700;color:#0f172a;margin-top:3px;'
-            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;">'
-            f'#{tid_s} — {tsubj}'
-            f'</div>'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">'
+            f'#{tid_s} — {tsubj}</div>'
             f'</div>'
             f'{_badge(tstat)}'
             f'</div>'
-            # sender meta
-            f'<div style="padding:12px 14px 0;display:flex;align-items:center;gap:8px;'
-            f'font-size:.75rem;color:#64748b;flex-wrap:wrap;">'
+            # ── sender meta
+            f'<div style="padding:10px 14px 4px;display:flex;align-items:center;'
+            f'gap:8px;font-size:.75rem;color:#64748b;flex-wrap:wrap;">'
             f'{_av(tname, 26)}'
             f'<strong style="color:#334155;">{tname}</strong>'
             f'<a href="mailto:{temail}" style="color:#2563eb;text-decoration:none;">{temail}</a>'
-            f'<span style="color:#cbd5e1;">·</span>'
-            f'<span>{tts}</span>'
+            f'<span style="color:#cbd5e1;">·</span><span>{tts}</span>'
             f'</div>'
-            f'<div style="padding:4px 14px 10px;">'
+            # ── category chip
+            f'<div style="padding:2px 14px 10px;">'
             f'<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;'
             f'font-size:.6rem;font-weight:600;font-family:DM Mono,monospace;'
             f'padding:.15rem .5rem;border-radius:999px;">{tcat}</span>'
+            f'</div>'
+            # ── message bubble
+            f'<div style="padding:0 14px 12px;">'
+            f'<div class="tkt-bubble">{tmsg}</div>'
+            f'</div>'
+            # ── reply header
+            f'<div style="border-top:1px solid #e2e8f0;padding:10px 14px 0;">'
+            f'<span class="tkt-head-label">Agent Reply</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
-        # message bubble
-        st.markdown(
-            f'<div style="padding:0 14px;flex:1;overflow-y:auto;">'
-            f'<div class="tk-bubble">{tmsg}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        # divider + reply area
-        st.markdown(
-            '<div style="border-top:1px solid #e2e8f0;padding:12px 14px 14px;">'
-            '<div class="tk-hd-label" style="margin-bottom:6px;">Agent Reply</div>',
-            unsafe_allow_html=True,
-        )
-
+        # Reply textarea
+        st.markdown('<div class="tkt-reply-wrap" style="padding:6px 14px 0;">', unsafe_allow_html=True)
         reply_txt = st.text_area(
             "Reply", key=f"tkt_reply_{tid}",
             placeholder="Write your reply — it will be emailed to the user immediately…",
-            height=110, label_visibility="collapsed",
+            height=90, label_visibility="collapsed",
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        rb1, rb2 = st.columns([1,1])
-        with rb1:
-            if st.button("✉  Send Reply", key=f"tkt_send_{tid}",
+        # Send + status row
+        st.markdown('<div class="tkt-action-row" style="padding:8px 14px 14px;display:flex;gap:8px;">', unsafe_allow_html=True)
+        send_col, stat_col = st.columns([1, 1])
+        with send_col:
+            if st.button("✉ Send Reply", key=f"tkt_send_{tid}",
                          type="primary", use_container_width=True):
                 if not (reply_txt or "").strip():
-                    st.warning("Write something before sending.")
+                    st.warning("Write a reply first.")
                 else:
-                    with st.spinner("Sending email…"):
-                        ok, msg = _send_support_reply(
-                            to_email  = temail,
-                            to_name   = tname,
-                            subject   = tsubj,
-                            body      = reply_txt.strip(),
-                            ticket_id = tid_s,
+                    with st.spinner("Sending…"):
+                        ok, send_msg = _send_support_reply(
+                            to_email=temail, to_name=tname,
+                            subject=tsubj, body=reply_txt.strip(),
+                            ticket_id=tid_s,
                         )
                     if ok:
                         if DB_OK and tid and tstat == "open":
                             try:
-                                get_supabase_client().table("support_tickets").update({"status": "in_progress", "updated_at": datetime.utcnow().isoformat() + "Z"}).eq("id", tid).execute()
+                                get_supabase_client().table("support_tickets").update(
+                                    {"status": "in_progress",
+                                     "updated_at": datetime.utcnow().isoformat()+"Z"}
+                                ).eq("id", tid).execute()
                             except Exception: pass
-                        st.success(f"✓ {msg}")
+                        st.success(f"✓ {send_msg}")
                         st.rerun()
                     else:
-                        st.error(msg)
-        with rb2:
+                        st.error(send_msg)
+
+        with stat_col:
             s_opts  = ["open","in_progress","resolved","closed"]
             s_lbls  = ["Open","In Progress","Resolved","Closed"]
             cur_i   = s_opts.index(tstat) if tstat in s_opts else 0
@@ -3227,21 +3307,23 @@ section.main div[data-testid="column"] .stSelectbox>div {
                                    key=f"tkt_stat_{tid}", label_visibility="collapsed")
             if s_lbls[cur_i] != new_s and DB_OK and tid:
                 try:
-                    get_supabase_client().table("support_tickets").update({"status": s_opts[s_lbls.index(new_s)], "updated_at": datetime.utcnow().isoformat() + "Z"}).eq("id", tid).execute()
+                    get_supabase_client().table("support_tickets").update(
+                        {"status": s_opts[s_lbls.index(new_s)],
+                         "updated_at": datetime.utcnow().isoformat()+"Z"}
+                    ).eq("id", tid).execute()
                     st.rerun()
                 except Exception as _e:
                     st.error(str(_e))
 
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # ── PANEL 3: reporter + actions ──────────────────────────────
-    with col_persona:
+    # ── RIGHT: reporter + quick actions ──────────────────────────
+    with col_r:
         tname  = sel.get("name","Unknown")
         temail = sel.get("email","—")
         tstat  = (sel.get("status") or "open").lower()
         tid    = sel.get("id","")
 
-        # Fetch user profile
         _up = {}
         if DB_OK and temail not in ("","—"):
             try:
@@ -3258,94 +3340,96 @@ section.main div[data-testid="column"] .stSelectbox>div {
         t_clr     = {"Free":"#64748b","Pro":"#2563eb","Institutional":"#16a34a"}.get(u_tier,"#64748b")
         related   = [t for t in _tickets_all if t.get("email") == temail and t.get("id") != tid]
 
+        # Reporter card — pure HTML
         st.markdown(
-            '<div class="tk-box" style="height:680px;">'
-            '<div class="tk-hd"><span class="tk-hd-label">Reporter</span></div>'
-            '<div class="tk-body" style="overflow-y:auto;flex:1;">',
-            unsafe_allow_html=True,
-        )
-
-        # Avatar + name/email
-        st.markdown(
+            f'<div class="tkt-panel">'
+            f'<div class="tkt-head"><span class="tkt-head-label">Reporter</span></div>'
+            f'<div style="padding:14px;">'
+            # avatar + name
             f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
-            f'{_av(tname, 42)}'
+            f'{_av(tname, 40)}'
             f'<div style="min-width:0;">'
             f'<div style="font-weight:700;color:#0f172a;font-size:.88rem;">{tname}</div>'
             f'<a href="mailto:{temail}" style="color:#2563eb;font-size:.72rem;'
             f'text-decoration:none;word-break:break-all;">{temail}</a>'
-            f'</div></div>',
-            unsafe_allow_html=True,
-        )
-
-        # Profile rows
-        for lbl, val in [
-            ("Plan",     f'<span style="color:{t_clr};font-weight:700;">{u_tier}</span>'),
-            ("Billing",  u_sub),
-            ("Location", u_country),
-            ("Other tickets",
-             f'<span style="color:#2563eb;font-weight:600;">{len(related)}</span>'
-             if related else "None"),
-        ]:
-            st.markdown(
-                f'<div class="tk-pr">'
-                f'<span style="color:#64748b;">{lbl}</span>'
-                f'<span style="color:#0f172a;">{val}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
+            f'</div></div>'
+            # profile rows
+            + "".join(
+                f'<div class="tkt-profile-row">'
+                f'<span style="color:#64748b;">{lb}</span>'
+                f'<span style="color:#0f172a;">{vl}</span>'
+                f'</div>'
+                for lb, vl in [
+                    ("Plan",  f'<span style="color:{t_clr};font-weight:700;">{u_tier}</span>'),
+                    ("Status", u_sub),
+                    ("Location", u_country),
+                    ("Other tickets",
+                     f'<span style="color:#2563eb;font-weight:600;">{len(related)}</span>'
+                     if related else "None"),
+                ]
             )
-
-        # Quick actions
-        st.markdown(
-            '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;">'
-            '<div class="tk-hd-label" style="margin-bottom:8px;">Quick Actions</div>',
+            + '<div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;">'
+              '<span class="tkt-head-label" style="display:block;margin-bottom:8px;">Quick Actions</span>',
             unsafe_allow_html=True,
         )
+
+        # Quick action buttons
+        lbl_r = "✓ Resolve" if tstat not in ("resolved","closed") else "↩ Reopen"
+        nstat = "open" if tstat in ("resolved","closed") else "resolved"
         qa1, qa2 = st.columns(2)
         with qa1:
-            lbl_r = "✓ Resolve" if tstat not in ("resolved","closed") else "↩ Reopen"
-            key_r = f"tkt_resolve_{tid}"
-            if st.button(lbl_r, key=key_r, use_container_width=True):
-                new_stat = "open" if tstat in ("resolved","closed") else "resolved"
+            st.markdown('<div class="tkt-qa-wrap">', unsafe_allow_html=True)
+            if st.button(lbl_r, key=f"tkt_res_{tid}", use_container_width=True):
                 if DB_OK and tid:
                     try:
-                        get_supabase_client().table("support_tickets").update({"status": new_stat, "updated_at": datetime.utcnow().isoformat() + "Z"}).eq("id", tid).execute()
+                        get_supabase_client().table("support_tickets").update(
+                            {"status": nstat,
+                             "updated_at": datetime.utcnow().isoformat()+"Z"}
+                        ).eq("id", tid).execute()
                         st.rerun()
                     except Exception as _e: st.error(str(_e))
+            st.markdown('</div>', unsafe_allow_html=True)
         with qa2:
+            st.markdown('<div class="tkt-qa-wrap">', unsafe_allow_html=True)
             if st.button("⚑ Escalate", key=f"tkt_esc_{tid}", use_container_width=True):
-                st.toast("Ticket marked for escalation.", icon="⚑")
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.toast("Ticket flagged for escalation.", icon="⚑")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # Related tickets
         if related:
             st.markdown(
                 '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">'
-                '<div class="tk-hd-label" style="margin-bottom:8px;">Related Tickets</div>',
+                '<span class="tkt-head-label" style="display:block;margin-bottom:6px;">Related</span>',
                 unsafe_allow_html=True,
             )
-            for rt in related[:6]:
-                rt_s  = (rt.get("status") or "open").lower()
-                rt_id = str(rt.get("id",""))[:7].upper()
-                rt_sub = (rt.get("subject") or "—")[:28]
-                st.markdown(
-                    f'<div style="padding:5px 0;border-bottom:1px solid #f8fafc;font-size:.75rem;">'
-                    f'<span style="color:{sclrs.get(rt_s,"#94a3b8")};">{sicons.get(rt_s,"●")}</span> '
-                    f'<span style="color:#2563eb;font-family:DM Mono,monospace;font-size:.65rem;">'
-                    f'#{rt_id}</span> '
-                    f'<span style="color:#475569;">{rt_sub}{"…" if len(rt_sub)==28 else ""}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                if st.button("View", key=f"tkt_rel_view_{rt.get('id','')}",
-                             use_container_width=True):
-                    st.session_state.tkt_sel_id = rt.get("id","")
-                    st.rerun()
+            for rt in related[:5]:
+                rt_s   = (rt.get("status") or "open").lower()
+                rt_id  = str(rt.get("id",""))[:7].upper()
+                rt_sub = (rt.get("subject") or "—")[:26]
+                r_c1, r_c2 = st.columns([3, 1])
+                with r_c1:
+                    st.markdown(
+                        f'<div style="font-size:.75rem;padding:3px 0;color:#334155;">'
+                        f'<span style="color:{s_clr.get(rt_s,"#94a3b8")};">'
+                        f'{s_dot.get(rt_s,"⚪")}</span> '
+                        f'<span style="color:#2563eb;font-family:DM Mono,monospace;font-size:.62rem;">'
+                        f'#{rt_id}</span> {rt_sub}{"…" if len(rt_sub)==26 else ""}'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                with r_c2:
+                    st.markdown('<div class="tkt-rel-wrap">', unsafe_allow_html=True)
+                    if st.button("View", key=f"tkt_rel_{rt.get('id','')}"):
+                        st.session_state.tkt_sel_id = rt.get("id","")
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('</div></div>', unsafe_allow_html=True)
+        st.markdown('</div></div></div>', unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('</div></div></div>', unsafe_allow_html=True)
+
+
 
 
 # ══════════════════════════════════════════════

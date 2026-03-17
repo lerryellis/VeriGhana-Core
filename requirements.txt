@@ -6,3 +6,31 @@ requests
 google-genai
 streamlit
 streamlit-chat
+# ── Web framework (FastAPI backend) ─────────────────────────
+fastapi
+uvicorn[standard]
+python-multipart
+
+# ── Auth ─────────────────────────────────────────────────────
+PyJWT
+
+# ── Database ─────────────────────────────────────────────────
+supabase
+
+# ── AI providers ─────────────────────────────────────────────
+google-generativeai
+groq
+cohere
+
+# ── Scraping ─────────────────────────────────────────────────
+feedparser
+beautifulsoup4
+requests
+urllib3
+
+# ── Utilities ────────────────────────────────────────────────
+python-dotenv
+
+# ── Streamlit (legacy app.py — remove after Next.js migration) ──
+streamlit
+streamlit-chat
