@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { PrintButton } from './PrintButton'
 
 const API_URL   = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 const ADMIN_KEY = process.env.ADMIN_API_KEY ?? ''
@@ -20,12 +21,13 @@ type Payment = {
   promo_code: string | null
 }
 
-export default async function InvoicePage({ params }: { params: { id: string } }) {
+export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const res = await fetch(`${API_URL}/admin/payments/${params.id}/invoice`, {
+  const res = await fetch(`${API_URL}/admin/payments/${id}/invoice`, {
     headers: { 'X-Admin-Key': ADMIN_KEY },
     cache: 'no-store',
   })
@@ -42,14 +44,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
     <>
       {/* Print button — hidden when printing */}
       <div className="print:hidden flex justify-end gap-3 px-8 pt-6 pb-2 max-w-3xl mx-auto">
-        <button
-          type="button"
-          onClick={() => { /* client-side handled via layout script */ }}
-          id="print-btn"
-          className="bg-[#0f2240] hover:bg-[#1a3a6e] text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
-        >
-          Download / Print PDF
-        </button>
+        <PrintButton />
         <a
           href="/app/billing"
           className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 transition-colors"
@@ -122,13 +117,6 @@ export default async function InvoicePage({ params }: { params: { id: string } }
           <p>This is an official receipt for your subscription payment.</p>
         </div>
       </div>
-
-      {/* Client-side print trigger */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        document.getElementById('print-btn').addEventListener('click', function() {
-          window.print();
-        });
-      `}} />
 
       <style>{`
         @media print {
