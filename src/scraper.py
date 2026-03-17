@@ -24,10 +24,18 @@ def get_supabase_client() -> Client:
         raise ValueError('Keys not found. Check your .env file or GitHub Secrets.')
     return create_client(supabase_url, supabase_key)
 
-def get_source_id(supabase: Client, source_name: str):
+def get_source_id(supabase: Client, source_name: str, official_url: str = "", category: str = "Media"):
     response = supabase.table('trusted_sources').select('id').eq('source_name', source_name).execute()
     if response.data:
         return response.data[0]['id']
+    # Auto-insert if missing so scrapers never skip an unknown source
+    insert = supabase.table('trusted_sources').insert({
+        'source_name': source_name,
+        'official_url': official_url,
+        'category': category,
+    }).execute()
+    if insert.data:
+        return insert.data[0]['id']
     return None
 
 def run_ingestion_pipeline():
