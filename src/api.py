@@ -1,689 +1,1013 @@
 """
-api.py — VeriGhana Main Backend
-=================================
-All API routes in one place, organized by router:
+VeriGhana FastAPI Backend
+=========================
+Run:  uvicorn src.api:app --reload --port 8000
 
-  /auth/*          — register, login, refresh, logout, password reset
-  /me/*            — current user profile, subscription, API keys
-  /verify          — single claim verification (rate-limited by tier)
-  /verify/bulk     — bulk verification (institutional only)
-  /subscription/*  — upgrade, cancel, promo codes
-  /admin/*         — admin-only: users, stats, promos, tier management
-  /seats/*         — institutional seat management
+Endpoints
+---------
+  Public
+    GET  /                  → serve index.html from project root
+    GET  /health            → service health + module availability
+    GET  /stats             → homepage counters (articles, sources, claims checked)
+    GET  /models            → AI models available to caller's tier
 
-Run with:
-    uvicorn src.api:app --reload --port 8000
+  Verification  [Supabase Auth required]
+    POST /verify            → single claim  (rate-limited by tier)
+    POST /verify/bulk       → up to 20 claims  (institutional only)
 
-Requires in .env:
-    SUPABASE_URL
-    SUPABASE_KEY           (anon key — for public reads)
-    SUPABASE_SERVICE_KEY   (service_role — for admin operations)
-    GEMINI_API_KEY
-    JWT_SECRET_KEY
-    JWT_REFRESH_SECRET
+  Scraper pipeline  [X-Admin-Key header required]
+    POST /scrape/rss        → trigger RSS scraper (background)
+    POST /scrape/html       → trigger HTML scraper (background)
+    POST /embed             → trigger pgvector embedder (background)
+
+  Site tester  [X-Admin-Key header required]
+    POST /test-site         → test a single URL for scrapability
+    GET  /test-sites/list   → return the full 65-site test list
+
+  Support  [X-Admin-Key header required]
+    POST /support/reply     → send Resend email reply to a ticket
+    PATCH /admin/tickets/{id} → update ticket status
+
+  Admin data  [X-Admin-Key header required]
+    GET  /admin/stats       → platform KPIs
+    GET  /admin/payments    → last 200 payment records
+    GET  /admin/tickets     → last 200 support tickets
+
+  Diagnostics  [X-Admin-Key header required]
+    GET  /diagnostics       → live AI provider + DB health check
+
+Required .env variables
+-----------------------
+  SUPABASE_URL
+  SUPABASE_KEY              anon/public key
+  SUPABASE_SERVICE_KEY      service_role key (bypasses RLS)
+  SUPABASE_JWT_SECRET       Supabase Dashboard > Settings > API > JWT Secret
+  ADMIN_API_KEY             any random secret for server-to-server calls
+  ADMIN_EMAIL               email address that gets admin role
+  GEMINI_API_KEY
+  RESEND_API_KEY
+  RESEND_FROM_EMAIL         (optional — defaults to onboarding@resend.dev)
+  NOTIFY_FROM_NAME          (optional — defaults to VeriGhana Support)
+  ALLOWED_ORIGINS           comma-separated, e.g. https://verighana.gh,http://localhost:3000
 """
 
-import os, sys, time
-from typing import Optional
-from datetime import datetime, timezone, timedelta
+from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+import os, sys, time, json, base64, hmac
+from datetime import datetime
+from typing import Optional, List
+
+from fastapi import FastAPI, HTTPException, Depends, Header, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from dotenv import load_dotenv
+import jwt as PyJWT
+import requests as _http
 
+# ── Bootstrap ────────────────────────────────────────────────────────────────
 load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 
-# ── Internal modules
-import auth as Auth
-import db   as DB
-from schemas import (
-    RegisterRequest, LoginRequest, TokenResponse, RefreshRequest,
-    PasswordChangeRequest, PasswordResetRequest, PasswordResetConfirm,
-    UserProfile, UserUpdateRequest, RateLimitStatus,
-    VerifyRequest, VerifyResponse, BulkVerifyRequest, BulkVerifyResponse,
-    SubscriptionInfo, UpgradeRequest,
-    ApiKeyCreateRequest, ApiKeyResponse,
-    PromoValidateRequest, PromoValidateResponse, PromoCreateRequest,
-    AdminUserListResponse, AdminStatsResponse, AdminTierChangeRequest,
-    SeatInviteRequest,
-)
+SUPABASE_URL     = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY     = os.getenv("SUPABASE_KEY", "")
+SUPABASE_SVC_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+SUPABASE_JWT_SEC = os.getenv("SUPABASE_JWT_SECRET", "")
+ADMIN_EMAIL      = os.getenv("ADMIN_EMAIL", "")
+ADMIN_API_KEY    = os.getenv("ADMIN_API_KEY", "")
+RESEND_API_KEY   = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM      = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+NOTIFY_NAME      = os.getenv("NOTIFY_FROM_NAME", "VeriGhana Support")
+ROOT_DIR         = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# ── VeriGhana core
+
+# ── Supabase helper ──────────────────────────────────────────────────────────
+def _supa(service: bool = False):
+    """Return a Supabase client. service=True uses service_role key (bypasses RLS)."""
+    try:
+        from supabase import create_client
+        key = SUPABASE_SVC_KEY if service else SUPABASE_KEY
+        if not SUPABASE_URL or not key:
+            raise ValueError("SUPABASE_URL / key not configured.")
+        return create_client(SUPABASE_URL, key)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
+
+
+# ── Engine imports (graceful degradation) ────────────────────────────────────
 try:
     from verifier import verify_claim, FREE_MODELS, DEFAULT_MODEL
+    _VERIFIER_OK = True
 except ImportError:
-    print("WARNING: verifier.py not found — /verify will return mock results.")
+    _VERIFIER_OK  = False
     verify_claim  = None
     FREE_MODELS   = {"gemini-2.0-flash": "Gemini 2.0 Flash"}
     DEFAULT_MODEL = "gemini-2.0-flash"
 
+try:
+    from scrapers.html_scraper import run_html_ingestion
+    _HTML_SCRAPER_OK = True
+except ImportError:
+    _HTML_SCRAPER_OK   = False
+    run_html_ingestion = None
 
-# ══════════════════════════════════════════════
-#  APP
-# ══════════════════════════════════════════════
+try:
+    from scraper import run_ingestion_pipeline as run_scraper
+    _RSS_SCRAPER_OK = True
+except ImportError:
+    _RSS_SCRAPER_OK = False
+    run_scraper     = None
+
+try:
+    from embedder import embed_unprocessed_articles as run_embedder
+    _EMBEDDER_OK = True
+except ImportError:
+    _EMBEDDER_OK = False
+    run_embedder = None
+
+_TESTER_OK   = False
+test_site    = None
+SITES_TO_TEST: list = []
+try:
+    from scrapers.site_tester import test_site, SITES_TO_TEST
+    _TESTER_OK = True
+except ImportError:
+    try:
+        from site_tester import test_site, SITES_TO_TEST   # type: ignore
+        _TESTER_OK = True
+    except ImportError:
+        pass
+
+
+# ── Tier configuration ───────────────────────────────────────────────────────
+TIER_DAILY_LIMITS: dict[str, Optional[int]] = {
+    "free":          5,
+    "pro":           None,
+    "institutional": None,
+}
+_all_model_ids = list(FREE_MODELS.keys()) if FREE_MODELS else ["gemini-2.0-flash"]
+TIER_MODELS: dict[str, list[str]] = {
+    "free":          [_all_model_ids[-1]],   # slowest / lightest only
+    "pro":           _all_model_ids,
+    "institutional": _all_model_ids,
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  FASTAPI APP
+# ══════════════════════════════════════════════════════════════════════════════
 app = FastAPI(
     title       = "VeriGhana API",
-    description = "Ghana's AI-Powered Fact Verification Platform — Backend API",
+    description = "Ghana's AI-Powered Fact Verification Platform",
     version     = "2.0.0",
-    docs_url    = "/docs",   # Swagger UI at /docs
+    docs_url    = "/docs",
     redoc_url   = "/redoc",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = os.environ.get("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins     = os.getenv("ALLOWED_ORIGINS", "*").split(","),
     allow_credentials = True,
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
 
-# Serve homepage (index.html must be in project root)
-ROOT_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INDEX_HTML = os.path.join(ROOT_DIR, "index.html")
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  AUTH — Supabase JWT verification
+# ══════════════════════════════════════════════════════════════════════════════
+
+class User(BaseModel):
+    id:    str
+    email: str
+    tier:  str = "free"
+    role:  str = "client"
+
+
+def _decode_supabase_jwt(token: str) -> dict:
+    """
+    Verify a Supabase-issued JWT.
+    If SUPABASE_JWT_SECRET is not set (local dev), decode without verification.
+    Raises HTTPException 401 on any failure.
+    """
+    if not SUPABASE_JWT_SEC:
+        # Dev-only fallback: decode without signature check
+        try:
+            padding = "=" * (4 - len(token.split(".")[1]) % 4)
+            return json.loads(base64.urlsafe_b64decode(token.split(".")[1] + padding))
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token.")
+    try:
+        return PyJWT.decode(
+            token,
+            SUPABASE_JWT_SEC,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    except PyJWT.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+    except PyJWT.InvalidTokenError as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+
+
+def _profile_for(user_id: str, email: str) -> tuple[str, str]:
+    """
+    Return (tier, role) for a user.
+    Checks ADMIN_EMAIL env override first, then looks up user_profiles table.
+    """
+    if ADMIN_EMAIL and email.lower().strip() == ADMIN_EMAIL.lower().strip():
+        return "institutional", "admin"
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        return "free", "client"
+    try:
+        sb  = _supa(service=True)
+        row = (sb.table("user_profiles")
+                 .select("tier,role")
+                 .eq("user_id", user_id)
+                 .limit(1)
+                 .maybe_single()
+                 .execute())
+        if row and row.data:
+            return row.data.get("tier", "free"), row.data.get("role", "client")
+    except Exception:
+        pass
+    return "free", "client"
+
+
+async def get_current_user(authorization: Optional[str] = Header(None)) -> User:
+    """Dependency: require a valid Supabase Bearer token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required: Bearer <supabase_access_token>",
+        )
+    token   = authorization.removeprefix("Bearer ").strip()
+    payload = _decode_supabase_jwt(token)
+    uid     = payload.get("sub", "")
+    email   = payload.get("email", "")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Token is missing user id (sub).")
+    tier, role = _profile_for(uid, email)
+    return User(id=uid, email=email, tier=tier, role=role)
+
+
+async def get_current_user_optional(
+    authorization: Optional[str] = Header(None),
+) -> Optional[User]:
+    """Dependency: return User if token present and valid, else None."""
+    if not authorization:
+        return None
+    try:
+        return await get_current_user(authorization)
+    except HTTPException:
+        return None
+
+
+def require_admin_key(x_admin_key: Optional[str] = Header(None)) -> str:
+    """
+    Dependency: validate X-Admin-Key header for server-to-server calls.
+    Used by GitHub Actions scraper, Next.js admin server actions, etc.
+    """
+    if not ADMIN_API_KEY:
+        raise HTTPException(status_code=503, detail="ADMIN_API_KEY not set on server.")
+    if not x_admin_key or not hmac.compare_digest(x_admin_key.strip(), ADMIN_API_KEY.strip()):
+        raise HTTPException(status_code=403, detail="Invalid admin API key.")
+    return x_admin_key
+
+
+# ── Rate limit helpers ────────────────────────────────────────────────────────
+def _queries_today(user_id: str) -> int:
+    """Count /verify calls made by this user today (UTC)."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        return 0
+    try:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        sb    = _supa(service=True)
+        resp  = (sb.table("vg_usage_logs")
+                   .select("id", count="exact")
+                   .eq("user_id", user_id)
+                   .gte("created_at", f"{today}T00:00:00Z")
+                   .lte("created_at", f"{today}T23:59:59Z")
+                   .execute())
+        return resp.count or 0
+    except Exception:
+        return 0
+
+
+def _log_usage(user_id: str, claim: str, verdict: str,
+               score: int, model: str, ms: int, ip: Optional[str]):
+    """Insert a usage log row (silently fails if table doesn't exist yet)."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        return
+    try:
+        _supa(service=True).table("vg_usage_logs").insert({
+            "user_id":       user_id,
+            "endpoint":      "/verify",
+            "claim_text":    claim[:500],
+            "verdict":       verdict,
+            "score":         score,
+            "model_used":    model,
+            "processing_ms": ms,
+            "ip_address":    ip,
+            "created_at":    datetime.utcnow().isoformat() + "Z",
+        }).execute()
+    except Exception:
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PYDANTIC SCHEMAS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class VerifyRequest(BaseModel):
+    claim:    str
+    model:    Optional[str] = None
+    model_id: Optional[str] = None   # alias — matches verifier.py signature
+
+
+class SourceOut(BaseModel):
+    title:  str
+    url:    str
+    source: str
+    stance: Optional[str] = None
+
+
+class RateLimitOut(BaseModel):
+    used:      int
+    limit:     Optional[int]
+    remaining: Optional[int]
+    allowed:   bool
+
+
+class VerifyResponse(BaseModel):
+    verdict:       str
+    score:         int
+    explanation:   str
+    summary:       Optional[str]   = None
+    sources:       List[SourceOut] = []
+    model_used:    str
+    provider:      Optional[str]   = None
+    search_method: str
+    processing_ms: int
+    rate_limit:    Optional[RateLimitOut] = None
+
+
+class BulkVerifyRequest(BaseModel):
+    claims: List[str]
+    model:  Optional[str] = None
+
+
+class BulkVerifyResponse(BaseModel):
+    results:       List[VerifyResponse]
+    total:         int
+    processing_ms: int
+
+
+class SupportReplyRequest(BaseModel):
+    to_email:  str
+    to_name:   str
+    subject:   str
+    body:      str
+    ticket_id: Optional[str] = None
+
+
+class TestSiteRequest(BaseModel):
+    name:     str
+    url:      str
+    category: Optional[str] = "Custom"
+
+
+class TicketStatusUpdate(BaseModel):
+    status: str
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PUBLIC ROUTES
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/", include_in_schema=False)
 async def serve_homepage():
-    if os.path.exists(INDEX_HTML):
-        return FileResponse(INDEX_HTML, media_type="text/html")
+    index = os.path.join(ROOT_DIR, "index.html")
+    if os.path.exists(index):
+        return FileResponse(index, media_type="text/html")
     return {"message": "VeriGhana API v2.0 — visit /docs for the API reference."}
 
-@app.get("/health")
+
+@app.get("/health", tags=["Public"])
 async def health():
-    return {"status": "ok", "version": "2.0.0", "service": "VeriGhana API"}
+    """
+    Service health check.
+    Reports which internal modules loaded successfully.
+    Use this to verify your deployment after pushing code.
+    """
+    return {
+        "status":    "ok",
+        "version":   "2.0.0",
+        "modules": {
+            "verifier":     _VERIFIER_OK,
+            "html_scraper": _HTML_SCRAPER_OK,
+            "rss_scraper":  _RSS_SCRAPER_OK,
+            "embedder":     _EMBEDDER_OK,
+            "site_tester":  _TESTER_OK,
+        },
+        "db_configured":     bool(SUPABASE_URL and SUPABASE_KEY),
+        "admin_key_set":     bool(ADMIN_API_KEY),
+        "jwt_secret_set":    bool(SUPABASE_JWT_SEC),
+        "timestamp":         datetime.utcnow().isoformat() + "Z",
+    }
 
 
-# ══════════════════════════════════════════════
-#  AUTH ROUTES  /auth/*
-# ══════════════════════════════════════════════
+@app.get("/stats", tags=["Public"])
+async def public_stats():
+    """
+    Live database counters for the homepage stats bar.
+    Returns zeros gracefully if DB is unreachable.
+    """
+    out = {"total_articles": 0, "sources_indexed": 0, "claims_checked": 0, "last_updated": "—"}
+    if not (SUPABASE_URL and SUPABASE_KEY):
+        return out
 
-@app.post("/auth/register", response_model=TokenResponse, tags=["Auth"])
-async def register(req: RegisterRequest):
-    """Register a new user. Optionally apply a promo code at signup."""
-
-    # Validate password strength
-    errors = Auth.validate_password_strength(req.password)
-    if errors:
-        raise HTTPException(status_code=422, detail="; ".join(errors))
-
-    # Check email not already taken
-    existing = await DB.get_user_by_email(req.email)
-    if existing:
-        raise HTTPException(status_code=409, detail="An account with this email already exists.")
-
-    # Validate promo code if provided
-    promo_data = None
-    if req.promo_code:
-        # We don't have a user_id yet — create user first, then redeem
+    # Public reads — anon key
+    try:
+        sb = _supa()
+        out["total_articles"]  = sb.table("fact_entries").select("id", count="exact").execute().count or 0
+        out["sources_indexed"] = sb.table("trusted_sources").select("id", count="exact").execute().count or 0
+    except Exception:
         pass
 
-    # Create user
-    user = await DB.create_user(
-        email        = req.email,
-        password_hash= Auth.hash_password(req.password),
-        full_name    = req.full_name,
-        organisation = req.organisation,
-    )
-    if not user:
-        raise HTTPException(status_code=500, detail="Could not create account. Please try again.")
+    # Claims checked requires service key (usage_logs has RLS)
+    try:
+        sb = _supa(service=True)
+        out["claims_checked"] = sb.table("vg_usage_logs").select("id", count="exact").execute().count or 0
+    except Exception:
+        pass
 
-    user_id = str(user["id"])
+    # Last updated timestamp
+    try:
+        sb     = _supa()
+        latest = (sb.table("fact_entries")
+                    .select("created_at")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute())
+        if latest.data:
+            dt = datetime.fromisoformat(latest.data[0]["created_at"].replace("Z", ""))
+            out["last_updated"] = dt.strftime("%d %b %Y, %H:%M UTC")
+    except Exception:
+        pass
 
-    # Apply promo code if provided
-    if req.promo_code:
-        promo_result = await DB.validate_promo(req.promo_code, user_id, "free")
-        if promo_result["valid"]:
-            promo = promo_result["promo"]
-            if promo["type"] == "tier_unlock":
-                await DB.create_subscription(
-                    user_id=user_id, tier=promo["unlocks_tier"],
-                    trial_days=promo["unlock_days"],
-                    promo_code_id=promo["id"],
-                )
-                await DB.redeem_promo(promo["id"], user_id)
-            elif promo["type"] == "discount" and promo["discount_pct"] == 100:
-                # 100% discount = free month of pro
-                await DB.create_subscription(
-                    user_id=user_id, tier="pro", amount_usd=0,
-                    discount_pct=100, promo_code_id=promo["id"],
-                )
-                await DB.redeem_promo(promo["id"], user_id)
-
-    # Issue tokens
-    access  = Auth.create_access_token(user_id, user["email"], user["role"], user["tier"])
-    refresh, refresh_hash = Auth.create_refresh_token(user_id)
-    await DB.store_refresh_token(
-        user_id, refresh_hash,
-        (datetime.now(timezone.utc) + timedelta(days=Auth.REFRESH_TOKEN_TTL)).isoformat()
-    )
-
-    return TokenResponse(
-        access_token  = access,
-        refresh_token = refresh,
-        token_type    = "bearer",
-        expires_in    = Auth.ACCESS_TOKEN_TTL * 60,
-    )
+    return out
 
 
-@app.post("/auth/token", response_model=TokenResponse, tags=["Auth"])
-async def login(form: OAuth2PasswordRequestForm = Depends()):
-    """Login with email + password. Returns JWT access + refresh tokens."""
-    user = await DB.get_user_by_email(form.username)  # OAuth2 form uses "username" field for email
-    if not user or not Auth.verify_password(form.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Incorrect email or password.")
-    if not user["is_active"]:
-        raise HTTPException(status_code=403, detail="This account has been suspended.")
-
-    await DB.update_last_login(str(user["id"]))
-
-    access  = Auth.create_access_token(str(user["id"]), user["email"], user["role"], user["tier"])
-    refresh, refresh_hash = Auth.create_refresh_token(str(user["id"]))
-    await DB.store_refresh_token(
-        str(user["id"]), refresh_hash,
-        (datetime.now(timezone.utc) + timedelta(days=Auth.REFRESH_TOKEN_TTL)).isoformat()
-    )
-    return TokenResponse(
-        access_token  = access,
-        refresh_token = refresh,
-        token_type    = "bearer",
-        expires_in    = Auth.ACCESS_TOKEN_TTL * 60,
-    )
+@app.get("/models", tags=["Public"])
+async def list_models(user: Optional[User] = Depends(get_current_user_optional)):
+    """
+    Return the AI models available to the caller's tier.
+    Unauthenticated: free-tier model only.
+    Pro / Institutional: all models.
+    """
+    tier    = user.tier if user else "free"
+    allowed = TIER_MODELS.get(tier, TIER_MODELS["free"])
+    return {
+        "models":  [{"id": m, "name": m.replace("-", " ").title()} for m in allowed],
+        "default": allowed[0],
+        "tier":    tier,
+    }
 
 
-@app.post("/auth/refresh", response_model=TokenResponse, tags=["Auth"])
-async def refresh_token(req: RefreshRequest):
-    """Exchange a refresh token for a new access token."""
-    payload = Auth.decode_refresh_token(req.refresh_token)
-    token_hash = Auth.hash_refresh_token(req.refresh_token)
+# ══════════════════════════════════════════════════════════════════════════════
+#  VERIFICATION
+# ══════════════════════════════════════════════════════════════════════════════
 
-    stored = await DB.validate_refresh_token(token_hash)
-    if not stored:
-        raise HTTPException(status_code=401, detail="Refresh token is invalid or has been revoked.")
-
-    user = stored.get("vg_users") or await DB.get_user_by_id(payload["sub"])
-    if not user or not user["is_active"]:
-        raise HTTPException(status_code=403, detail="Account is inactive.")
-
-    # Rotate: revoke old, issue new
-    await DB.revoke_refresh_token(token_hash)
-    new_access = Auth.create_access_token(str(user["id"]), user["email"], user["role"], user["tier"])
-    new_refresh, new_hash = Auth.create_refresh_token(str(user["id"]))
-    await DB.store_refresh_token(
-        str(user["id"]), new_hash,
-        (datetime.now(timezone.utc) + timedelta(days=Auth.REFRESH_TOKEN_TTL)).isoformat()
-    )
-    return TokenResponse(
-        access_token  = new_access,
-        refresh_token = new_refresh,
-        token_type    = "bearer",
-        expires_in    = Auth.ACCESS_TOKEN_TTL * 60,
-    )
-
-
-@app.post("/auth/logout", tags=["Auth"])
-async def logout(req: RefreshRequest):
-    """Revoke the refresh token (client should also discard the access token)."""
-    token_hash = Auth.hash_refresh_token(req.refresh_token)
-    await DB.revoke_refresh_token(token_hash)
-    return {"message": "Logged out successfully."}
-
-
-@app.post("/auth/change-password", tags=["Auth"])
-async def change_password(req: PasswordChangeRequest, user=Depends(Auth.get_current_user)):
-    """Change the authenticated user's password."""
-    full_user = await DB.get_user_by_id(user["sub"])
-    if not Auth.verify_password(req.current_password, full_user["password_hash"]):
-        raise HTTPException(status_code=400, detail="Current password is incorrect.")
-    errors = Auth.validate_password_strength(req.new_password)
-    if errors:
-        raise HTTPException(status_code=422, detail="; ".join(errors))
-    await DB.update_user(user["sub"], password_hash=Auth.hash_password(req.new_password))
-    await DB.revoke_all_refresh_tokens(user["sub"])
-    return {"message": "Password changed. Please log in again."}
-
-
-# ══════════════════════════════════════════════
-#  ME ROUTES  /me/*
-# ══════════════════════════════════════════════
-
-@app.get("/me", response_model=UserProfile, tags=["Account"])
-async def get_profile(user=Depends(Auth.get_current_user)):
-    """Get the current user's profile."""
-    full = await DB.get_user_by_id(user["sub"])
-    if not full:
-        raise HTTPException(status_code=404, detail="User not found.")
-    return UserProfile(**{k: full[k] for k in UserProfile.model_fields if k in full})
-
-
-@app.patch("/me", response_model=UserProfile, tags=["Account"])
-async def update_profile(req: UserUpdateRequest, user=Depends(Auth.get_current_user)):
-    """Update profile fields (name, organisation)."""
-    updates = req.model_dump(exclude_none=True)
-    if not updates:
-        raise HTTPException(status_code=400, detail="Nothing to update.")
-    updated = await DB.update_user(user["sub"], **updates)
-    return UserProfile(**{k: updated[k] for k in UserProfile.model_fields if k in updated})
-
-
-@app.get("/me/subscription", response_model=SubscriptionInfo, tags=["Account"])
-async def get_subscription(user=Depends(Auth.get_current_user)):
-    """Get the current subscription + feature flags for this user's tier."""
-    sub = await DB.get_active_subscription(user["sub"])
-    tier = user.get("tier", "free")
-    features = Auth.TIER_FEATURES.get(tier, Auth.TIER_FEATURES["free"])
-    return SubscriptionInfo(
-        tier                = tier,
-        status              = sub["status"]              if sub else "active",
-        billing_cycle       = sub.get("billing_cycle")   if sub else None,
-        amount_usd          = sub.get("amount_usd", 0)   if sub else 0,
-        discount_pct        = sub.get("discount_pct", 0) if sub else 0,
-        current_period_end  = sub.get("current_period_end") if sub else None,
-        trial_ends_at       = sub.get("trial_ends_at")      if sub else None,
-        features            = features,
-    )
-
-
-@app.get("/me/usage", response_model=RateLimitStatus, tags=["Account"])
-async def get_usage(user=Depends(Auth.get_current_user)):
-    """Check how many requests you've used today."""
-    return await DB.check_rate_limit(user["sub"], user.get("tier","free"))
-
-
-# ── API Keys ──────────────────────────────────
-
-@app.get("/me/api-keys", tags=["API Keys"])
-async def list_api_keys(user=Depends(Auth.get_current_user)):
-    """List all API keys for the current user."""
-    if not Auth.check_feature(user, "api_keys"):
-        raise HTTPException(status_code=403, detail="API keys require a Pro or Institutional subscription.")
-    return await DB.list_api_keys(user["sub"])
-
-
-@app.post("/me/api-keys", response_model=ApiKeyResponse, tags=["API Keys"])
-async def create_api_key(req: ApiKeyCreateRequest, user=Depends(Auth.get_current_user)):
-    """Generate a new API key. The raw key is shown ONCE — save it securely."""
-    if not Auth.check_feature(user, "api_keys"):
-        raise HTTPException(status_code=403, detail="API keys require a Pro or Institutional subscription.")
-    existing = await DB.list_api_keys(user["sub"])
-    limit = 3 if user.get("tier") == "pro" else 20
-    if len(existing) >= limit:
-        raise HTTPException(status_code=400, detail=f"Maximum of {limit} API keys allowed.")
-    raw, prefix, hashed = Auth.generate_api_key()
-    stored = await DB.create_api_key(user["sub"], prefix, hashed, req.name)
-    return ApiKeyResponse(**stored, raw_key=raw)
-
-
-@app.delete("/me/api-keys/{key_id}", tags=["API Keys"])
-async def revoke_api_key(key_id: str, user=Depends(Auth.get_current_user)):
-    """Revoke (permanently disable) an API key."""
-    revoked = await DB.revoke_api_key(key_id, user["sub"])
-    if not revoked:
-        raise HTTPException(status_code=404, detail="API key not found.")
-    return {"message": "API key revoked."}
-
-
-# ══════════════════════════════════════════════
-#  VERIFY ROUTES
-# ══════════════════════════════════════════════
-
-def _call_verifier(claim: str, model: str) -> dict:
-    """Call verifier.py or return a mock result if it's not installed."""
-    if verify_claim is None:
+def _run_verify(claim: str, model_id: str) -> dict:
+    """Call verifier.py. Returns a safe fallback dict if engine is unavailable."""
+    if not _VERIFIER_OK or verify_claim is None:
         return {
-            "verdict": "UNCORROBORATED", "score": 0,
-            "explanation": "Verification engine not installed (verifier.py missing).",
-            "sources": [], "model_used": model,
-            "search_method": "mock", "processing_ms": 0,
+            "verdict":       "UNCORROBORATED",
+            "score":         0,
+            "explanation":   "Verification engine unavailable (verifier.py not found).",
+            "summary":       "",
+            "sources":       [],
+            "source_notes":  [],
+            "model_used":    model_id,
+            "provider":      "none",
+            "search_method": "none",
+            "processing_ms": 0,
         }
-    return verify_claim(claim, model=model)
+    return verify_claim(claim, model_id=model_id)
+
+
+def _build_rl(user_id: str, tier: str) -> RateLimitOut:
+    limit     = TIER_DAILY_LIMITS.get(tier)
+    used      = _queries_today(user_id) if limit is not None else 0
+    remaining = max(0, limit - used) if limit is not None else None
+    return RateLimitOut(
+        used      = used,
+        limit     = limit,
+        remaining = remaining,
+        allowed   = (limit is None) or (used < limit),
+    )
+
+
+def _normalise_sources(raw: list) -> List[SourceOut]:
+    return [
+        SourceOut(
+            title  = s.get("title", "Untitled"),
+            url    = s.get("url_link") or s.get("url", "#"),
+            source = s.get("source_name") or s.get("source", "Unknown"),
+            stance = s.get("stance"),
+        )
+        for s in raw
+    ]
 
 
 @app.post("/verify", response_model=VerifyResponse, tags=["Verification"])
-async def verify(req: VerifyRequest, request: Request,
-                 user=Depends(Auth.get_current_user_optional)):
+async def verify(
+    req:     VerifyRequest,
+    request: Request,
+    user:    User = Depends(get_current_user),
+):
     """
-    Verify a claim. Works for:
-      - Unauthenticated users (very limited, demo only)
-      - Free users (5/day)
-      - Pro users (unlimited)
-      - Institutional users (unlimited)
-      - API key holders (same limits as their tier)
+    Verify a claim against 65+ trusted Ghanaian sources.
+
+    Rate limits by tier:
+    - **Free**: 5 per day, slowest model only
+    - **Pro**: unlimited, all models
+    - **Institutional**: unlimited, all models + bulk endpoint
     """
-    tier    = user.get("tier", "free") if user else "free"
-    user_id = user.get("sub") if user else None
+    if not req.claim or not req.claim.strip():
+        raise HTTPException(status_code=400, detail="claim must not be empty.")
 
-    # Rate limit check
-    if user_id:
-        rl = await DB.check_rate_limit(user_id, tier)
-        if not rl["allowed"]:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Daily limit of {rl['limit']} queries reached. "
-                       f"Upgrade to Pro for unlimited access.",
-                headers={"X-RateLimit-Limit": str(rl["limit"]),
-                         "X-RateLimit-Remaining": "0"}
-            )
-    elif not user:
-        # Unauthenticated — allow demo only, no logging
-        pass
-
-    # Model validation
-    allowed_models = Auth.get_allowed_models(user) if user else ["gemini-2.0-flash-lite"]
-    model = req.model or allowed_models[0]
-    if model not in allowed_models:
-        model = allowed_models[0]
-
-    start = int(time.time() * 1000)
-    result = _call_verifier(req.claim, model)
-    ms = int(time.time() * 1000) - start
-
-    # Log usage
-    if user_id:
-        ip = request.client.host if request.client else None
-        ua = request.headers.get("user-agent")
-        await DB.log_usage(
-            user_id=user_id, endpoint="/verify",
-            claim_text=req.claim,
-            verdict=result.get("verdict"),
-            score=result.get("score"),
-            model_used=model, processing_ms=ms,
-            ip_address=ip, user_agent=ua,
+    # Rate limit
+    rl = _build_rl(user.id, user.tier)
+    if not rl.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily limit of {rl.limit} verifications reached. Upgrade to Pro for unlimited access.",
+            headers={"Retry-After": "86400"},
         )
 
-    sources = [
-        {"title": s.get("title","Untitled"),
-         "url":   s.get("url_link", s.get("url","#")),
-         "source":s.get("source_name", s.get("source","Unknown"))}
-        for s in result.get("sources", [])
-    ]
+    # Clamp model to tier's allowed set
+    allowed  = TIER_MODELS.get(user.tier, TIER_MODELS["free"])
+    model_id = req.model_id or req.model or allowed[0]
+    if model_id not in allowed:
+        model_id = allowed[0]
 
-    # Current rate limit status to return in response
-    rl_status = None
-    if user_id:
-        rl_status = await DB.check_rate_limit(user_id, tier)
+    # Run engine
+    t0     = time.time()
+    result = _run_verify(req.claim.strip(), model_id)
+    ms     = int((time.time() - t0) * 1000)
+
+    # Log (fire-and-forget)
+    ip = request.client.host if request.client else None
+    _log_usage(user.id, req.claim, result.get("verdict", ""), result.get("score", 0), model_id, ms, ip)
 
     return VerifyResponse(
         verdict       = result.get("verdict", "UNCORROBORATED"),
         score         = int(result.get("score", 0)),
         explanation   = result.get("explanation", ""),
-        sources       = sources,
-        model_used    = result.get("model_used", model),
+        summary       = result.get("summary"),
+        sources       = _normalise_sources(result.get("sources", [])),
+        model_used    = result.get("model_used", model_id),
+        provider      = result.get("provider"),
         search_method = result.get("search_method", "vector"),
-        processing_ms = ms,
-        rate_limit    = rl_status,
+        processing_ms = result.get("processing_ms", ms),
+        rate_limit    = _build_rl(user.id, user.tier),
     )
 
 
 @app.post("/verify/bulk", response_model=BulkVerifyResponse, tags=["Verification"])
-async def verify_bulk(req: BulkVerifyRequest, request: Request,
-                      user=Depends(Auth.get_current_user)):
-    """Bulk verify up to 20 claims. Institutional tier only."""
-    if not Auth.check_feature(user, "bulk_verify"):
-        raise HTTPException(status_code=403,
-                            detail="Bulk verification requires an Institutional subscription.")
-    allowed_models = Auth.get_allowed_models(user)
-    model = req.model or allowed_models[0]
-
-    start_all = int(time.time() * 1000)
-    results   = []
-    for claim in req.claims:
-        start = int(time.time() * 1000)
-        res   = _call_verifier(claim, model)
-        ms    = int(time.time() * 1000) - start
-        sources = [
-            {"title": s.get("title",""), "url": s.get("url_link","#"),
-             "source": s.get("source_name","")}
-            for s in res.get("sources",[])
-        ]
-        results.append(VerifyResponse(
-            verdict=res.get("verdict","UNCORROBORATED"), score=int(res.get("score",0)),
-            explanation=res.get("explanation",""), sources=sources,
-            model_used=model, search_method=res.get("search_method","vector"),
-            processing_ms=ms,
-        ))
-    total_ms = int(time.time() * 1000) - start_all
-    return BulkVerifyResponse(results=results, total=len(results), processing_ms=total_ms)
-
-
-# ══════════════════════════════════════════════
-#  SUBSCRIPTION ROUTES  /subscription/*
-# ══════════════════════════════════════════════
-
-@app.post("/subscription/upgrade", tags=["Subscription"])
-async def upgrade_subscription(req: UpgradeRequest, user=Depends(Auth.get_current_user)):
-    """
-    Upgrade to Pro or Institutional.
-    In production, this should redirect to Stripe/Paystack for payment.
-    For now, it directly activates the tier (demo/development mode).
-    """
-    from auth import TIER_PRICES
-    current_tier = user.get("tier", "free")
-    if req.tier == current_tier:
-        raise HTTPException(status_code=400, detail=f"You are already on the {req.tier} plan.")
-
-    base_price = TIER_PRICES[req.tier][req.billing_cycle]
-    final_price = base_price
-    promo = None
-    discount_pct = 0
-    trial_days = 0
-
-    # Validate and apply promo code
-    if req.promo_code:
-        promo_result = await DB.validate_promo(req.promo_code, user["sub"], current_tier)
-        if not promo_result["valid"]:
-            raise HTTPException(status_code=400, detail=promo_result["error"])
-        promo = promo_result["promo"]
-
-        if promo["type"] == "discount":
-            discount_pct = promo["discount_pct"]
-            final_price  = base_price * (1 - discount_pct / 100)
-        elif promo["type"] == "tier_unlock":
-            trial_days  = promo["unlock_days"]
-            final_price = 0
-        elif promo["type"] == "trial_extension":
-            trial_days  = promo["unlock_days"]
-
-    sub = await DB.create_subscription(
-        user_id       = user["sub"],
-        tier          = req.tier,
-        billing_cycle = req.billing_cycle,
-        amount_usd    = round(final_price, 2),
-        discount_pct  = discount_pct,
-        promo_code_id = promo["id"] if promo else None,
-        trial_days    = trial_days,
-    )
-
-    if promo:
-        await DB.redeem_promo(promo["id"], user["sub"])
-
-    return {
-        "message":       f"Successfully upgraded to {req.tier}.",
-        "tier":          req.tier,
-        "billing_cycle": req.billing_cycle,
-        "amount_charged": round(final_price, 2),
-        "discount_pct":   discount_pct,
-        "trial_days":     trial_days,
-        "subscription_id": str(sub["id"]) if sub else None,
-        "note": "⚠️ Payment processing not yet integrated. Add Stripe/Paystack before going live."
-    }
-
-
-@app.post("/subscription/cancel", tags=["Subscription"])
-async def cancel_subscription(user=Depends(Auth.get_current_user)):
-    """Cancel the current subscription. Reverts to free tier immediately."""
-    if user.get("tier") == "free":
-        raise HTTPException(status_code=400, detail="You are on the free plan already.")
-    await DB.cancel_subscription(user["sub"])
-    return {"message": "Subscription cancelled. You have been moved to the Free plan."}
-
-
-@app.post("/subscription/promo/validate", response_model=PromoValidateResponse, tags=["Subscription"])
-async def validate_promo(req: PromoValidateRequest, user=Depends(Auth.get_current_user)):
-    """Check whether a promo code is valid for this user."""
-    result = await DB.validate_promo(req.code, user["sub"], user.get("tier","free"))
-    if not result["valid"]:
-        return PromoValidateResponse(valid=False, code=req.code, error=result["error"],
-                                      type=None, discount_pct=None, unlocks_tier=None,
-                                      unlock_days=None, description=None)
-    p = result["promo"]
-    return PromoValidateResponse(
-        valid=True, code=p["code"], error=None,
-        type=p["type"], discount_pct=p.get("discount_pct"),
-        unlocks_tier=p.get("unlocks_tier"), unlock_days=p.get("unlock_days"),
-        description=p.get("description"),
-    )
-
-
-# ══════════════════════════════════════════════
-#  STATS (public-ish — for homepage counters)
-# ══════════════════════════════════════════════
-
-@app.get("/stats", tags=["Public"])
-async def public_stats():
-    """Live database statistics for the homepage counters."""
-    try:
-        db = DB.get_db()
-        articles = db.table("fact_entries").select("id", count="exact").execute()
-        sources  = db.table("trusted_sources").select("id", count="exact").execute()
-        claims   = db.table("vg_usage_logs").select("id", count="exact").execute()
-        latest   = db.table("fact_entries").select("created_at").order("created_at", desc=True).limit(1).execute()
-        last_upd = "—"
-        if latest.data:
-            dt = datetime.fromisoformat(latest.data[0]["created_at"].replace("Z",""))
-            last_upd = dt.strftime("%d %b %Y")
-        return {
-            "total_articles":  articles.count or 0,
-            "sources_indexed": sources.count or 0,
-            "claims_checked":  claims.count or 0,
-            "last_updated":    last_upd,
-        }
-    except Exception as e:
-        return {"total_articles": 0, "sources_indexed": 0, "claims_checked": 0, "last_updated": "—"}
-
-
-@app.get("/models", tags=["Public"])
-async def list_models(user=Depends(Auth.get_current_user_optional)):
-    """Return list of AI models available to the current user's tier."""
-    allowed = Auth.get_allowed_models(user) if user else ["gemini-2.0-flash-lite"]
-    return {"models": allowed, "default": allowed[0]}
-
-
-# ══════════════════════════════════════════════
-#  ADMIN ROUTES  /admin/*
-# ══════════════════════════════════════════════
-
-@app.get("/admin/stats", response_model=AdminStatsResponse, tags=["Admin"])
-async def admin_stats(admin=Depends(Auth.require_admin)):
-    """Platform-wide statistics for the admin dashboard."""
-    return await DB.admin_get_stats()
-
-
-@app.get("/admin/users", response_model=AdminUserListResponse, tags=["Admin"])
-async def admin_list_users(
-    limit: int = 50, offset: int = 0,
-    tier: Optional[str] = None, role: Optional[str] = None,
-    search: Optional[str] = None,
-    admin=Depends(Auth.require_admin)
+async def verify_bulk(
+    req:  BulkVerifyRequest,
+    user: User = Depends(get_current_user),
 ):
-    """List all users with subscription details. Supports filtering and search."""
-    return await DB.admin_list_users(limit, offset, tier, role, search)
+    """Verify up to 20 claims. **Institutional tier only.**"""
+    if user.tier != "institutional":
+        raise HTTPException(status_code=403, detail="Bulk verification requires an Institutional subscription.")
+    if not req.claims:
+        raise HTTPException(status_code=400, detail="Provide at least one claim.")
+    if len(req.claims) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 claims per bulk request.")
+
+    allowed  = TIER_MODELS["institutional"]
+    model_id = req.model or allowed[0]
+    if model_id not in allowed:
+        model_id = allowed[0]
+
+    t_all, results = time.time(), []
+    for claim in req.claims:
+        t0  = time.time()
+        res = _run_verify(claim, model_id)
+        ms  = int((time.time() - t0) * 1000)
+        results.append(VerifyResponse(
+            verdict       = res.get("verdict", "UNCORROBORATED"),
+            score         = int(res.get("score", 0)),
+            explanation   = res.get("explanation", ""),
+            summary       = res.get("summary"),
+            sources       = _normalise_sources(res.get("sources", [])),
+            model_used    = res.get("model_used", model_id),
+            provider      = res.get("provider"),
+            search_method = res.get("search_method", "vector"),
+            processing_ms = ms,
+        ))
+
+    return BulkVerifyResponse(
+        results       = results,
+        total         = len(results),
+        processing_ms = int((time.time() - t_all) * 1000),
+    )
 
 
-@app.patch("/admin/users/{user_id}/tier", tags=["Admin"])
-async def admin_change_tier(user_id: str, req: AdminTierChangeRequest,
-                             admin=Depends(Auth.require_admin)):
-    """Manually change a user's subscription tier (admin override)."""
-    sub = await DB.admin_change_user_tier(user_id, req.tier, req.billing_cycle, admin["sub"])
-    return {"message": f"User upgraded to {req.tier}.", "subscription": sub}
+# ══════════════════════════════════════════════════════════════════════════════
+#  SCRAPER PIPELINE  [X-Admin-Key required]
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/scrape/rss", tags=["Scraper"])
+async def scrape_rss(
+    background: BackgroundTasks,
+    _: str = Depends(require_admin_key),
+):
+    """Trigger the RSS scraper in the background. Returns immediately."""
+    if not _RSS_SCRAPER_OK or run_scraper is None:
+        raise HTTPException(status_code=503, detail="scraper.py not found in src/.")
+    def _run():
+        try:
+            run_scraper()
+            print("[RSS scraper] completed")
+        except Exception as exc:
+            print(f"[RSS scraper] error: {exc}")
+    background.add_task(_run)
+    return {"status": "started", "job": "rss_scraper"}
 
 
-@app.patch("/admin/users/{user_id}/suspend", tags=["Admin"])
-async def admin_suspend_user(user_id: str, admin=Depends(Auth.require_admin)):
-    """Suspend a user account. All their tokens are revoked immediately."""
-    if user_id == admin["sub"]:
-        raise HTTPException(status_code=400, detail="You cannot suspend your own account.")
-    await DB.admin_toggle_user(user_id, False)
-    return {"message": "User suspended."}
+@app.post("/scrape/html", tags=["Scraper"])
+async def scrape_html(
+    background: BackgroundTasks,
+    _: str = Depends(require_admin_key),
+):
+    """Trigger the HTML scraper in the background. Returns immediately."""
+    if not _HTML_SCRAPER_OK or run_html_ingestion is None:
+        raise HTTPException(status_code=503, detail="scrapers/html_scraper.py not found in src/.")
+    def _run():
+        try:
+            run_html_ingestion()
+            print("[HTML scraper] completed")
+        except Exception as exc:
+            print(f"[HTML scraper] error: {exc}")
+    background.add_task(_run)
+    return {"status": "started", "job": "html_scraper"}
 
 
-@app.patch("/admin/users/{user_id}/reactivate", tags=["Admin"])
-async def admin_reactivate_user(user_id: str, admin=Depends(Auth.require_admin)):
-    """Reactivate a suspended user account."""
-    await DB.admin_toggle_user(user_id, True)
-    return {"message": "User reactivated."}
+@app.post("/embed", tags=["Scraper"])
+async def run_embed(
+    background: BackgroundTasks,
+    _: str = Depends(require_admin_key),
+):
+    """Trigger the pgvector embedder in the background. Returns immediately."""
+    if not _EMBEDDER_OK or run_embedder is None:
+        raise HTTPException(status_code=503, detail="embedder.py not found in src/.")
+    def _run():
+        try:
+            run_embedder()
+            print("[Embedder] completed")
+        except Exception as exc:
+            print(f"[Embedder] error: {exc}")
+    background.add_task(_run)
+    return {"status": "started", "job": "embedder"}
 
 
-@app.get("/admin/promos", tags=["Admin"])
-async def admin_list_promos(admin=Depends(Auth.require_admin)):
-    """List all promo codes with redemption stats."""
-    return await DB.admin_list_promos()
+# ══════════════════════════════════════════════════════════════════════════════
+#  SITE TESTER  [X-Admin-Key required]
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/test-sites/list", tags=["Site Tester"])
+async def get_sites_list(_: str = Depends(require_admin_key)):
+    """Return the full list of sites used in scrapability testing."""
+    if not _TESTER_OK:
+        raise HTTPException(status_code=503, detail="site_tester.py not available.")
+    return {"sites": SITES_TO_TEST, "total": len(SITES_TO_TEST)}
 
 
-@app.post("/admin/promos", tags=["Admin"])
-async def admin_create_promo(req: PromoCreateRequest, admin=Depends(Auth.require_admin)):
-    """Create a new promo code."""
-    data = req.model_dump(exclude_none=True)
-    if "valid_until" in data and data["valid_until"]:
-        data["valid_until"] = data["valid_until"].isoformat()
-    created = await DB.admin_create_promo(data, admin["sub"])
-    if not created:
-        raise HTTPException(status_code=500, detail="Could not create promo code.")
-    return created
+@app.post("/test-site", tags=["Site Tester"])
+async def test_single_site(
+    req: TestSiteRequest,
+    _:   str = Depends(require_admin_key),
+):
+    """
+    Test a single URL for scrapability.
+    Returns status, headline count, detected tag/class, and up to 3 sample headlines.
+    """
+    if not _TESTER_OK or test_site is None:
+        raise HTTPException(status_code=503, detail="site_tester.py not available.")
+    try:
+        result = test_site({"name": req.name, "url": req.url, "category": req.category})
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Site test failed: {exc}")
 
 
-@app.patch("/admin/promos/{promo_id}/deactivate", tags=["Admin"])
-async def admin_deactivate_promo(promo_id: str, admin=Depends(Auth.require_admin)):
-    """Deactivate (disable) a promo code without deleting it."""
-    db = DB.get_db()
-    db.table("vg_promo_codes").update({"is_active": False}).eq("id", promo_id).execute()
-    return {"message": "Promo code deactivated."}
+# ══════════════════════════════════════════════════════════════════════════════
+#  SUPPORT  [X-Admin-Key required]
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/support/reply", tags=["Support"])
+async def send_support_reply(
+    req: SupportReplyRequest,
+    _:   str = Depends(require_admin_key),
+):
+    """
+    Send an email reply to a support ticket via Resend.
+    Called from the Next.js tickets admin page when an agent clicks Send Reply.
+    """
+    if not RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="RESEND_API_KEY not configured.")
+
+    ticket_ref = f"#{req.ticket_id[:7].upper()}" if req.ticket_id else ""
+    html_body = f"""
+<div style="font-family:Arial,sans-serif;font-size:15px;color:#1e293b;
+            max-width:600px;margin:0 auto;line-height:1.6;">
+  <div style="background:#0f172a;padding:18px 24px;border-radius:8px 8px 0 0;">
+    <span style="font-weight:800;font-size:18px;color:#fff;">
+      Veri<span style="color:#60a5fa;">Ghana</span>
+    </span>
+  </div>
+  <div style="padding:24px;border:1px solid #e2e8f0;
+              border-top:none;border-radius:0 0 8px 8px;background:#fff;">
+    <p style="margin:0 0 16px;">Hi <strong>{req.to_name}</strong>,</p>
+    <div style="white-space:pre-wrap;">{req.body}</div>
+    <hr style="margin:24px 0;border:none;border-top:1px solid #e2e8f0;">
+    <p style="font-size:12px;color:#94a3b8;margin:0;">
+      {NOTIFY_NAME}{'<br>Ticket ref: ' + ticket_ref if ticket_ref else ''}
+    </p>
+  </div>
+</div>"""
+
+    plain = f"Hi {req.to_name},\n\n{req.body}\n\n— {NOTIFY_NAME}"
+    if ticket_ref:
+        plain += f"\nTicket ref: {ticket_ref}"
+
+    try:
+        resp = _http.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "from":     f"{NOTIFY_NAME} <{RESEND_FROM}>",
+                "to":       [req.to_email],
+                "subject":  f"Re: {req.subject}",
+                "html":     html_body,
+                "text":     plain,
+                "reply_to": os.getenv("NOTIFY_FROM_EMAIL", RESEND_FROM),
+            },
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            return {"sent": True, "to": req.to_email}
+
+        try:
+            err = resp.json().get("message", resp.text[:200])
+        except Exception:
+            err = resp.text[:200]
+
+        if resp.status_code == 403 and "domain" in err.lower():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Resend domain not verified. Set RESEND_FROM_EMAIL=onboarding@resend.dev "
+                    "in .env, or verify verighana.gh at resend.com/domains."
+                ),
+            )
+        raise HTTPException(status_code=502, detail=f"Resend {resp.status_code}: {err}")
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Email send failed: {exc}")
 
 
-# ══════════════════════════════════════════════
-#  SEATS  /seats/*  (Institutional only)
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+#  ADMIN DATA  [X-Admin-Key required]
+# ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/seats", tags=["Seats"])
-async def list_seats(user=Depends(Auth.require_tier("institutional"))):
-    """List all seat members in your organisation."""
-    return await DB.list_seats(user["sub"])
+@app.get("/admin/stats", tags=["Admin"])
+async def admin_stats(_: str = Depends(require_admin_key)):
+    """Platform-wide KPIs for the admin dashboard."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    sb, out = _supa(service=True), {}
+
+    for table, label in [
+        ("fact_entries",    "articles"),
+        ("trusted_sources", "sources"),
+        ("support_tickets", "tickets"),
+        ("user_profiles",   "users"),
+    ]:
+        try:
+            out[label] = sb.table(table).select("id", count="exact").execute().count or 0
+        except Exception:
+            out[label] = 0
+
+    # Payment aggregates
+    try:
+        pays = sb.table("payments").select("amount,plan_key").eq("status", "succeeded").execute().data or []
+        out["payments"]    = len(pays)
+        out["revenue_usd"] = round(sum(float(p.get("amount", 0)) for p in pays), 2)
+        out["pro_subs"]    = sum(1 for p in pays if p.get("plan_key") == "pro")
+        out["inst_subs"]   = sum(1 for p in pays if p.get("plan_key") == "institutional")
+    except Exception:
+        out.update({"payments": 0, "revenue_usd": 0.0, "pro_subs": 0, "inst_subs": 0})
+
+    return out
 
 
-@app.post("/seats/invite", tags=["Seats"])
-async def invite_seat(req: SeatInviteRequest, user=Depends(Auth.require_tier("institutional"))):
-    """Invite a new user to your organisation as a seat."""
-    seats = await DB.list_seats(user["sub"])
-    max_seats = Auth.TIER_FEATURES["institutional"]["max_seats"]
-    if len(seats) >= max_seats:
-        raise HTTPException(status_code=400,
-                            detail=f"Maximum of {max_seats} seats allowed. Contact sales to expand.")
-    result = await DB.invite_seat(user["sub"], req.email)
+@app.get("/admin/payments", tags=["Admin"])
+async def admin_payments(
+    limit: int = 200,
+    _:     str = Depends(require_admin_key),
+):
+    """Last N payment records, most recent first."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        rows = (
+            _supa(service=True)
+            .table("payments")
+            .select(
+                "order_ref,created_at,user_email,full_name,plan_label,"
+                "amount,currency,payment_method,status,email_sent,sms_sent,"
+                "promo_code,country,plan_key"
+            )
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data or []
+        )
+        return {"payments": rows, "total": len(rows)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/admin/tickets", tags=["Admin"])
+async def admin_tickets(
+    limit:  int           = 200,
+    status: Optional[str] = None,
+    _:      str           = Depends(require_admin_key),
+):
+    """
+    Support tickets, most recent first.
+    Filter by status: open | in_progress | resolved | closed
+    """
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        query = (
+            _supa(service=True)
+            .table("support_tickets")
+            .select("id,created_at,updated_at,name,email,category,subject,message,status")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if status:
+            query = query.eq("status", status)
+        rows = query.execute().data or []
+        return {"tickets": rows, "total": len(rows)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch("/admin/tickets/{ticket_id}", tags=["Admin"])
+async def update_ticket_status(
+    ticket_id: str,
+    body:      TicketStatusUpdate,
+    _:         str = Depends(require_admin_key),
+):
+    """Update a ticket's status field."""
+    valid = {"open", "in_progress", "resolved", "closed"}
+    if body.status not in valid:
+        raise HTTPException(status_code=400, detail=f"status must be one of: {sorted(valid)}")
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        _supa(service=True).table("support_tickets").update({
+            "status":     body.status,
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }).eq("id", ticket_id).execute()
+        return {"updated": True, "ticket_id": ticket_id, "status": body.status}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  DIAGNOSTICS  [X-Admin-Key required]
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/diagnostics", tags=["Admin"])
+async def diagnostics(_: str = Depends(require_admin_key)):
+    """
+    Live health check for every AI provider and the Supabase database.
+    Returns a structured report used by the admin Site Tester panel.
+    """
+    results: list[dict] = []
+
+    # Supabase
+    try:
+        sb  = _supa(service=True)
+        cnt = sb.table("fact_entries").select("id", count="exact").execute().count or 0
+        results.append({"provider":"Supabase","check":"Connection + row count","status":"PASS","detail":f"{cnt:,} rows in fact_entries"})
+    except Exception as exc:
+        results.append({"provider":"Supabase","check":"Connection + row count","status":"FAIL","detail":str(exc)[:120]})
+
+    # Gemini
+    gkey = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+    if gkey:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=gkey)
+            r = genai.GenerativeModel("gemini-2.0-flash").generate_content(
+                "Reply with the single word ONLINE",
+                generation_config={"max_output_tokens": 5, "temperature": 0},
+            )
+            results.append({"provider":"Gemini","check":"API reachability","status":"PASS" if r.text else "FAIL","detail":"gemini-2.0-flash responded"})
+        except Exception as exc:
+            results.append({"provider":"Gemini","check":"API reachability","status":"FAIL","detail":str(exc)[:120]})
+    else:
+        results.append({"provider":"Gemini","check":"API reachability","status":"SKIP","detail":"No GEMINI_API_KEY in .env"})
+
+    # Groq
+    gq = os.getenv("GROQ_API_KEY", "")
+    if gq:
+        try:
+            r = _http.post("https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization":f"Bearer {gq}","Content-Type":"application/json"},
+                json={"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"Reply: ONLINE"}],"max_tokens":5},
+                timeout=12)
+            r.raise_for_status()
+            results.append({"provider":"Groq","check":"API reachability","status":"PASS","detail":"llama-3.3-70b-versatile"})
+        except Exception as exc:
+            results.append({"provider":"Groq","check":"API reachability","status":"FAIL","detail":str(exc)[:120]})
+    else:
+        results.append({"provider":"Groq","check":"API reachability","status":"SKIP","detail":"No GROQ_API_KEY in .env"})
+
+    # Cohere
+    ck = os.getenv("COHERE_API_KEY", "")
+    if ck:
+        try:
+            r = _http.post("https://api.cohere.com/v2/chat",
+                headers={"Authorization":f"Bearer {ck}","Content-Type":"application/json"},
+                json={"model":"command-r-plus","messages":[{"role":"user","content":"Reply: ONLINE"}],"max_tokens":5},
+                timeout=12)
+            r.raise_for_status()
+            results.append({"provider":"Cohere","check":"API reachability","status":"PASS","detail":"command-r-plus"})
+        except Exception as exc:
+            results.append({"provider":"Cohere","check":"API reachability","status":"FAIL","detail":str(exc)[:120]})
+    else:
+        results.append({"provider":"Cohere","check":"API reachability","status":"SKIP","detail":"No COHERE_API_KEY in .env"})
+
+    # OpenRouter
+    ok = os.getenv("OPENROUTER_API_KEY", "")
+    if ok:
+        try:
+            r = _http.post("https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization":f"Bearer {ok}","Content-Type":"application/json",
+                         "HTTP-Referer":"https://verighana.gh","X-Title":"VeriGhana"},
+                json={"model":"meta-llama/llama-3.3-70b-instruct:free",
+                      "messages":[{"role":"user","content":"Reply: ONLINE"}],"max_tokens":5},
+                timeout=12)
+            r.raise_for_status()
+            results.append({"provider":"OpenRouter","check":"API reachability","status":"PASS","detail":"llama-3.3-70b-instruct:free"})
+        except Exception as exc:
+            results.append({"provider":"OpenRouter","check":"API reachability","status":"FAIL","detail":str(exc)[:120]})
+    else:
+        results.append({"provider":"OpenRouter","check":"API reachability","status":"SKIP","detail":"No OPENROUTER_API_KEY in .env"})
+
+    passes = sum(1 for r in results if r["status"] == "PASS")
+    fails  = sum(1 for r in results if r["status"] == "FAIL")
+    skips  = sum(1 for r in results if r["status"] == "SKIP")
+
     return {
-        "message": f"Invitation sent to {req.email}.",
-        "invite_token": result.get("invite_token"),
-        "note": "⚠️ Email delivery not yet integrated. Send the invite_token manually."
+        "results":   results,
+        "summary":   {"pass": passes, "fail": fails, "skip": skips},
+        "healthy":   fails == 0,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
 
-@app.delete("/seats/{seat_id}", tags=["Seats"])
-async def remove_seat(seat_id: str, user=Depends(Auth.require_tier("institutional"))):
-    """Remove a seat member from your organisation."""
-    await DB.remove_seat(user["sub"], seat_id)
-    return {"message": "Seat removed."}
-
-
-# ══════════════════════════════════════════════
-#  ERROR HANDLERS
-# ══════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+#  GLOBAL ERROR HANDLERS
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.exception_handler(404)
 async def not_found(request: Request, exc):
-    return JSONResponse(status_code=404,
-                        content={"detail": f"Route not found: {request.url.path}"})
+    return JSONResponse(
+        status_code=404,
+        content={"detail": f"Not found: {request.url.path} — see /docs"},
+    )
 
 @app.exception_handler(500)
 async def server_error(request: Request, exc):
-    return JSONResponse(status_code=500,
-                        content={"detail": "Internal server error. Check server logs."})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error — check server logs."},
+    )
