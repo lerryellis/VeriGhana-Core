@@ -11,6 +11,7 @@ supabase
 
 # ── AI providers ─────────────────────────────────────────────
 google-generativeai
+google-genai
 groq
 cohere
 
