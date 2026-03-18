@@ -74,11 +74,10 @@ export interface HealthResponse {
 }
 
 export interface StatsResponse {
-  total_articles: number
-  articles_with_embeddings: number
+  total_articles:      number
+  sources_tracked:     number
   total_verifications: number
-  sources_tracked: number
-  last_scrape?: string
+  last_scrape:         string | null
 }
 
 export interface ModelInfo {

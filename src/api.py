@@ -491,38 +491,45 @@ async def public_stats():
     Live database counters for the homepage stats bar.
     Returns zeros gracefully if DB is unreachable.
     """
-    out = {"total_articles": 0, "sources_indexed": 0, "claims_checked": 0, "last_updated": "—"}
+    out = {"total_articles": 0, "sources_tracked": 0, "total_verifications": 0, "last_scrape": None}
     if not (SUPABASE_URL and SUPABASE_KEY):
         return out
 
     # Public reads — anon key
     try:
         sb = _supa()
-        out["total_articles"]  = sb.table("fact_entries").select("id", count="exact").execute().count or 0
-        out["sources_indexed"] = sb.table("trusted_sources").select("id", count="exact").execute().count or 0
+        out["total_articles"] = sb.table("fact_entries").select("id", count="exact").execute().count or 0
+        out["sources_tracked"] = sb.table("trusted_sources").select("id", count="exact").execute().count or 0
     except Exception:
         pass
 
-    # Claims checked requires service key (usage_logs has RLS)
+    # Claims checked + last verification — service key bypasses RLS on usage_logs
     try:
         sb = _supa(service=True)
-        out["claims_checked"] = sb.table("vg_usage_logs").select("id", count="exact").execute().count or 0
+        out["total_verifications"] = sb.table("vg_usage_logs").select("id", count="exact").execute().count or 0
+        latest_use = (sb.table("vg_usage_logs")
+                        .select("created_at")
+                        .order("created_at", desc=True)
+                        .limit(1)
+                        .execute())
+        if latest_use.data:
+            out["last_scrape"] = latest_use.data[0]["created_at"]
     except Exception:
         pass
 
-    # Last updated timestamp
-    try:
-        sb     = _supa()
-        latest = (sb.table("fact_entries")
-                    .select("created_at")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute())
-        if latest.data:
-            dt = datetime.fromisoformat(latest.data[0]["created_at"].replace("Z", ""))
-            out["last_updated"] = dt.strftime("%d %b %Y, %H:%M UTC")
-    except Exception:
-        pass
+    # Fall back to last article scrape if no verifications yet
+    if not out["last_scrape"]:
+        try:
+            sb     = _supa()
+            latest = (sb.table("fact_entries")
+                        .select("created_at")
+                        .order("created_at", desc=True)
+                        .limit(1)
+                        .execute())
+            if latest.data:
+                out["last_scrape"] = latest.data[0]["created_at"]
+        except Exception:
+            pass
 
     return out
 
