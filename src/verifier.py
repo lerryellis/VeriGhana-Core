@@ -489,11 +489,28 @@ def _keyword_search(claim: str, limit: int = 8) -> list:
                     "published_date": row.get("published_date") or row.get("created_at", ""),
                 })
 
-    # --- Strategy 1: search top keywords across all text columns, collect all hits ---
+    # --- Strategy 1: exact phrase search across ALL text columns (highest precision) ---
+    phrase = claim[:200]
+    for col in text_cols:
+        if len(candidate_pool) >= pool_target:
+            break
+        try:
+            r = (supabase.table("fact_entries")
+                         .select("*")
+                         .ilike(col, f"%{phrase}%")
+                         .limit(pool_target)
+                         .execute())
+            if r.data:
+                _add(r.data)
+                logger.debug("phrase ilike %s -> %d hits", col, len(r.data))
+        except Exception as e:
+            logger.warning("phrase ilike %s failed: %s", col, e)
+
+    # --- Strategy 2: per-keyword search across ALL text columns ---
     for word in words[:8]:
         if len(candidate_pool) >= pool_target:
             break
-        for col in text_cols[:2]:
+        for col in text_cols:
             try:
                 r = (supabase.table("fact_entries")
                              .select("*")
