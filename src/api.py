@@ -357,10 +357,12 @@ class VerifyRequest(BaseModel):
 
 
 class SourceOut(BaseModel):
-    title:  str
-    url:    str
-    source: str
-    stance: Optional[str] = None
+    title:          str
+    url:            str
+    source:         str
+    category:       Optional[str] = None
+    published_date: Optional[str] = None
+    stance:         Optional[str] = None
 
 
 class RateLimitOut(BaseModel):
@@ -374,10 +376,12 @@ class VerifyResponse(BaseModel):
     verdict:       str
     score:         int
     explanation:   str
-    summary:       Optional[str]   = None
-    sources:       List[SourceOut] = []
+    summary:       Optional[str]        = None
+    sources:       List[SourceOut]      = []
+    source_notes:  List[dict]           = []
+    categories:    Optional[dict]       = None
     model_used:    str
-    provider:      Optional[str]   = None
+    provider:      Optional[str]        = None
     search_method: str
     processing_ms: int
     rate_limit:    Optional[RateLimitOut] = None
@@ -555,10 +559,12 @@ def _build_rl(user_id: str, tier: str) -> RateLimitOut:
 def _normalise_sources(raw: list) -> List[SourceOut]:
     return [
         SourceOut(
-            title  = s.get("title", "Untitled"),
-            url    = s.get("url_link") or s.get("url", "#"),
-            source = s.get("source_name") or s.get("source", "Unknown"),
-            stance = s.get("stance"),
+            title          = s.get("title", "Untitled"),
+            url            = s.get("url_link") or s.get("url", "#"),
+            source         = s.get("source_name") or s.get("source", "Unknown"),
+            category       = s.get("category") or None,
+            published_date = s.get("published_date") or None,
+            stance         = s.get("stance") or None,
         )
         for s in raw
     ]
@@ -611,6 +617,8 @@ async def verify(
         explanation   = result.get("explanation", ""),
         summary       = result.get("summary"),
         sources       = _normalise_sources(result.get("sources", [])),
+        source_notes  = result.get("source_notes", []),
+        categories    = result.get("categories"),
         model_used    = result.get("model_used", model_id),
         provider      = result.get("provider"),
         search_method = result.get("search_method", "vector"),
@@ -648,6 +656,8 @@ async def verify_bulk(
             explanation   = res.get("explanation", ""),
             summary       = res.get("summary"),
             sources       = _normalise_sources(res.get("sources", [])),
+            source_notes  = res.get("source_notes", []),
+            categories    = res.get("categories"),
             model_used    = res.get("model_used", model_id),
             provider      = res.get("provider"),
             search_method = res.get("search_method", "vector"),
