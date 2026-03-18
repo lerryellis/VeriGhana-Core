@@ -94,7 +94,8 @@ def _sources_text(sources: list, max_chars: int = 4000) -> str:
             break
     return "\n\n".join(parts) if parts else "(no matching sources found in database)"
 
-_PROMPT = """You are VeriGhana, an AI fact-checker for Ghana. Analyse the claim against the provided source excerpts from multiple independent sources.
+_PROMPT = """You are VeriGhana, an AI fact-checker for Ghana using the Triangulation & Nuance Framework.
+Analyse the claim against the provided source excerpts from multiple independent outlets.
 
 CLAIM:
 {claim}
@@ -102,27 +103,54 @@ CLAIM:
 SOURCE EXCERPTS ({count} sources across {source_count} outlets):
 {sources_text}
 
-INSTRUCTIONS:
-- Treat each source independently — do not assume they agree
-- Note where sources corroborate each other AND where they differ or are silent
-- A claim is VERIFIED only if multiple independent sources confirm it
-- A claim is PARTIAL if some sources confirm part of it or sources conflict
-- A claim is FALSE if sources directly contradict it
-- A claim is UNCORROBORATED if no source addresses it (not necessarily false)
+VERDICT RULES:
+- VERIFIED: 2+ independent sources confirm the core claim
+- PARTIAL: sources confirm only part of it, or sources conflict with each other
+- FALSE: sources directly contradict the claim
+- UNCORROBORATED: no source addresses the claim (not necessarily false)
 
-Return ONLY valid JSON - no markdown, no code fences, nothing else:
+TRIANGULATION RULES:
+- Treat each source as an independent witness — never assume they agree
+- convergence = facts at least 2 sources agree on (these are most reliable)
+- narrative_delta = where sources describe the SAME event/fact but use different words,
+  emphasis, framing, or omit details — this reveals editorial angle and potential bias
+- bias_signals = specific indicators: loaded language, selective statistics, omission of
+  key context, alarming vs dismissive tone, who/what the source centres or erases
+- tone values: "neutral" | "positive" | "alarming" | "dismissive" | "critical" | "promotional"
+- bias_type values: "word_choice" | "omission" | "emphasis" | "framing" | "selective_data" | "tone"
+- triangulation_confidence: "high" = 3+ sources with clear convergence, "medium" = 2 sources
+  or partial overlap, "low" = 1 source or no clear convergence
+
+Return ONLY valid JSON - no markdown, no code fences, no trailing commas:
 {{
   "verdict": "VERIFIED or PARTIAL or FALSE or UNCORROBORATED",
   "score": <integer 0-100>,
-  "explanation": "<2-3 sentence plain-language verdict. Cite specific sources by name.>",
-  "summary": "<3-4 sentence synthesis. Describe what each major source says, note agreements and disagreements between sources.>",
+  "explanation": "<2-3 sentences citing specific source names for the verdict>",
+  "summary": "<3-4 sentences: what each major source says, where they agree, where they differ>",
   "source_notes": [
-    {{"source": "<source_name>", "category": "<Media|Government|Finance|Health|etc>", "stance": "<what this specific source says about the claim in 1 sentence>"}}
-  ]
+    {{"source": "<name>", "category": "<Media|Government|Finance|Health|etc>", "stance": "<1 sentence on this source's position>"}}
+  ],
+  "convergence": [
+    "<fact or detail confirmed by 2+ sources — be specific, quote or closely paraphrase>"
+  ],
+  "narrative_delta": [
+    {{
+      "aspect": "<the specific topic/sub-claim being compared>",
+      "variations": [
+        {{"source": "<name>", "framing": "<how this source describes it — quote key phrases>", "tone": "<tone value>"}}
+      ],
+      "delta_analysis": "<1-2 sentences: what the framing difference reveals about each source's angle, bias, or intent>"
+    }}
+  ],
+  "bias_signals": [
+    {{"source": "<name>", "signal": "<specific evidence — quote or describe the problematic phrase/omission>", "type": "<bias_type value>"}}
+  ],
+  "triangulation_confidence": "high or medium or low",
+  "triangulation_note": "<1-2 sentences: overall reliability assessment given the source mix — consider category diversity (Media vs Government vs Finance) and whether sources have conflicting interests>"
 }}
 
-Scoring: 85-100=confirmed by multiple independent sources, 65-84=mostly confirmed, 45-64=partially confirmed or conflicting sources, 20-44=weakly supported, 0-19=not supported or contradicted.
-UNCORROBORATED means no relevant sources found, not necessarily false."""
+Scoring: 85-100=confirmed by 2+ independent sources, 65-84=mostly confirmed, 45-64=partial or conflicting, 20-44=weakly supported, 0-19=contradicted.
+If only 1 source exists, narrative_delta and bias_signals should still reflect that single source's own internal framing choices."""
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -357,11 +385,12 @@ def _run_ai_analysis(claim: str, sources: list, preferred_model: str) -> tuple[O
         sources_text=_sources_text(sources),
     )
 
+    max_tokens = 1800
     for caller in [
-        lambda p: _call_gemini(p, gemini_pref),
-        _call_groq,
-        _call_cohere,
-        _call_openrouter,
+        lambda p: _call_gemini(p, gemini_pref, max_tokens),
+        lambda p: _call_groq(p, max_tokens),
+        lambda p: _call_cohere(p, max_tokens),
+        lambda p: _call_openrouter(p, max_tokens),
     ]:
         text, used = caller(prompt)
         if text:
@@ -654,11 +683,16 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
     ai, used = _run_ai_analysis(claim, sources, eff)
 
     if ai and isinstance(ai.get("score"), (int, float)):
-        score        = max(0, min(100, int(ai["score"])))
-        verdict      = ai.get("verdict", "UNCORROBORATED").upper()
-        explanation  = ai.get("explanation", "No explanation returned.")
-        summary      = ai.get("summary", explanation)
-        source_notes = ai.get("source_notes", [])
+        score                   = max(0, min(100, int(ai["score"])))
+        verdict                 = ai.get("verdict", "UNCORROBORATED").upper()
+        explanation             = ai.get("explanation", "No explanation returned.")
+        summary                 = ai.get("summary", explanation)
+        source_notes            = ai.get("source_notes", [])
+        convergence             = ai.get("convergence", [])
+        narrative_delta         = ai.get("narrative_delta", [])
+        bias_signals            = ai.get("bias_signals", [])
+        triangulation_confidence = ai.get("triangulation_confidence", "low")
+        triangulation_note      = ai.get("triangulation_note", "")
         if verdict not in ("VERIFIED", "PARTIAL", "FALSE", "UNCORROBORATED"):
             verdict = "UNCORROBORATED"
         if not sources and score > 15:
@@ -669,9 +703,9 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
         elif "openrouter:"  in used: provider = "OpenRouter"
         else:                        provider = "Gemini"
     else:
-        score        = _overlap_score(claim, sources)
-        verdict      = _h_verdict(score)
-        explanation  = (
+        score                   = _overlap_score(claim, sources)
+        verdict                 = _h_verdict(score)
+        explanation             = (
             "All AI providers unavailable right now. "
             "Score estimated from keyword overlap with database records."
         )
@@ -682,10 +716,15 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
         ) if sources else (
             "No matching records found and all AI providers are currently unavailable."
         )
-        source_notes = []
-        used         = "heuristic"
-        provider     = "Heuristic"
-        search_method = search_method + "+heuristic"
+        source_notes            = []
+        convergence             = []
+        narrative_delta         = []
+        bias_signals            = []
+        triangulation_confidence = "low"
+        triangulation_note      = ""
+        used                    = "heuristic"
+        provider                = "Heuristic"
+        search_method           = search_method + "+heuristic"
 
     stance_map = {
         n.get("source", "").lower(): n.get("stance", "")
@@ -712,15 +751,20 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
         categories.setdefault(cat, []).append(s.get("source_name", ""))
 
     return {
-        "verdict":       verdict,
-        "score":         score,
-        "explanation":   explanation,
-        "summary":       summary,
-        "sources":       fmt_sources,
-        "source_notes":  source_notes,
-        "categories":    categories,
-        "model_used":    used,
-        "provider":      provider,
-        "search_method": search_method,
-        "processing_ms": int((time.time() - start) * 1000),
+        "verdict":                  verdict,
+        "score":                    score,
+        "explanation":              explanation,
+        "summary":                  summary,
+        "sources":                  fmt_sources,
+        "source_notes":             source_notes,
+        "categories":               categories,
+        "convergence":              convergence,
+        "narrative_delta":          narrative_delta,
+        "bias_signals":             bias_signals,
+        "triangulation_confidence": triangulation_confidence,
+        "triangulation_note":       triangulation_note,
+        "model_used":               used,
+        "provider":                 provider,
+        "search_method":            search_method,
+        "processing_ms":            int((time.time() - start) * 1000),
     }
