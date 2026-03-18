@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend,
+  ResponsiveContainer, LineChart, Line,
 } from 'recharts'
 import type { Payment } from './page'
 
@@ -153,7 +153,7 @@ export function ReportsClient({ payments }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <Tooltip formatter={(v: number) => [`$${v}`, 'Revenue']} />
+              <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
               <Line type="monotone" dataKey="amount" stroke="#2563eb" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -169,7 +169,7 @@ export function ReportsClient({ payments }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <Tooltip formatter={(v: number) => [`$${v}`, 'Revenue']} />
+              <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
               <Bar dataKey="value" fill="#3b82f6" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -181,7 +181,7 @@ export function ReportsClient({ payments }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <Tooltip formatter={(v: number) => [`$${v}`, 'Revenue']} />
+              <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
               <Bar dataKey="value" fill="#8b5cf6" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
