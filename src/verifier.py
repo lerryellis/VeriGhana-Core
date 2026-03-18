@@ -85,7 +85,7 @@ def _sources_text(sources: list, max_chars: int = 4000) -> str:
         title    = s.get("title", "Untitled")
         src      = _bucket_key(s)
         category = s.get("category", "")
-        content  = (s.get("content") or s.get("snippet") or "")[:400]
+        content  = (s.get("content") or s.get("snippet") or "")[:1000]
         date     = s.get("published_date", "")
         ds       = f" ({date[:10]})" if date else ""
         cat_tag  = f" [{category}]" if category else ""
@@ -489,9 +489,12 @@ def _keyword_search(claim: str, limit: int = 8) -> list:
                     "published_date": row.get("published_date") or row.get("created_at", ""),
                 })
 
-    # --- Strategy 1: exact phrase search across ALL text columns (highest precision) ---
-    phrase = claim[:200]
-    for col in text_cols:
+    # Columns to search: title first, then content — both searched at every tier
+    search_cols = text_cols[:2]
+
+    # --- Strategy 1: exact phrase match on title + content (highest precision) ---
+    phrase = claim[:150]
+    for col in search_cols:
         if len(candidate_pool) >= pool_target:
             break
         try:
@@ -506,11 +509,30 @@ def _keyword_search(claim: str, limit: int = 8) -> list:
         except Exception as e:
             logger.warning("phrase ilike %s failed: %s", col, e)
 
-    # --- Strategy 2: per-keyword search across ALL text columns ---
-    for word in words[:8]:
+    # --- Strategy 2: multi-keyword AND search on title + content (strict context) ---
+    # Require the top 3 most distinctive words to ALL appear in the same column.
+    # Chaining multiple .ilike() calls on the same column applies AND logic in PostgREST.
+    anchor_words = words[:3]
+    if len(anchor_words) >= 2 and len(candidate_pool) < pool_target:
+        for col in search_cols:
+            if len(candidate_pool) >= pool_target:
+                break
+            try:
+                q = supabase.table("fact_entries").select("*")
+                for w in anchor_words:
+                    q = q.ilike(col, f"%{w}%")
+                r = q.limit(pool_target).execute()
+                if r.data:
+                    _add(r.data)
+                    logger.debug("AND ilike %s %s -> %d hits", col, anchor_words, len(r.data))
+            except Exception as e:
+                logger.warning("AND ilike %s failed: %s", col, e)
+
+    # --- Strategy 3: per-keyword search on title + content (broader fallback) ---
+    for word in words[:6]:
         if len(candidate_pool) >= pool_target:
             break
-        for col in text_cols:
+        for col in search_cols:
             try:
                 r = (supabase.table("fact_entries")
                              .select("*")
