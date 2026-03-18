@@ -16,6 +16,7 @@ interface Props {
   models: { id: string; name: string; tier_required: string }[]
   used: number
   dailyLimit: number | null
+  initialClaim?: string
 }
 
 const VERDICT_GRADIENT: Record<string, string> = {
@@ -26,8 +27,8 @@ const VERDICT_GRADIENT: Record<string, string> = {
   ERROR:          'linear-gradient(90deg,#dc2626,#f87171)',
 }
 
-export function VerifyClient({ userId, accessToken, tier, models, used: initialUsed, dailyLimit }: Props) {
-  const [claim, setClaim]           = useState('')
+export function VerifyClient({ userId, accessToken, tier, models, used: initialUsed, dailyLimit, initialClaim }: Props) {
+  const [claim, setClaim]           = useState(initialClaim ?? '')
   const [selectedModel, setModel]   = useState(models[0]?.id ?? '')
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)

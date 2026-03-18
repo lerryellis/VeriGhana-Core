@@ -29,7 +29,12 @@ async function getModels(token: string, tier: Tier) {
   return ALL_MODELS_FALLBACK
 }
 
-export default async function VerifyPage() {
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ claim?: string }>
+}) {
+  const { claim: initialClaim } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -56,6 +61,7 @@ export default async function VerifyPage() {
       models={models}
       used={used}
       dailyLimit={dailyLimit}
+      initialClaim={initialClaim}
     />
   )
 }
