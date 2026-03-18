@@ -25,19 +25,5 @@ export default async function HistoryPage() {
     .order('created_at', { ascending: false })
     .limit(100)
 
-  // KPI counts
-  const all     = records ?? []
-  const verified = all.filter(r => r.verdict === 'VERIFIED').length
-  const falseCount = all.filter(r => r.verdict === 'FALSE').length
-  const partial  = all.filter(r => r.verdict === 'PARTIAL').length
-  const avgScore = all.length > 0
-    ? Math.round(all.reduce((s, r) => s + (r.score ?? 0), 0) / all.length)
-    : 0
-
-  return (
-    <HistoryClient
-      records={all}
-      stats={{ total: all.length, verified, falseCount, partial, avgScore }}
-    />
-  )
+  return <HistoryClient records={records ?? []} />
 }
