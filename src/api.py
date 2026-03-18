@@ -408,9 +408,10 @@ class SupportReplyRequest(BaseModel):
 
 
 class TestSiteRequest(BaseModel):
-    url:      str
-    name:     Optional[str] = None
-    category: Optional[str] = "Custom"
+    url:              str
+    name:             Optional[str]  = None
+    category:         Optional[str]  = "Custom"
+    update_on_success: bool          = True   # auto-save confirmed scrape URL to DB
 
 
 class TicketStatusUpdate(BaseModel):
@@ -753,7 +754,10 @@ async def test_single_site(
     if not _TESTER_OK or test_site is None:
         raise HTTPException(status_code=503, detail="site_tester.py not available.")
     try:
-        result = test_site({"name": req.name or req.url, "url": req.url, "category": req.category})
+        result = test_site(
+            {"name": req.name or req.url, "url": req.url, "category": req.category},
+            update_db=req.update_on_success,
+        )
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Site test failed: {exc}")

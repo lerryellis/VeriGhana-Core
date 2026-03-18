@@ -634,10 +634,56 @@ def extract_articles(soup, source: dict) -> list:
 # ══════════════════════════════════════════════════════════════
 #  MAIN INGESTION PIPELINE
 # ══════════════════════════════════════════════════════════════
+def _load_db_sources() -> list:
+    """
+    Load any trusted_sources rows that have a scrape_url set.
+    These are sites confirmed scrapeable via the admin site tester.
+    Returned entries use scrape_url as the URL and auto-detect scrape mode at runtime.
+    """
+    try:
+        supabase = get_supabase_client()
+        rows = (supabase.table("trusted_sources")
+                        .select("source_name,official_url,scrape_url,category")
+                        .not_.is_("scrape_url", "null")
+                        .execute().data or [])
+        db_sources = []
+        for row in rows:
+            url = row.get("scrape_url") or row.get("official_url", "")
+            if not url:
+                continue
+            parsed   = urlparse(url)
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+            db_sources.append({
+                "name":          row["source_name"],
+                "url":           url,
+                "scrape_mode":   "auto",
+                "article_tag":   None,
+                "article_class": None,
+                "base_url":      base_url,
+            })
+        return db_sources
+    except Exception as e:
+        print(f"[html_scraper] Could not load DB sources: {e}")
+        return []
+
+
 def run_html_ingestion(sources=None, max_per_source=15):
     supabase        = get_supabase_client()
     total_processed = 0
-    sources_to_run  = sources if sources is not None else HTML_SOURCES
+
+    if sources is not None:
+        sources_to_run = sources
+    else:
+        # Merge hardcoded list with DB-confirmed sources (scrape_url overrides same-name entries)
+        hardcoded_urls = {s["url"] for s in HTML_SOURCES}
+        hardcoded_names = {s["name"] for s in HTML_SOURCES}
+        db_extras = [
+            s for s in _load_db_sources()
+            if s["url"] not in hardcoded_urls and s["name"] not in hardcoded_names
+        ]
+        if db_extras:
+            print(f"[html_scraper] Loaded {len(db_extras)} additional source(s) from trusted_sources DB")
+        sources_to_run = HTML_SOURCES + db_extras
 
     for source in sources_to_run:
         name = source["name"]
