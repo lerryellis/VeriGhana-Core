@@ -672,18 +672,9 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
     start = time.time()
     eff   = model_id or model or DEFAULT_MODEL
 
-    # ── Hybrid retrieval: combine vector + keyword, then diversify ────────────
+    # ── Hybrid retrieval: vector results protected, keyword fills remaining ────
     vector_results  = _vector_search(claim, eff, limit=12)
     keyword_results = _keyword_search(claim, limit=24)
-
-    # Merge — vector results first (higher precision), then keyword fills gaps
-    seen_ids: set = set()
-    combined: list[dict] = []
-    for s in vector_results + keyword_results:
-        rid = s.get("id")
-        if rid and rid not in seen_ids:
-            seen_ids.add(rid)
-            combined.append(s)
 
     if vector_results and keyword_results:
         search_method = "hybrid"
@@ -692,8 +683,26 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
     else:
         search_method = "keyword"
 
-    # Enforce source diversity: max 2 articles per outlet, up to 10 total
-    sources = _diversify_sources(combined, max_per_source=2, total=10)
+    # Vector results are always included — cosine similarity already ranks
+    # the exact/closest matches first and we never want diversity to drop them.
+    seen_ids: set = set()
+    priority: list[dict] = []
+    for s in vector_results:
+        rid = s.get("id")
+        if rid and rid not in seen_ids:
+            seen_ids.add(rid)
+            priority.append(s)
+
+    # Keyword results fill remaining slots with source diversity applied
+    keyword_pool: list[dict] = []
+    for s in keyword_results:
+        rid = s.get("id")
+        if rid and rid not in seen_ids:
+            seen_ids.add(rid)
+            keyword_pool.append(s)
+
+    remaining = max(0, 10 - len(priority))
+    sources = priority + _diversify_sources(keyword_pool, max_per_source=2, total=remaining)
 
     # Enrich with category from trusted_sources table
     sources = _enrich_with_categories(sources)
