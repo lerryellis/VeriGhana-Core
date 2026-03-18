@@ -53,14 +53,14 @@ Required .env variables
 
 from __future__ import annotations
 
-import os, sys, time, json, base64, hmac
-from datetime import datetime
+import os, re, sys, time, json, base64, hmac
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 import jwt as PyJWT
 import requests as _http
@@ -91,8 +91,8 @@ def _supa(service: bool = False):
         if not SUPABASE_URL or not key:
             raise ValueError("SUPABASE_URL / key not configured.")
         return create_client(SUPABASE_URL, key)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable.")
 
 
 # ── Engine imports (graceful degradation) ────────────────────────────────────
@@ -165,12 +165,15 @@ app = FastAPI(
     redoc_url   = "/redoc",
 )
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()] or ["http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins     = _allow_origins,
     allow_credentials = True,
-    allow_methods     = ["*"],
-    allow_headers     = ["*"],
+    allow_methods     = ["GET", "POST", "PATCH", "OPTIONS"],
+    allow_headers     = ["Authorization", "Content-Type", "X-Admin-Key"],
 )
 
 
@@ -234,6 +237,9 @@ def _decode_supabase_jwt(token: str) -> dict:
             raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
 
     # ── Strategy 3: Dev-only — decode without verification ───────────────────
+    # Never allow unverified decoding outside local development
+    if os.getenv("ENVIRONMENT", "development") == "production":
+        raise HTTPException(status_code=401, detail="Authentication required.")
     try:
         padding = "=" * (4 - len(token.split(".")[1]) % 4)
         return json.loads(base64.urlsafe_b64decode(token.split(".")[1] + padding))
@@ -312,7 +318,7 @@ def _queries_today(user_id: str) -> int:
     if not (SUPABASE_URL and SUPABASE_SVC_KEY):
         return 0
     try:
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         sb    = _supa(service=True)
         resp  = (sb.table("vg_usage_logs")
                    .select("id", count="exact")
@@ -340,7 +346,7 @@ def _log_usage(user_id: str, claim: str, verdict: str,
             "model_used":    model,
             "processing_ms": ms,
             "ip_address":    ip,
-            "created_at":    datetime.utcnow().isoformat() + "Z",
+            "created_at":    datetime.now(timezone.utc).isoformat(),
         }).execute()
     except Exception:
         pass
@@ -351,7 +357,7 @@ def _log_usage(user_id: str, claim: str, verdict: str,
 # ══════════════════════════════════════════════════════════════════════════════
 
 class VerifyRequest(BaseModel):
-    claim:    str
+    claim:    str         = Field(..., min_length=5, max_length=10_000)
     model:    Optional[str] = None
     model_id: Optional[str] = None   # alias — matches verifier.py signature
 
@@ -408,8 +414,16 @@ class VerifyResponse(BaseModel):
 
 
 class BulkVerifyRequest(BaseModel):
-    claims: List[str]
+    claims: List[str]     = Field(..., min_length=1, max_length=20)
     model:  Optional[str] = None
+
+    @field_validator("claims")
+    @classmethod
+    def validate_claim_lengths(cls, v: List[str]) -> List[str]:
+        for i, c in enumerate(v):
+            if len(c) < 5 or len(c) > 10_000:
+                raise ValueError(f"Claim {i+1} must be 5–10,000 characters.")
+        return v
 
 
 class BulkVerifyResponse(BaseModel):
@@ -427,11 +441,28 @@ class SupportReplyRequest(BaseModel):
     new_status: Optional[str] = None
 
 
+_PRIVATE_HOSTS = re.compile(
+    r"^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.0\.0\.0|::1|169\.254\.)",
+    re.IGNORECASE,
+)
+
 class TestSiteRequest(BaseModel):
-    url:              str
-    name:             Optional[str]  = None
-    category:         Optional[str]  = "Custom"
-    update_on_success: bool          = True   # auto-save confirmed scrape URL to DB
+    url:               str           = Field(..., max_length=2048)
+    name:              Optional[str] = None
+    category:          Optional[str] = "Custom"
+    update_on_success: bool          = True
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        from urllib.parse import urlparse
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("URL must use http or https.")
+        host = parsed.hostname or ""
+        if _PRIVATE_HOSTS.match(host):
+            raise ValueError("URL must point to a public host.")
+        return v
 
 
 class TicketStatusUpdate(BaseModel):
@@ -481,7 +512,7 @@ async def health():
         "db_configured":     bool(SUPABASE_URL and SUPABASE_KEY),
         "admin_key_set":     bool(ADMIN_API_KEY),
         "jwt_secret_set":    bool(SUPABASE_JWT_SEC),
-        "timestamp":         datetime.utcnow().isoformat() + "Z",
+        "timestamp":         datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -909,13 +940,25 @@ async def verify_payment(
             timeout=15,
         )
         ps_data = ps_resp.json()
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Paystack unreachable: {exc}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Payment gateway unreachable. Please try again.")
 
     if not ps_data.get("status") or ps_data.get("data", {}).get("status") != "success":
         raise HTTPException(status_code=402, detail="Payment not successful on Paystack.")
 
     tx = ps_data["data"]
+
+    # ── 1b. Verify paid amount matches expected plan price ────────────────────
+    plan_key_check = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
+    cycle_check    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
+    expected_usd   = PLAN_PRICES[plan_key_check][cycle_check]
+    paid_kobo      = tx.get("amount", 0)               # Paystack amounts are in lowest denomination
+    paid_usd       = paid_kobo / 100 / 15              # convert pesewas→GHS→USD at fixed 15 GHS/USD rate
+    if abs(paid_usd - expected_usd) > 0.10:            # allow 10¢ tolerance for rounding
+        raise HTTPException(
+            status_code=402,
+            detail="Payment amount does not match the selected plan price.",
+        )
 
     # ── 2. Guard against re-use of the same reference ────────────────────────
     existing = (
@@ -933,9 +976,7 @@ async def verify_payment(
     plan_key = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
     cycle    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
     amount   = PLAN_PRICES[plan_key][cycle]
-    expires  = datetime.utcnow().replace(microsecond=0)
-    from datetime import timedelta
-    expires += timedelta(days=PLAN_EXPIRY_DAYS[cycle])
+    expires  = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=PLAN_EXPIRY_DAYS[cycle])
 
     # ── 4. Save payment record ────────────────────────────────────────────────
     import uuid
@@ -1149,7 +1190,7 @@ async def update_ticket_status(
     if not (SUPABASE_URL and SUPABASE_SVC_KEY):
         raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
     try:
-        payload: dict = {"updated_at": datetime.utcnow().isoformat() + "Z"}
+        payload: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
         if body.status is not None:
             payload["status"] = body.status
         if body.user_followup_read is not None:
@@ -1251,7 +1292,7 @@ async def diagnostics(_: str = Depends(require_admin_key)):
         "results":   results,
         "summary":   {"pass": passes, "fail": fails, "skip": skips},
         "healthy":   fails == 0,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -1260,14 +1301,14 @@ async def diagnostics(_: str = Depends(require_admin_key)):
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.exception_handler(404)
-async def not_found(request: Request, exc):
+async def not_found(request: Request, _exc: Exception):
     return JSONResponse(
         status_code=404,
         content={"detail": f"Not found: {request.url.path} — see /docs"},
     )
 
 @app.exception_handler(500)
-async def server_error(request: Request, exc):
+async def server_error(_request: Request, _exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error — check server logs."},
