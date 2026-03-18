@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
-import type { VerifyResponse } from '@/types/api'
+import type { VerifyResponse, NarrativeDelta, BiasSignal } from '@/types/api'
 import { VerdictChip } from '@/components/ui/VerdictChip'
 import { TruthBar } from '@/components/ui/TruthBar'
 
@@ -230,6 +230,102 @@ export function VerifyClient({ userId, accessToken, tier, models, used: initialU
               </div>
             </div>
           )}
+
+          {/* Triangulation & Nuance Panel */}
+          {(result.convergence?.length || result.narrative_delta?.length || result.bias_signals?.length) ? (
+            <div className="border-t border-slate-100">
+              {/* Header bar */}
+              <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                <span className="text-xs font-mono-vg uppercase tracking-widest text-slate-500">Triangulation &amp; Nuance</span>
+                {result.triangulation_confidence && (
+                  <span className={`ml-auto text-[0.65rem] font-semibold px-2 py-0.5 rounded-full font-mono-vg ${
+                    result.triangulation_confidence === 'high'   ? 'bg-green-100 text-green-700' :
+                    result.triangulation_confidence === 'medium' ? 'bg-amber-100 text-amber-700' :
+                                                                   'bg-slate-200 text-slate-500'
+                  }`}>
+                    {result.triangulation_confidence.toUpperCase()} confidence
+                  </span>
+                )}
+              </div>
+
+              {/* Reliability note */}
+              {result.triangulation_note && (
+                <div className="px-6 py-3 border-b border-slate-100">
+                  <p className="text-xs text-slate-600 italic leading-relaxed">{result.triangulation_note}</p>
+                </div>
+              )}
+
+              {/* Convergence — facts sources agree on */}
+              {result.convergence && result.convergence.length > 0 && (
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-2.5">Where sources agree</p>
+                  <ul className="space-y-1.5">
+                    {result.convergence.map((fact, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="mt-1 shrink-0 w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[0.6rem] font-bold">✓</span>
+                        {fact}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Narrative Delta — framing differences */}
+              {result.narrative_delta && result.narrative_delta.length > 0 && (
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-3">Narrative differences</p>
+                  <div className="space-y-4">
+                    {result.narrative_delta.map((delta: NarrativeDelta, i: number) => (
+                      <div key={i} className="rounded-lg border border-slate-100 bg-slate-50 overflow-hidden">
+                        <div className="px-4 py-2 border-b border-slate-100">
+                          <span className="text-xs font-semibold text-slate-600">{delta.aspect}</span>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {delta.variations.map((v, j) => (
+                            <div key={j} className="px-4 py-2.5 flex gap-3 items-start">
+                              <span className={`shrink-0 text-[0.6rem] font-mono-vg px-1.5 py-0.5 rounded mt-0.5 ${
+                                v.tone === 'alarming'    ? 'bg-red-100 text-red-600' :
+                                v.tone === 'dismissive'  ? 'bg-slate-200 text-slate-500' :
+                                v.tone === 'positive'    ? 'bg-green-100 text-green-600' :
+                                v.tone === 'promotional' ? 'bg-blue-100 text-blue-600' :
+                                v.tone === 'critical'    ? 'bg-orange-100 text-orange-600' :
+                                                           'bg-slate-100 text-slate-500'
+                              }`}>{v.tone}</span>
+                              <div>
+                                <span className="text-[0.7rem] font-semibold text-slate-500 block">{v.source}</span>
+                                <span className="text-xs text-slate-700">{v.framing}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-100">
+                          <p className="text-xs text-amber-800 leading-relaxed">{delta.delta_analysis}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bias Signals */}
+              {result.bias_signals && result.bias_signals.length > 0 && (
+                <div className="px-6 py-4">
+                  <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-2.5">Bias signals detected</p>
+                  <div className="space-y-2">
+                    {result.bias_signals.map((signal: BiasSignal, i: number) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs">
+                        <span className="shrink-0 bg-orange-100 text-orange-600 font-mono-vg px-1.5 py-0.5 rounded text-[0.6rem] mt-0.5">{signal.type}</span>
+                        <div>
+                          <span className="font-semibold text-slate-600">{signal.source}: </span>
+                          <span className="text-slate-600">{signal.signal}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {/* Rate limit info */}
           {result.rate_limit && dailyLimit !== null && (

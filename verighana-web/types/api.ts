@@ -5,6 +5,24 @@ export interface SourceCitation {
   source: string
 }
 
+export interface NarrativeDeltaVariation {
+  source:  string
+  framing: string
+  tone:    string
+}
+
+export interface NarrativeDelta {
+  aspect:         string
+  variations:     NarrativeDeltaVariation[]
+  delta_analysis: string
+}
+
+export interface BiasSignal {
+  source: string
+  signal: string
+  type:   string
+}
+
 export interface RateLimitStatus {
   used: number
   limit: number
@@ -18,14 +36,22 @@ export interface VerifyRequest {
 }
 
 export interface VerifyResponse {
-  verdict: 'VERIFIED' | 'PARTIAL' | 'FALSE' | 'UNCORROBORATED' | 'ERROR'
-  score: number
-  explanation: string
-  sources: SourceCitation[]
-  model_used: string
-  search_method: string
-  processing_ms: number
-  rate_limit?: RateLimitStatus
+  verdict:                  'VERIFIED' | 'PARTIAL' | 'FALSE' | 'UNCORROBORATED' | 'ERROR'
+  score:                    number
+  explanation:              string
+  summary?:                 string
+  sources:                  SourceCitation[]
+  source_notes?:            { source: string; category: string; stance: string }[]
+  categories?:              Record<string, string[]>
+  convergence?:             string[]
+  narrative_delta?:         NarrativeDelta[]
+  bias_signals?:            BiasSignal[]
+  triangulation_confidence?: 'high' | 'medium' | 'low'
+  triangulation_note?:      string
+  model_used:               string
+  search_method:            string
+  processing_ms:            number
+  rate_limit?:              RateLimitStatus
 }
 
 export interface BulkVerifyRequest {

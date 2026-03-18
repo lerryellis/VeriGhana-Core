@@ -372,14 +372,34 @@ class RateLimitOut(BaseModel):
     allowed:   bool
 
 
+class NarrativeDeltaVariation(BaseModel):
+    source:  str
+    framing: str
+    tone:    str
+
+class NarrativeDelta(BaseModel):
+    aspect:         str
+    variations:     List[NarrativeDeltaVariation] = []
+    delta_analysis: str
+
+class BiasSignal(BaseModel):
+    source: str
+    signal: str
+    type:   str
+
 class VerifyResponse(BaseModel):
     verdict:       str
     score:         int
     explanation:   str
     summary:       Optional[str]        = None
     sources:       List[SourceOut]      = []
-    source_notes:  List[dict]           = []
-    categories:    Optional[dict]       = None
+    source_notes:             List[dict]           = []
+    categories:               Optional[dict]       = None
+    convergence:              List[str]            = []
+    narrative_delta:          List[NarrativeDelta] = []
+    bias_signals:             List[BiasSignal]     = []
+    triangulation_confidence: str                  = "low"
+    triangulation_note:       str                  = ""
     model_used:    str
     provider:      Optional[str]        = None
     search_method: str
@@ -613,18 +633,23 @@ async def verify(
     _log_usage(user.id, req.claim, result.get("verdict", ""), result.get("score", 0), model_id, ms, ip)
 
     return VerifyResponse(
-        verdict       = result.get("verdict", "UNCORROBORATED"),
-        score         = int(result.get("score", 0)),
-        explanation   = result.get("explanation", ""),
-        summary       = result.get("summary"),
-        sources       = _normalise_sources(result.get("sources", [])),
-        source_notes  = result.get("source_notes", []),
-        categories    = result.get("categories"),
-        model_used    = result.get("model_used", model_id),
-        provider      = result.get("provider"),
-        search_method = result.get("search_method", "vector"),
-        processing_ms = result.get("processing_ms", ms),
-        rate_limit    = _build_rl(user.id, user.tier),
+        verdict                  = result.get("verdict", "UNCORROBORATED"),
+        score                    = int(result.get("score", 0)),
+        explanation              = result.get("explanation", ""),
+        summary                  = result.get("summary"),
+        sources                  = _normalise_sources(result.get("sources", [])),
+        source_notes             = result.get("source_notes", []),
+        categories               = result.get("categories"),
+        convergence              = result.get("convergence", []),
+        narrative_delta          = result.get("narrative_delta", []),
+        bias_signals             = result.get("bias_signals", []),
+        triangulation_confidence = result.get("triangulation_confidence", "low"),
+        triangulation_note       = result.get("triangulation_note", ""),
+        model_used               = result.get("model_used", model_id),
+        provider                 = result.get("provider"),
+        search_method            = result.get("search_method", "vector"),
+        processing_ms            = result.get("processing_ms", ms),
+        rate_limit               = _build_rl(user.id, user.tier),
     )
 
 
@@ -652,17 +677,22 @@ async def verify_bulk(
         res = _run_verify(claim, model_id)
         ms  = int((time.time() - t0) * 1000)
         results.append(VerifyResponse(
-            verdict       = res.get("verdict", "UNCORROBORATED"),
-            score         = int(res.get("score", 0)),
-            explanation   = res.get("explanation", ""),
-            summary       = res.get("summary"),
-            sources       = _normalise_sources(res.get("sources", [])),
-            source_notes  = res.get("source_notes", []),
-            categories    = res.get("categories"),
-            model_used    = res.get("model_used", model_id),
-            provider      = res.get("provider"),
-            search_method = res.get("search_method", "vector"),
-            processing_ms = ms,
+            verdict                  = res.get("verdict", "UNCORROBORATED"),
+            score                    = int(res.get("score", 0)),
+            explanation              = res.get("explanation", ""),
+            summary                  = res.get("summary"),
+            sources                  = _normalise_sources(res.get("sources", [])),
+            source_notes             = res.get("source_notes", []),
+            categories               = res.get("categories"),
+            convergence              = res.get("convergence", []),
+            narrative_delta          = res.get("narrative_delta", []),
+            bias_signals             = res.get("bias_signals", []),
+            triangulation_confidence = res.get("triangulation_confidence", "low"),
+            triangulation_note       = res.get("triangulation_note", ""),
+            model_used               = res.get("model_used", model_id),
+            provider                 = res.get("provider"),
+            search_method            = res.get("search_method", "vector"),
+            processing_ms            = ms,
         ))
 
     return BulkVerifyResponse(
