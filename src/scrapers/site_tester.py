@@ -170,7 +170,7 @@ SITES_TO_TEST = [
     {"name": "Ghana Health Service",           "url": "https://ghs.gov.gh/",                        "category": "Government - Health"},
 
     # ── ENERGY ─────────────────────────────────────────────────────
-    {"name": "Volta River Authority",          "url": "https://www.vra.com/",                       "category": "Government - Energy"},
+    {"name": "Volta River Authority",          "url": "https://www.vra.com/media/index.php",        "category": "Government - Energy"},
     {"name": "GRIDCo",                         "url": "https://www.gridcogh.com/",                  "category": "Government - Energy"},
     {"name": "Energy Commission",              "url": "https://www.energycom.gov.gh/",              "category": "Government - Energy"},
 
@@ -436,9 +436,70 @@ def _strategy_js_render(url, base_url):
 
 
 # ══════════════════════════════════════════════════════════════
+#  DATABASE UPDATE — save confirmed scrape URL
+# ══════════════════════════════════════════════════════════════
+
+def _update_trusted_source(name: str, tested_url: str, base_url: str, category: str) -> dict:
+    """
+    After a successful test, persist the confirmed scrape URL to trusted_sources.
+
+    Logic:
+      - If an existing row shares the same domain (official_url netloc == tested netloc):
+          UPDATE that row's scrape_url  (subpath of known source — no duplicate created)
+      - Otherwise:
+          INSERT a new row with official_url = base domain, scrape_url = tested URL
+    """
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from database_utils import get_supabase_client
+        supabase = get_supabase_client()
+    except Exception as e:
+        print(f"  ⚠️  DB update skipped (no Supabase client): {e}")
+        return {"action": "skipped", "reason": str(e)}
+
+    tested_domain = urlparse(tested_url).netloc  # e.g. "www.vra.com"
+
+    try:
+        rows = (supabase.table("trusted_sources")
+                        .select("id,source_name,official_url,scrape_url")
+                        .execute().data or [])
+
+        existing = next(
+            (r for r in rows if urlparse(r.get("official_url", "")).netloc == tested_domain),
+            None
+        )
+
+        if existing:
+            # Same domain — update scrape_url only, keep official_url intact
+            supabase.table("trusted_sources").update({
+                "scrape_url": tested_url,
+            }).eq("id", existing["id"]).execute()
+            print(f"  ✅ DB: updated '{existing['source_name']}' scrape_url → {tested_url}")
+            return {"action": "updated", "id": existing["id"], "source_name": existing["source_name"]}
+        else:
+            # New domain — insert fresh entry
+            ins = supabase.table("trusted_sources").insert({
+                "source_name": name,
+                "official_url": base_url,
+                "scrape_url":   tested_url,
+                "category":     category.replace("Government - ", "") if category else "Media",
+            }).execute()
+            if ins.data:
+                print(f"  ✅ DB: inserted new source '{name}' scrape_url={tested_url}")
+                return {"action": "inserted", "source_name": name}
+
+    except Exception as e:
+        print(f"  ⚠️  DB update failed: {e}")
+        return {"action": "error", "reason": str(e)}
+
+    return {"action": "none"}
+
+
+# ══════════════════════════════════════════════════════════════
 #  CORE TEST FUNCTION
 # ══════════════════════════════════════════════════════════════
-def test_site(site):
+def test_site(site, update_db: bool = False):
     name     = site["name"]
     url      = site["url"]
     category = site.get("category", "Uncategorized")
@@ -516,6 +577,11 @@ def test_site(site):
 
     _print_config_block(name, url, base_url, best)
 
+    db_result = {}
+    if update_db:
+        print(f"\n  Saving confirmed scrape URL to trusted_sources...")
+        db_result = _update_trusted_source(name, url, base_url, category)
+
     return {
         "name":          name,
         "url":           url,
@@ -527,6 +593,7 @@ def test_site(site):
         "base_url":      base_url,
         "count":         best["count"],
         "samples":       best["samples"],
+        "db_update":     db_result,
     }
 
 
