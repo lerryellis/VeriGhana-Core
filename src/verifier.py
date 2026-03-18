@@ -83,7 +83,7 @@ def _sources_text(sources: list, max_chars: int = 4000) -> str:
     parts = []
     for i, s in enumerate(sources[:10], 1):
         title    = s.get("title", "Untitled")
-        src      = s.get("source_name", s.get("source", "Unknown"))
+        src      = _bucket_key(s)
         category = s.get("category", "")
         content  = (s.get("content") or s.get("snippet") or "")[:400]
         date     = s.get("published_date", "")
@@ -583,6 +583,26 @@ def _h_verdict(score: int) -> str:
 #  SOURCE DIVERSITY & CATEGORY ENRICHMENT
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _bucket_key(s: dict) -> str:
+    """Return a stable per-outlet key for diversity bucketing.
+    Prefers source_name, falls back to URL domain so articles from
+    different sites never all collapse into one 'Unknown' bucket."""
+    name = s.get("source_name") or s.get("source") or ""
+    if name and name != "Unknown":
+        return name.lower()
+    url = s.get("url_link") or s.get("url") or ""
+    if url and url != "#":
+        try:
+            from urllib.parse import urlparse
+            host = urlparse(url).netloc.removeprefix("www.")
+            domain = host.split(".")[0]
+            if domain:
+                return domain.lower()
+        except Exception:
+            pass
+    return f"unknown_{s.get('id', id(s))}"  # unique key per article as last resort
+
+
 def _diversify_sources(sources: list, max_per_source: int = 2, total: int = 10) -> list:
     """
     From a candidate pool, pick up to `max_per_source` articles per outlet,
@@ -592,8 +612,7 @@ def _diversify_sources(sources: list, max_per_source: int = 2, total: int = 10) 
     from collections import defaultdict
     buckets: dict[str, list] = defaultdict(list)
     for s in sources:
-        name = s.get("source_name", s.get("source", "Unknown"))
-        buckets[name].append(s)
+        buckets[_bucket_key(s)].append(s)
 
     diverse: list[dict] = []
     round_idx = 0
