@@ -615,12 +615,31 @@ def _build_rl(user_id: str, tier: str) -> RateLimitOut:
     )
 
 
+def _source_label(s: dict) -> str:
+    name = s.get("source_name") or s.get("source") or ""
+    if name and name != "Unknown":
+        return name
+    url = s.get("url_link") or s.get("url") or ""
+    if url and url != "#":
+        try:
+            from urllib.parse import urlparse
+            host = urlparse(url).netloc or ""
+            # strip www. prefix and take the first label, e.g. "www.myjoyonline.com" → "myjoyonline"
+            host = host.removeprefix("www.")
+            domain = host.split(".")[0]
+            if domain:
+                return domain
+        except Exception:
+            pass
+    return "Unknown"
+
+
 def _normalise_sources(raw: list) -> List[SourceOut]:
     return [
         SourceOut(
             title          = s.get("title", "Untitled"),
             url            = s.get("url_link") or s.get("url", "#"),
-            source         = s.get("source_name") or s.get("source", "Unknown"),
+            source         = _source_label(s),
             category       = s.get("category") or None,
             published_date = s.get("published_date") or None,
             stance         = s.get("stance") or None,
