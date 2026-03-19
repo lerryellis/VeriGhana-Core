@@ -95,7 +95,6 @@ def _sources_text(sources: list, max_chars: int = 4000) -> str:
     return "\n\n".join(parts) if parts else "(no matching sources found in database)"
 
 _PROMPT = """You are VeriGhana, an AI fact-checker for Ghana using the Triangulation & Nuance Framework.
-Analyse the claim against the provided source excerpts from multiple independent outlets.
 
 CLAIM:
 {claim}
@@ -103,11 +102,19 @@ CLAIM:
 SOURCE EXCERPTS ({count} sources across {source_count} outlets):
 {sources_text}
 
+ANALYSIS STEPS — follow in order:
+1. RELEVANCE FILTER: For each source, decide whether it directly addresses this specific claim
+   (RELEVANT), covers a related topic without addressing the claim (TANGENTIAL), or is on
+   a completely different topic (UNRELATED). Base your verdict and score ONLY on RELEVANT
+   sources. Mention tangential sources in the explanation only if noteworthy.
+2. CONVERGENCE: Identify facts that 2+ RELEVANT sources agree on — these carry the most weight.
+3. VERDICT: Apply the rules below using only RELEVANT sources.
+
 VERDICT RULES:
-- VERIFIED: 2+ independent sources confirm the core claim
-- PARTIAL: sources confirm only part of it, or sources conflict with each other
-- FALSE: sources directly contradict the claim
-- UNCORROBORATED: no source addresses the claim (not necessarily false)
+- VERIFIED: 2+ independent RELEVANT sources confirm the core claim
+- PARTIAL: RELEVANT sources confirm only part of it, or RELEVANT sources conflict with each other
+- FALSE: RELEVANT sources directly contradict the claim
+- UNCORROBORATED: no RELEVANT source addresses the claim (not necessarily false)
 
 TRIANGULATION RULES:
 - Treat each source as an independent witness — never assume they agree
@@ -492,6 +499,39 @@ def _keyword_search(claim: str, limit: int = 8) -> list:
     # Columns to search: title first, then content — both searched at every tier
     search_cols = text_cols[:2]
 
+    # --- Strategy 0: PostgreSQL full-text search (highest accuracy, best ranking) ---
+    # Falls back silently if the fts_migration.sql hasn't been run yet.
+    if len(candidate_pool) < pool_target:
+        try:
+            r = supabase.rpc("search_fact_entries_fts", {
+                "query": claim[:500],
+                "match_count": pool_target,
+            }).execute()
+            if r.data:
+                _add(r.data)
+                logger.debug("FTS rpc -> %d hits", len(r.data))
+        except Exception as e:
+            logger.info("FTS rpc unavailable (run fts_migration.sql): %s", e)
+
+    # --- Strategy 0b: entity-anchored AND search (proper nouns + acronyms) ---
+    # Searches for the most distinctive named entities co-occurring in the same field.
+    entities = _extract_entities(claim)
+    if entities and len(candidate_pool) < pool_target:
+        anchors = entities[:3]  # top 3 most specific entities
+        for col in search_cols:
+            if len(candidate_pool) >= pool_target:
+                break
+            try:
+                q = supabase.table("fact_entries").select("*")
+                for e in anchors[:2]:   # AND on top 2 to stay precise
+                    q = q.ilike(col, f"%{e}%")
+                r = q.limit(pool_target).execute()
+                if r.data:
+                    _add(r.data)
+                    logger.debug("entity AND ilike %s %s -> %d hits", col, anchors[:2], len(r.data))
+            except Exception as e:
+                logger.warning("entity ilike %s failed: %s", col, e)
+
     # --- Strategy 1: exact phrase match on title + content (highest precision) ---
     phrase = claim[:150]
     for col in search_cols:
@@ -581,7 +621,7 @@ def _vector_search(claim: str, model_id: str, limit: int = 6) -> list:
         return []
 
     for fn, kwargs in [
-        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.50}),
+        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.65}),
         ("search_facts",       {"query_embedding": emb, "limit_count": limit}),
     ]:
         try:
@@ -703,6 +743,77 @@ def _enrich_with_categories(sources: list) -> list:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+#  NAMED ENTITY EXTRACTION & NEAR-DUPLICATE DEDUPLICATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+_GENERIC_CAPS = {
+    'This', 'That', 'These', 'Those', 'The', 'There', 'Their',
+    'What', 'When', 'Where', 'Which', 'Who', 'Whom', 'Whose', 'Why', 'How',
+    'Some', 'Such', 'Each', 'Every', 'Both', 'Many', 'More', 'Most',
+    'Also', 'Even', 'Just', 'Only', 'Very', 'Well', 'Still', 'Then',
+    'Than', 'After', 'About', 'From', 'Into', 'Over', 'Under', 'Been',
+    'Have', 'Were', 'Will', 'Would', 'Could', 'Should', 'Does', 'Said',
+}
+
+def _extract_entities(text: str) -> list[str]:
+    """Extract named entities (proper nouns ≥4 chars, years) as high-precision search anchors.
+
+    Returns lowercase strings, deduplicated, ordered by first appearance.
+    """
+    entities: list[str] = []
+    # 4-digit years (19xx or 20xx)
+    for year in re.findall(r'\b(19\d{2}|20\d{2})\b', text):
+        entities.append(year)
+    # Capitalized words ≥4 chars not in the generic list
+    for w in re.findall(r'\b[A-Z][a-z]{3,}\b', text):
+        if w not in _GENERIC_CAPS:
+            entities.append(w.lower())
+    # All-caps acronyms ≥2 chars (e.g. GES, NPP, NDC, ECG, COCOBOD)
+    for w in re.findall(r'\b[A-Z]{2,}\b', text):
+        entities.append(w.lower())
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for e in entities:
+        if e not in seen:
+            seen.add(e)
+            result.append(e)
+    return result
+
+
+def _deduplicate(sources: list, threshold: float = 0.70) -> list:
+    """Remove near-duplicate articles (same wire story republished across outlets).
+
+    Uses Jaccard similarity on title word sets. If two titles share ≥threshold
+    fraction of their words, only the first-seen article is kept.
+    Wire-story duplicates inflate AI confidence — deduplication ensures each
+    independent outlet is counted as a distinct witness.
+    """
+    def _title_words(s: dict) -> frozenset[str]:
+        t = (s.get("title") or "").lower()
+        return frozenset(re.findall(r'[a-z]{3,}', t))
+
+    deduped: list[dict] = []
+    for s in sources:
+        sw = _title_words(s)
+        if not sw:
+            deduped.append(s)
+            continue
+        is_dup = False
+        for kept in deduped:
+            kw = _title_words(kept)
+            if not kw:
+                continue
+            jaccard = len(sw & kw) / max(len(sw | kw), 1)
+            if jaccard >= threshold:
+                is_dup = True
+                break
+        if not is_dup:
+            deduped.append(s)
+    return deduped
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 #  PUBLIC API
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -742,6 +853,10 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
 
     remaining = max(0, 10 - len(priority))
     sources = priority + _diversify_sources(keyword_pool, max_per_source=2, total=remaining)
+
+    # Remove near-duplicate wire stories before sending to AI
+    # (same story published by multiple outlets would inflate confidence)
+    sources = _deduplicate(sources, threshold=0.70)
 
     # Enrich with category from trusted_sources table
     sources = _enrich_with_categories(sources)
