@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthCard } from '@/components/auth/AuthCard'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 
 const PLAN_LABELS: Record<string, string> = {
   pro: 'Pro — $9.99/mo',
@@ -67,6 +68,20 @@ export function RegisterForm() {
         </>
       }
     >
+      {!success && (
+        <>
+          <GoogleButton />
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-xs text-slate-500">
+              <span className="bg-[#0e1f3d] px-3">or sign up with email</span>
+            </div>
+          </div>
+        </>
+      )}
+
       {success ? (
         <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm px-4 py-4 rounded-lg text-center">
           <div className="font-semibold mb-1">Account created!</div>

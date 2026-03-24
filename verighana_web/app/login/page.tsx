@@ -1,17 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthCard } from '@/components/auth/AuthCard'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [error, setError]       = useState<string | null>(
+    searchParams.get('error') ? 'Google sign-in was cancelled or failed. Please try again.' : null
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,6 +48,17 @@ export default function LoginPage() {
         </>
       }
     >
+      <GoogleButton />
+
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center text-xs text-slate-500">
+          <span className="bg-[#0e1f3d] px-3">or continue with email</span>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
