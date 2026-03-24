@@ -15,7 +15,7 @@
 ## Next.js → Vercel
 
 1. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub.
-2. Set **Root Directory** to `verighana-web`.
+2. Set **Root Directory** to `verighana_web`.
 3. Framework: Next.js (auto-detected).
 4. Add environment variables:
    ```
@@ -25,7 +25,7 @@
    SUPABASE_SERVICE_KEY            = <service_role key from Supabase>
    ADMIN_API_KEY                   = <same token as Railway ADMIN_API_KEY>
    ```
-5. Deploy. Vercel gives you a URL like `https://verighana-web.vercel.app`.
+5. Deploy. Vercel gives you a URL like `https://verighana.vercel.app`.
 
 ## Post-Deploy Checklist
 
