@@ -28,6 +28,11 @@ export async function updateSession(request: NextRequest) {
   // Refresh session — do not remove this block
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Let the OAuth callback through — never redirect it
+  if (request.nextUrl.pathname.startsWith('/auth/callback')) {
+    return supabaseResponse
+  }
+
   // Redirect unauthenticated users away from protected routes
   if (
     !user &&
