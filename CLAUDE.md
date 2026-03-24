@@ -18,9 +18,9 @@ python src/scrapers/html_scraper.py         # run HTML scraper manually
 streamlit run src/app.py    # full-featured dashboard (localhost:8501)
 ```
 
-### Frontend (Next.js — verighana-web/)
+### Frontend (Next.js — verighana_web/)
 ```bash
-cd verighana-web && npm install
+cd verighana_web && npm install
 npm run dev     # localhost:3000
 npm run build
 npm run lint
@@ -49,7 +49,7 @@ VeriGhana-Core is a fact-checking platform for Ghana. It has three main layers:
 **3. Frontends**
 - `index.html` — standalone static landing page (pure HTML/CSS/JS, no build step)
 - `src/app.py` — full-featured Streamlit dashboard (239KB merged redesign); includes real Supabase auth, claim verification UI, site tester, admin stats, session persistence via cookies/localStorage
-- `verighana-web/` — Next.js 16 + React 19 + Tailwind 4 (early stage)
+- `verighana_web/` — Next.js 16 + React 19 + Tailwind 4 (early stage)
 
 ### AI Verification (`src/verifier.py`)
 Multi-provider cascade: **Gemini 2.0 Flash → Gemini 1.5 Flash → Groq (Llama) → Cohere → OpenRouter → heuristic fallback**
