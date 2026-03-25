@@ -48,9 +48,9 @@ const VERDICT_GRADIENT: Record<string, string> = {
 }
 
 const VERDICT_TEXT: Record<string, string> = {
-  VERIFIED: 'text-green-400', PARTIAL: 'text-amber-400',
-  FALSE: 'text-red-400', UNCORROBORATED: 'text-slate-400',
-  CHECKING: 'text-blue-400', ERROR: 'text-red-400',
+  VERIFIED: 'text-green-600', PARTIAL: 'text-amber-600',
+  FALSE: 'text-red-600', UNCORROBORATED: 'text-slate-500',
+  CHECKING: 'text-blue-600', ERROR: 'text-red-600',
 }
 
 type ResultState = VerifyResponse & { barWidth: number }
@@ -117,23 +117,73 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
   }
 
   return (
-    <section className="relative overflow-hidden py-20 px-[5%] text-center" style={{ background: 'linear-gradient(160deg,#0f2240 0%,#0c1e3f 55%,#112244 100%)' }}>
-      {/* Grid overlay */}
-      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(37,99,235,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.07) 1px,transparent 1px)', backgroundSize: '48px 48px', maskImage: 'radial-gradient(ellipse at 50% 0%,black 40%,transparent 75%)' }} />
-      {/* Glow */}
-      <div className="absolute pointer-events-none" style={{ width: 600, height: 600, background: 'radial-gradient(circle,rgba(37,99,235,0.18) 0%,transparent 70%)', top: -200, right: -150 }} />
+    <section className="relative overflow-hidden py-20 px-[5%] text-center" style={{ background: 'linear-gradient(150deg,#c8b5a2 0%,#ddd3c4 25%,#ede8e0 50%,#cddce8 80%,#b4cce0 100%)' }}>
+
+      {/* Adinkra watermark — left */}
+      <svg className="absolute left-0 top-0 h-full w-[22%] pointer-events-none opacity-[0.13]" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#7a6a58" strokeWidth="1.4">
+          {/* Gye Nyame inspired interlocking symbol */}
+          <path d="M100 80 C60 80 40 110 60 140 C80 170 120 170 140 140 C160 110 140 80 100 80Z" />
+          <path d="M100 80 C100 50 80 30 60 50 C40 70 50 100 70 110" />
+          <path d="M100 80 C100 50 120 30 140 50 C160 70 150 100 130 110" />
+          <circle cx="100" cy="140" r="18" />
+          <path d="M82 140 C82 120 118 120 118 140 C118 160 82 160 82 140Z" />
+          <path d="M100 160 C70 175 60 210 80 225 C100 240 120 225 120 200" />
+          <path d="M100 160 C130 175 140 210 120 225 C100 240 80 225 80 200" />
+          <circle cx="100" cy="210" r="12" />
+          <path d="M60 250 Q100 230 140 250 Q160 270 140 290 Q100 310 60 290 Q40 270 60 250Z" />
+          <path d="M100 290 L100 330" />
+          <circle cx="100" cy="335" r="8" />
+          <path d="M78 335 L122 335" />
+          {/* dots */}
+          <circle cx="100" cy="50" r="3" fill="#7a6a58" />
+          <circle cx="70"  cy="115" r="2" fill="#7a6a58" />
+          <circle cx="130" cy="115" r="2" fill="#7a6a58" />
+        </g>
+      </svg>
+
+      {/* Constellation network — top right */}
+      <svg className="absolute right-0 top-0 w-[30%] h-full pointer-events-none opacity-20" viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#4a7fa8" strokeWidth="0.8">
+          <line x1="220" y1="20"  x2="280" y2="80"  />
+          <line x1="280" y1="80"  x2="260" y2="150" />
+          <line x1="260" y1="150" x2="200" y2="120" />
+          <line x1="200" y1="120" x2="220" y2="20"  />
+          <line x1="260" y1="150" x2="290" y2="220" />
+          <line x1="290" y1="220" x2="230" y2="240" />
+          <line x1="230" y1="240" x2="200" y2="120" />
+          <line x1="230" y1="240" x2="250" y2="310" />
+          <line x1="250" y1="310" x2="290" y2="350" />
+          <line x1="290" y1="350" x2="290" y2="220" />
+          <line x1="180" y1="60"  x2="220" y2="20"  />
+          <line x1="180" y1="60"  x2="200" y2="120" />
+        </g>
+        <g fill="#4a7fa8">
+          {[[220,20],[280,80],[260,150],[200,120],[290,220],[230,240],[250,310],[290,350],[180,60]].map(([x,y],i) => (
+            <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 3.5 : 2} opacity={i % 2 === 0 ? 0.9 : 0.6} />
+          ))}
+        </g>
+        {/* sparkle bottom-right */}
+        <path d="M285 375 L287 368 L289 375 L296 377 L289 379 L287 386 L285 379 L278 377Z" fill="#6ab4d8" opacity="0.7" />
+      </svg>
+
+      {/* Center warm glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 60%, rgba(255,245,230,0.55) 0%, transparent 65%)' }} />
+
+      {/* Glass border glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1px rgba(100,180,210,0.25)' }} />
 
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-blue-600/15 border border-blue-400/30 text-blue-300 text-xs font-medium tracking-widest uppercase px-4 py-1.5 rounded-full mb-6 animate-fade-up">
+        <div className="inline-flex items-center gap-2 bg-[#0f2240]/10 border border-[#0f2240]/20 text-[#0f2240] text-xs font-medium tracking-widest uppercase px-4 py-1.5 rounded-full mb-6 animate-fade-up">
           🇬🇭 Ghana&apos;s AI-Powered Fact Verification
         </div>
 
-        <h1 className="font-display font-extrabold text-4xl md:text-5xl text-white leading-tight tracking-tight mb-4 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          Fighting <em className="not-italic text-blue-400">Misinformation</em><br />in Ghana with AI
+        <h1 className="font-display font-extrabold text-4xl md:text-5xl text-[#0f2240] leading-tight tracking-tight mb-4 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+          Fighting <em className="not-italic text-blue-600">Misinformation</em><br />in Ghana with AI
         </h1>
 
-        <p className="text-slate-400 font-light text-base leading-relaxed max-w-md mx-auto mb-8 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+        <p className="text-slate-600 font-light text-base leading-relaxed max-w-md mx-auto mb-8 animate-fade-up" style={{ animationDelay: '0.2s' }}>
           Submit any social media claim — get an instant Truth Score backed by verified Ghanaian sources, updated every 6 hours.
         </p>
 
@@ -144,16 +194,16 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
             aria-label="AI model selection"
             value={selectedModel}
             onChange={e => setSelectedModel(e.target.value)}
-            className="bg-white/[0.07] border border-white/15 text-blue-300 font-mono-vg text-[0.72rem] px-2.5 py-1 rounded-md outline-none cursor-pointer"
+            className="bg-white/50 border border-[#0f2240]/20 text-[#0f2240] font-mono-vg text-[0.72rem] px-2.5 py-1 rounded-md outline-none cursor-pointer"
           >
             {models.map(m => (
-              <option key={m.id} value={m.id} style={{ background: '#1a3560' }}>{m.name ?? m.id}</option>
+              <option key={m.id} value={m.id} style={{ background: '#f1ece6' }}>{m.name ?? m.id}</option>
             ))}
           </select>
         </div>
 
         {/* Search bar */}
-        <div className="flex rounded-xl overflow-hidden border border-white/[0.14] bg-white/[0.06] mb-3 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+        <div className="flex rounded-xl overflow-hidden border border-[#0f2240]/20 bg-white/50 mb-3 animate-fade-up shadow-sm" style={{ animationDelay: '0.3s' }}>
           <input
             ref={inputRef}
             type="text"
@@ -163,12 +213,12 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
             onFocus={() => { if (cycleRef.current) clearInterval(cycleRef.current) }}
             onBlur={() => { if (!claim.trim()) startCycle() }}
             placeholder="Paste a suspicious claim, social post, or rumour here…"
-            className="flex-1 bg-transparent text-white placeholder:text-slate-500 text-sm px-4 py-3.5 outline-none"
+            className="flex-1 bg-transparent text-[#0f2240] placeholder:text-slate-400 text-sm px-4 py-3.5 outline-none"
           />
           <button
             type="button"
             onClick={() => router.push('/register')}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-5 flex items-center gap-2 transition-colors"
+            className="bg-[#0f2240] hover:bg-[#1a3a6e] text-white text-sm font-medium px-5 flex items-center gap-2 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM14 14l-3-3" />
@@ -179,17 +229,17 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
 
         {/* API offline notice */}
         {apiOffline && (
-          <div className="text-amber-400/80 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 mb-3">
+          <div className="text-amber-700 text-xs bg-amber-100/80 border border-amber-300/60 rounded-lg px-4 py-2 mb-3">
             ⚠ API server not reachable — start it with <code className="font-mono-vg">uvicorn src.api:app --reload --port 8000</code>
           </div>
         )}
 
         {/* Truth meter */}
         {result && (
-          <div className="glass-card p-5 text-left mt-4 animate-fade-in">
+          <div className="bg-white/60 backdrop-blur-sm border border-[#0f2240]/15 rounded-2xl shadow-lg p-5 text-left mt-4 animate-fade-in">
             <div className="flex items-center justify-between mb-3">
-              <span className="flex items-center gap-2 text-xs text-slate-400 font-mono-vg tracking-widest uppercase">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+              <span className="flex items-center gap-2 text-xs text-slate-500 font-mono-vg tracking-widest uppercase">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                 Truth Meter
               </span>
               <span className={`text-xs font-bold font-mono-vg tracking-widest ${VERDICT_TEXT[result.verdict] ?? 'text-slate-400'}`}>
@@ -198,10 +248,10 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
             </div>
 
             <div className="flex items-center gap-3 mb-3">
-              <span className="font-display text-2xl font-bold text-white w-12 text-right">
+              <span className="font-display text-2xl font-bold text-[#0f2240] w-12 text-right">
                 {result.verdict === 'CHECKING' ? '…' : `${result.score}%`}
               </span>
-              <div className="flex-1 h-2.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="flex-1 h-2.5 rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${result.barWidth}%`, background: VERDICT_GRADIENT[result.verdict] ?? VERDICT_GRADIENT.UNCORROBORATED }}
@@ -209,27 +259,27 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
               </div>
             </div>
 
-            <p className="text-sm text-slate-300 leading-relaxed mb-3">{result.explanation}</p>
+            <p className="text-sm text-slate-700 leading-relaxed mb-3">{result.explanation}</p>
 
             {result.sources.length > 0 && (
-              <div className="border-t border-white/[0.08] pt-3 space-y-2">
-                <p className="text-[0.68rem] text-slate-500 font-mono-vg uppercase tracking-widest">Sources</p>
+              <div className="border-t border-slate-200 pt-3 space-y-2">
+                <p className="text-[0.68rem] text-slate-400 font-mono-vg uppercase tracking-widest">Sources</p>
                 {result.sources.slice(0, 4).map((s, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
                     <div>
                       {s.url && s.url !== '#'
-                        ? <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">{s.title}</a>
+                        ? <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-[#0f2240] transition-colors">{s.title}</a>
                         : <span>{s.title}</span>
                       }
-                      <span className="text-slate-500"> — {s.source}</span>
+                      <span className="text-slate-400"> — {s.source}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="flex justify-between mt-3 text-[0.68rem] font-mono-vg text-slate-600">
+            <div className="flex justify-between mt-3 text-[0.68rem] font-mono-vg text-slate-400">
               <span>{result.processing_ms > 0 ? `${(result.processing_ms / 1000).toFixed(1)}s · ${result.search_method}` : 'Demo mode'}</span>
               <span>{result.model_used !== 'demo' && result.model_used !== '—' ? result.model_used : '—'}</span>
             </div>
