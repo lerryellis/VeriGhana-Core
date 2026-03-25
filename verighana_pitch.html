@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriGhana — Investor Pitch & Commercial Expansion Strategy</title>
+<style>
+/* ─── RESET ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:    #0d2240;
+  --mid:     #1a3a6b;
+  --blue:    #2563eb;
+  --gold:    #c8a84b;
+  --green:   #16a34a;
+  --red:     #dc2626;
+  --teal:    #0d9488;
+  --purple:  #7c3aed;
+  --orange:  #ea580c;
+  --slate:   #475569;
+  --light:   #f1f5f9;
+  --border:  #cbd5e1;
+  --white:   #ffffff;
+  --font-body: Georgia, "Times New Roman", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 11pt;
+  line-height: 1.75;
+  color: #1e293b;
+  background: #e2e8f0;
+}
+
+/* ─── SCREEN WRAPPER ─────────────────────────── */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 18px auto;
+  background: var(--white);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  overflow: hidden;
+  position: relative;
+}
+
+@media print {
+  body { background: #fff; }
+  .page { box-shadow: none; margin: 0; page-break-after: always; }
+}
+
+/* ─── COVER ──────────────────────────────────── */
+.cover {
+  min-height: 297mm;
+  background: linear-gradient(155deg, #0a1628 0%, #0d2240 40%, #1a3a6b 75%, #0f4c75 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 80% 20%, rgba(37,99,235,0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 10% 80%, rgba(13,148,136,0.15) 0%, transparent 50%);
+}
+.cover-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.cover-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 297mm;
+  padding: 3cm 2.8cm;
+}
+.cover-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 8.5pt;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 2cm;
+  width: fit-content;
+}
+.cover-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.cover-title {
+  font-family: var(--font-sans);
+  font-size: 32pt;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+}
+.cover-title span { color: var(--gold); }
+
+.cover-subtitle {
+  font-size: 13pt;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.6;
+  max-width: 14cm;
+  margin-bottom: 2cm;
+  font-weight: 300;
+}
+
+.cover-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: auto;
+}
+.cover-stat {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.cover-stat-num {
+  font-size: 22pt;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.cover-stat-label {
+  font-size: 8pt;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+.cover-footer {
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 24px;
+  margin-top: 2cm;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 9pt;
+  color: rgba(255,255,255,0.45);
+}
+.cover-footer-left { line-height: 1.8; }
+.cover-footer-tag {
+  background: rgba(200,168,75,0.2);
+  border: 1px solid rgba(200,168,75,0.4);
+  color: var(--gold);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ─── SECTION OPENERS ────────────────────────── */
+.section-opener {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--mid) 100%);
+  color: #fff;
+  padding: 2cm 2.8cm;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 10cm;
+  position: relative;
+  overflow: hidden;
+}
+.section-opener::before {
+  content: attr(data-num);
+  position: absolute;
+  top: -20px;
+  right: 2cm;
+  font-size: 120pt;
+  font-weight: 900;
+  color: rgba(255,255,255,0.04);
+  line-height: 1;
+  font-family: var(--font-sans);
+}
+.section-opener-kicker {
+  font-size: 8.5pt;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.section-opener-title {
+  font-size: 24pt;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.section-opener-sub {
+  font-size: 10.5pt;
+  color: rgba(255,255,255,0.6);
+  margin-top: 10px;
+  max-width: 13cm;
+  font-weight: 300;
+}
+.section-opener-rule {
+  width: 50px;
+  height: 3px;
+  background: var(--gold);
+  margin-top: 20px;
+}
+
+/* ─── CONTENT PAGES ───────────────────────────── */
+.content {
+  padding: 1.8cm 2.8cm 2cm;
+}
+
+.running-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7.5pt;
+  color: var(--slate);
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 0.7cm;
+  text-transform: uppercase;
+}
+.running-header strong { color: var(--navy); }
+
+/* ─── HEADINGS ────────────────────────────────── */
+h2.h-section {
+  font-size: 14pt;
+  font-weight: 800;
+  color: var(--navy);
+  border-bottom: 2.5px solid var(--navy);
+  padding-bottom: 7px;
+  margin: 0 0 0.6cm;
+  letter-spacing: -0.3px;
+}
+h3.h-sub {
+  font-size: 11.5pt;
+  font-weight: 700;
+  color: var(--mid);
+  padding-left: 12px;
+  border-left: 4px solid var(--gold);
+  margin: 0.7cm 0 0.3cm;
+  line-height: 1.4;
+}
+h4.h-minor {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: var(--slate);
+  margin: 0.4cm 0 0.15cm;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 9pt;
+}
+
+/* ─── BODY TEXT ─────────────────────────────── */
+p { margin-bottom: 0.4cm; line-height: 1.75; }
+p.lead {
+  font-size: 12.5pt;
+  color: var(--navy);
+  font-weight: 400;
+  line-height: 1.7;
+  margin-bottom: 0.6cm;
+  border-left: 4px solid var(--blue);
+  padding-left: 16px;
+}
+ul, ol { margin: 0.3cm 0 0.4cm 1.6cm; }
+li { margin-bottom: 0.2cm; line-height: 1.65; }
+strong { color: var(--navy); }
+
+/* ─── INDUSTRY CARDS ─────────────────────────── */
+.industry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 0.5cm 0;
+}
+.industry-card {
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+}
+.industry-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 10pt;
+  color: #fff;
+}
+.industry-card-icon {
+  font-size: 16pt;
+  line-height: 1;
+}
+.industry-card-body {
+  padding: 12px 14px;
+  background: var(--white);
+  font-size: 9.5pt;
+  line-height: 1.6;
+  color: #334155;
+}
+.industry-card-body ul { margin: 6px 0 0 1.2em; }
+.industry-card-body li { margin-bottom: 3px; font-size: 9.5pt; }
+.industry-card-rev {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 8.5pt;
+}
+.rev-tag {
+  background: #dcfce7;
+  color: var(--green);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 8pt;
+}
+
+/* ─── COLOR VARIANTS for industry cards ─────── */
+.ic-finance { background: linear-gradient(135deg, #1e3a5f, #2563eb); }
+.ic-telecom  { background: linear-gradient(135deg, #14532d, #16a34a); }
+.ic-oil      { background: linear-gradient(135deg, #431407, #ea580c); }
+.ic-banking  { background: linear-gradient(135deg, #312e81, #7c3aed); }
+.ic-stocks   { background: linear-gradient(135deg, #134e4a, #0d9488); }
+.ic-marketing{ background: linear-gradient(135deg, #7f1d1d, #dc2626); }
+.ic-govt     { background: linear-gradient(135deg, #1e3a5f, #0369a1); }
+.ic-insurance{ background: linear-gradient(135deg, #4a044e, #a21caf); }
+.ic-legal    { background: linear-gradient(135deg, #1c1917, #44403c); }
+.ic-health   { background: linear-gradient(135deg, #052e16, #15803d); }
+.ic-realestate { background: linear-gradient(135deg, #451a03, #b45309); }
+.ic-hr       { background: linear-gradient(135deg, #1e1b4b, #4338ca); }
+
+/* ─── REVENUE MODEL TABLE ───────────────────── */
+.rev-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4cm 0;
+  font-size: 9.5pt;
+}
+.rev-table thead th {
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 8.5pt;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.rev-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.rev-table tbody tr:nth-child(even) td { background: var(--light); }
+.rev-table .price {
+  font-weight: 800;
+  color: var(--green);
+  font-size: 10pt;
+  white-space: nowrap;
+}
+
+/* ─── ROADMAP ────────────────────────────────── */
+.roadmap {
+  position: relative;
+  margin: 0.5cm 0;
+}
+.roadmap::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--blue), var(--teal));
+}
+.roadmap-item {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 22px;
+  position: relative;
+}
+.roadmap-dot {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 10pt;
+  color: #fff;
+  flex-shrink: 0;
+  z-index: 1;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.roadmap-body { flex: 1; padding-top: 10px; }
+.roadmap-phase {
+  font-size: 7.5pt;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 2px;
+}
+.roadmap-title {
+  font-size: 11pt;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+.roadmap-desc {
+  font-size: 9.5pt;
+  color: var(--slate);
+  line-height: 1.6;
+}
+.dot-1 { background: var(--blue); }
+.dot-2 { background: var(--teal); }
+.dot-3 { background: var(--purple); }
+.dot-4 { background: var(--orange); }
+.dot-5 { background: var(--gold); }
+
+/* ─── METRIC CARDS ───────────────────────────── */
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 0.5cm 0;
+}
+.metric-card {
+  background: var(--light);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  text-align: center;
+}
+.metric-num {
+  font-size: 22pt;
+  font-weight: 900;
+  color: var(--navy);
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.metric-num.green { color: var(--green); }
+.metric-num.blue  { color: var(--blue); }
+.metric-num.gold  { color: var(--gold); }
+.metric-label {
+  font-size: 8pt;
+  color: var(--slate);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+/* ─── HIGHLIGHT BOX ──────────────────────────── */
+.highlight-box {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1.5px solid #93c5fd;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 0.4cm 0;
+}
+.highlight-box.gold-box {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-color: #fcd34d;
+}
+.highlight-box.green-box {
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border-color: #86efac;
+}
+.highlight-box.red-box {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border-color: #fca5a5;
+}
+.highlight-box h4 {
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+.highlight-box.gold-box h4 { color: #92400e; }
+.highlight-box.green-box h4 { color: var(--green); }
+.highlight-box.red-box h4 { color: var(--red); }
+
+/* ─── PITCH POINTS ───────────────────────────── */
+.pitch-point {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: flex-start;
+}
+.pitch-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18pt;
+  flex-shrink: 0;
+}
+.pitch-body h4 {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 3px;
+}
+.pitch-body p {
+  font-size: 9.5pt;
+  color: var(--slate);
+  margin: 0;
+}
+
+/* ─── MOAT TABLE ──────────────────────────────── */
+.moat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0.4cm 0;
+}
+.moat-card {
+  background: var(--light);
+  border-radius: 8px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--navy);
+}
+.moat-card h4 {
+  font-size: 10pt;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 5px;
+}
+.moat-card p { font-size: 9.5pt; color: var(--slate); margin: 0; }
+
+/* ─── TAG ─────────────────────────────────────── */
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.tag-blue   { background: #dbeafe; color: #1d4ed8; }
+.tag-green  { background: #dcfce7; color: #15803d; }
+.tag-gold   { background: #fef3c7; color: #92400e; }
+.tag-red    { background: #fee2e2; color: #b91c1c; }
+.tag-purple { background: #ede9fe; color: #6d28d9; }
+
+/* ─── DIVIDER ─────────────────────────────────── */
+hr.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.5cm 0;
+}
+
+/* ─── FOOTER ──────────────────────────────────── */
+.page-foot {
+  padding-top: 0.3cm;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 7.5pt;
+  color: #94a3b8;
+  margin-top: 0.4cm;
+}
+
+/* ─── QUOTE ───────────────────────────────────── */
+.pull-quote {
+  font-family: var(--font-body);
+  font-size: 14pt;
+  font-style: italic;
+  color: var(--navy);
+  line-height: 1.6;
+  text-align: center;
+  padding: 0.6cm 1cm;
+  border-top: 3px solid var(--gold);
+  border-bottom: 3px solid var(--gold);
+  margin: 0.6cm 0;
+}
+
+/* ─── INVESTOR ASK ──────────────────────────── */
+.ask-card {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--mid) 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin: 0.5cm 0;
+}
+.ask-card h3 {
+  font-size: 16pt;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--gold);
+}
+.ask-card p { color: rgba(255,255,255,0.75); margin-bottom: 0.3cm; font-size: 10.5pt; }
+.ask-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+.ask-item {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.ask-pct { font-size: 18pt; font-weight: 900; color: var(--gold); }
+.ask-label { font-size: 8pt; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="cover">
+  <div class="cover-grid"></div>
+  <div class="cover-inner">
+
+    <div class="cover-badge">
+      <div class="cover-dot"></div>
+      Commercial Expansion Strategy &nbsp;·&nbsp; Investor Pitch
+    </div>
+
+    <div class="cover-title">
+      VeriGhana<br>
+      <span>Beyond Fact-Checking.</span><br>
+      The Intelligence<br>Verification Platform.
+    </div>
+
+    <div class="cover-subtitle">
+      How an AI fact-checking engine built for Ghana becomes the foundational intelligence layer for telecoms, banks, oil companies, stock markets, governments, marketing firms, and any organisation where the cost of acting on false information is unacceptable.
+    </div>
+
+    <div class="cover-stats">
+      <div class="cover-stat">
+        <div class="cover-stat-num">12+</div>
+        <div class="cover-stat-label">Industry Verticals</div>
+      </div>
+      <div class="cover-stat">
+        <div class="cover-stat-num">$4.1B</div>
+        <div class="cover-stat-label">Africa TAM by 2028</div>
+      </div>
+      <div class="cover-stat">
+        <div class="cover-stat-num">5</div>
+        <div class="cover-stat-label">Revenue Streams</div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <div class="cover-footer-left">
+        <strong style="color:#fff">VeriGhana</strong><br>
+        Ellis Lamptey &nbsp;·&nbsp; GIMPA, Department of Computer Sciences<br>
+        March 2026
+      </div>
+      <div class="cover-footer-tag">Confidential</div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE 2 — EXECUTIVE SUMMARY
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Executive Summary</span>
+  </div>
+
+  <h2 class="h-section">Executive Summary</h2>
+
+  <p class="lead">VeriGhana was built as a fact-checking platform. What was actually built is a reusable AI intelligence engine that can verify, analyse, and attribute any piece of information against any trusted source corpus — in any industry, in any country.</p>
+
+  <p>The underlying technology — a <strong>hybrid semantic retrieval engine</strong> combined with a <strong>multi-provider AI analysis cascade</strong> and a <strong>Triangulation and Nuance Framework</strong> — is domain-agnostic. Every component that makes VeriGhana work for news verification works equally well for verifying a customer's loan application, detecting false earnings reports circulating before market close, auditing a supplier's ESG claim, or flagging a coordinated social media attack on a telecom brand.</p>
+
+  <div class="highlight-box gold-box">
+    <h4>The Core Insight</h4>
+    <p>Every industry has a version of the same problem: <strong>someone is making a claim, and the cost of acting on it without verification is enormous.</strong> VeriGhana is the infrastructure that answers that problem at machine speed, at scale, with a traceable evidence chain.</p>
+  </div>
+
+  <h3 class="h-sub">What Was Built (Technical Core)</h3>
+  <ul>
+    <li><strong>Automated Source Corpus Management</strong> — ingest, deduplicate, and maintain any collection of trusted documents from any source (RSS, websites, internal databases, regulatory feeds, filings)</li>
+    <li><strong>768-Dimensional Semantic Vector Search</strong> — find relevant information even when vocabulary differs; Google Gemini Embedding 001 via pgvector</li>
+    <li><strong>Multi-Strategy Keyword Retrieval</strong> — entity-anchored, full-text, and keyword fallback ensuring nothing is missed</li>
+    <li><strong>Multi-Provider AI Cascade</strong> — Gemini → Groq → Cohere → OpenRouter → heuristic; zero single-provider dependency</li>
+    <li><strong>Structured Verdict Output</strong> — VERIFIED / PARTIAL / FALSE / UNCORROBORATED + score (0–100) + cited evidence + bias signals + narrative delta</li>
+    <li><strong>Production-Grade Stack</strong> — Next.js 16 on Vercel, FastAPI on Railway, Supabase PostgreSQL, Paystack payments; deployed and live</li>
+  </ul>
+
+  <h3 class="h-sub">The Pitch in One Sentence</h3>
+  <div class="pull-quote">"We built the intelligence verification layer that every African enterprise needs but no one has built yet — and we already have it in production."</div>
+
+  <div class="metric-row">
+    <div class="metric-card">
+      <div class="metric-num blue">65+</div>
+      <div class="metric-label">Sources already indexed</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-num green">85%</div>
+      <div class="metric-label">Accuracy on test claims</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-num gold">3.2s</div>
+      <div class="metric-label">Avg. verification time</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SECTION OPENER — INDUSTRY APPLICATIONS
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="section-opener" data-num="01">
+  <div class="section-opener-kicker">Part One</div>
+  <div class="section-opener-title">Industry Applications<br>&amp; Commercial Use Cases</div>
+  <div class="section-opener-sub">Twelve industries. Twelve versions of the same intelligence verification problem. One platform.</div>
+  <div class="section-opener-rule"></div>
+</div>
+
+<div class="content" style="padding-top:1.2cm">
+  <h2 class="h-section">Telecom</h2>
+
+  <p class="lead">Mobile network operators are among the most misinformation-targeted companies in Africa. A single false rumour — network outage, data theft, tariff hike — spreads via WhatsApp within minutes, triggers customer churn, and overwhelms call centres.</p>
+
+  <h3 class="h-sub">The Problem</h3>
+  <p>MTN Ghana, Vodafone Ghana, and AirtelTigo collectively serve 40+ million subscribers. Their brands are routinely impersonated in fake promotions, fabricated outage notices, and false data-breach alerts. The average cost of a PR crisis driven by misinformation — stock impact, churn rate, call-centre surge — runs to millions of cedis before a single real failure occurs.</p>
+
+  <h3 class="h-sub">VeriGhana Applications</h3>
+  <ul>
+    <li><strong>Brand Monitoring &amp; Rumour Firewall</strong> — continuous scan of social media, forums, and news feeds; any claim about the company is flagged, scored, and escalated within minutes rather than hours</li>
+    <li><strong>Customer-Facing Verification Bot</strong> — "Is this MTN promotion real?" — subscribers query the bot via USSD, WhatsApp, or app; the engine cross-checks against the operator's own press release corpus</li>
+    <li><strong>Regulatory Claim Audit</strong> — when the NCA (National Communications Authority) publishes a directive, the system verifies whether internal communications or third-party reports about that directive are accurate before they reach staff or customers</li>
+    <li><strong>Competitive Intelligence</strong> — monitor false claims about competitor pricing or service outages circulating in the market</li>
+    <li><strong>Subscriber Fraud Signals</strong> — cross-reference subscriber-submitted documents against public records to flag identity fraud in SIM registration</li>
+  </ul>
+
+  <div class="highlight-box green-box">
+    <h4>Revenue Model for Telecom</h4>
+    <p><strong>Enterprise SaaS licence</strong> — $8,000–$25,000/month depending on API call volume and number of monitored sources. White-label option for operators who want to offer verification as a value-added service to enterprise B2B customers. One major telco in Ghana at the mid-tier pays back the entire platform development cost in under 5 months.</p>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — BANKING & FINANCE
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Industry Applications</span>
+  </div>
+
+  <h2 class="h-section">Banking &amp; Financial Services</h2>
+
+  <p class="lead">Banks operate in the single highest-stakes information environment of any industry. A false rumour about a bank's liquidity has caused bank runs. A false KYC document costs millions in regulatory fines. A fabricated SWIFT alert triggers fraudulent wire transfers.</p>
+
+  <h3 class="h-sub">Applications</h3>
+
+  <div class="industry-grid">
+    <div class="industry-card">
+      <div class="industry-card-header ic-banking">
+        <div class="industry-card-icon">🏦</div>
+        <span>KYC Document Verification</span>
+      </div>
+      <div class="industry-card-body">
+        Cross-reference customer-submitted documents against public registries (DVLA, GRA, Births &amp; Deaths, CAG). Flag forged IDs, phantom companies, and mismatched incorporation data before onboarding.
+        <div class="industry-card-rev">
+          <span>Reduces fraud onboarding by est. 40–60%</span>
+          <span class="rev-tag">High ROI</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="industry-card">
+      <div class="industry-card-header ic-banking">
+        <div class="industry-card-icon">📰</div>
+        <span>Market Rumour Firewall</span>
+      </div>
+      <div class="industry-card-body">
+        Real-time scoring of claims circulating in Ghanaian media about the bank — liquidity rumours, CEO departure, sanction alerts. Automatically generate a rebuttal brief within 3 minutes of detection.
+        <div class="industry-card-rev">
+          <span>Prevents PR-driven deposit flight</span>
+          <span class="rev-tag">Brand Protection</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="industry-card">
+      <div class="industry-card-header ic-banking">
+        <div class="industry-card-icon">🔍</div>
+        <span>Credit Application Audit</span>
+      </div>
+      <div class="industry-card-body">
+        Verify borrower business claims (revenue figures, industry awards, client relationships) against public filings, press releases, and business registries before loan disbursement.
+        <div class="industry-card-rev">
+          <span>Reduces NPL exposure</span>
+          <span class="rev-tag">Risk Reduction</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="industry-card">
+      <div class="industry-card-header ic-banking">
+        <div class="industry-card-icon">⚖️</div>
+        <span>Regulatory Compliance Monitor</span>
+      </div>
+      <div class="industry-card-body">
+        Ingest Bank of Ghana directives, Basel circulars, and FATF guidance. Any internal policy document can be verified against current regulation. Alert compliance officers to gaps instantly.
+        <div class="industry-card-rev">
+          <span>Reduces regulatory fine risk</span>
+          <span class="rev-tag">Compliance</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Capital Markets &amp; Stock Exchange</h2>
+
+  <p class="lead">False information in capital markets is not just damaging — it is a criminal offence. Market manipulation via fabricated earnings leaks, fake M&amp;A rumours, and coordinated pump-and-dump social media campaigns cost investors hundreds of millions globally each year.</p>
+
+  <h3 class="h-sub">Applications</h3>
+  <ul>
+    <li><strong>Pre-trading Intelligence Brief</strong> — every morning before GSE (Ghana Stock Exchange) opens, the system scans overnight news and social media for claims about listed companies; a scored brief is delivered to traders, analysts, and fund managers</li>
+    <li><strong>Earnings Report Verification</strong> — when a company publishes quarterly results, verify key figures against previous filings, analyst consensus reports, and sector benchmarks; flag statistical anomalies as PARTIAL or FALSE</li>
+    <li><strong>M&amp;A Rumour Scoring</strong> — merger and acquisition rumours are among the most manipulated information in markets; cross-reference against regulatory filings, official press releases, and disclosed transaction databases</li>
+    <li><strong>Short Seller Report Audit</strong> — when activist short sellers publish claims against a company (e.g. Hindenburg-style reports), give the targeted company and regulators an immediate independent fact-score within minutes</li>
+    <li><strong>Insider-Tip Detection Support</strong> — unusual price movement + an unverified social post = automatic escalation to the SEC Ghana for investigation</li>
+  </ul>
+
+  <div class="highlight-box">
+    <h4>Why This Matters in Africa</h4>
+    <p>The GSE and NSE (Nigerian Stock Exchange) have thin liquidity — meaning a single false rumour can move prices 5–15% before a correction. The asymmetric impact of misinformation in thin markets makes automated verification more valuable here than in deep liquid markets like NYSE or LSE.</p>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — OIL & GAS + MARKETING
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Industry Applications</span>
+  </div>
+
+  <h2 class="h-section">Oil &amp; Gas</h2>
+
+  <p class="lead">The Ghana petroleum sector — anchored by Tullow Oil, Eni, Springfield Petroleum, and GNPC — operates in one of the most geopolitically sensitive information environments in the world. False news about production outages, spills, contract disputes, or sanctions can erase hundreds of millions in market value within a trading session.</p>
+
+  <h3 class="h-sub">Applications</h3>
+  <ul>
+    <li><strong>Production &amp; Operations Intelligence</strong> — verify claims about offshore output figures, TEN and Jubilee field production against GNPC and PIAC official reports; detect early-stage false narratives before they reach international wire services</li>
+    <li><strong>Sanctions &amp; Contract Compliance Monitoring</strong> — continuously verify whether counterparties in oil trade deals are subject to newly published OFAC, EU, or UN sanctions; flag discrepancies between claimed compliance status and public records</li>
+    <li><strong>Environmental Incident Claim Audit</strong> — when social media claims a spill or leak, cross-reference against EPA Ghana, GNPC, and maritime authority reports; protect company reputation from false environmental claims while ensuring genuine incidents are not suppressed</li>
+    <li><strong>Supply Chain Provenance</strong> — verify supplier ESG claims, certifications, and regulatory standing against public registries before contract award</li>
+    <li><strong>Government Royalty &amp; Revenue Transparency</strong> — for PIAC (Public Interest and Accountability Committee) oversight: cross-reference government-reported oil revenue against company-disclosed payments (EITI data)</li>
+  </ul>
+
+  <div class="highlight-box gold-box">
+    <h4>Strategic Value</h4>
+    <p>A single false operational rumour about a Jubilee FPSO shutdown, left unaddressed for 24 hours, can cost Tullow Oil $150–$400M in market capitalisation. A $25,000/month VeriGhana enterprise licence that catches one such rumour within 10 minutes pays for itself 50× over in the first incident alone.</p>
+  </div>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Marketing, PR &amp; Advertising</h2>
+
+  <p class="lead">Marketing professionals live and die by information accuracy. A campaign built on a false market insight, a PR response delayed because a crisis couldn't be verified, or a brand ambassador who turns out to be misrepresenting themselves — all are costly failures with a single root cause: unverified information.</p>
+
+  <h3 class="h-sub">Applications</h3>
+  <ul>
+    <li><strong>Brand Sentiment &amp; Misinformation Monitor</strong> — real-time continuous scoring of all claims made about a brand across Ghanaian media, news, and social channels; daily intelligence digest with false claim identification and recommended response</li>
+    <li><strong>Competitor Intelligence Verification</strong> — verify claims made in competitor advertising against publicly available data; support ASA (Advertising Standards Authority) complaints with AI-generated evidence briefs</li>
+    <li><strong>Influencer &amp; Ambassador Due Diligence</strong> — before signing an influencer, verify their stated credentials, follower authenticity claims, previous brand association disclosures, and any reputational risk flags in news media</li>
+    <li><strong>Campaign Factual Accuracy Audit</strong> — before a campaign launches, run all factual claims through the verification engine against regulatory, industry, and scientific sources; prevent ASA violations and costly post-launch retractions</li>
+    <li><strong>Crisis Response Intelligence</strong> — when a brand crisis breaks on social media, the system provides a real-time fact-score of every claim circulating, enabling PR teams to respond to false claims first and most forcefully</li>
+  </ul>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — GOVERNMENT + INSURANCE + HEALTH
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Industry Applications</span>
+  </div>
+
+  <h2 class="h-section">Government &amp; Public Sector</h2>
+
+  <p class="lead">Government agencies are simultaneously the most-impersonated and the least-equipped to respond to misinformation. The Electoral Commission, Ministry of Finance, Bank of Ghana, Ministry of Health — all have been targeted with fabricated press releases. VeriGhana gives government a real-time defence layer.</p>
+
+  <h3 class="h-sub">Applications</h3>
+  <ul>
+    <li><strong>Government Communications Verification Service</strong> — a public-facing portal (white-labelled as e.g. "Ghana Government Fact Check") that citizens and journalists can use to verify any claim attributed to a government body against official press releases</li>
+    <li><strong>Electoral Integrity Shield</strong> — during election periods, the Electoral Commission deploys a live feed of claims about voting, results, and procedures; the system flags false claims within minutes for real-time rebuttal</li>
+    <li><strong>Public Health Claim Monitor</strong> — GHS (Ghana Health Service) monitors claims about disease outbreaks, vaccine safety, and treatment protocols; prevent misinformation-driven vaccine hesitancy before it spreads</li>
+    <li><strong>Parliamentary Intelligence</strong> — MPs and committees verify claims made in debate, in petitions, and in constituency communications against public records and ministry data</li>
+    <li><strong>Inter-Agency Document Verification</strong> — cross-agency verification of procurement claims, contractor credentials, and regulatory approvals to reduce corruption-enabling document fraud</li>
+  </ul>
+
+  <div class="highlight-box green-box">
+    <h4>Funding Path</h4>
+    <p>Government deployments are fundable through <strong>USAID Digital Democracy Initiative</strong>, <strong>EU Election Support Facility</strong>, and <strong>World Bank Digital Governance grants</strong>. These are non-dilutive funding sources for a platform that demonstrably supports electoral integrity and anti-corruption objectives.</p>
+  </div>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Insurance</h2>
+  <ul>
+    <li><strong>Claims Fraud Detection</strong> — cross-reference accident claims against police reports, hospital records, and news coverage of incidents; false claims are flagged before payout</li>
+    <li><strong>Underwriting Intelligence</strong> — verify insured asset descriptions, valuations, and risk claims against public records, market data, and sectoral databases</li>
+    <li><strong>Medical Report Verification</strong> — for health and life insurance, cross-reference submitted medical histories against NHIA and GHS public datasets</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Healthcare</h2>
+  <ul>
+    <li><strong>Medical Misinformation Alert</strong> — hospital communications teams monitor and score health claims circulating on social media before they reach patients; auto-generate accurate counter-messaging</li>
+    <li><strong>Drug &amp; Treatment Claim Verification</strong> — verify treatment efficacy claims against FDA Ghana, WHO, and published clinical trial databases before they are communicated to patients</li>
+    <li><strong>Pharmaceutical Supply Chain Audit</strong> — verify supplier certifications, drug provenance claims, and regulatory standing before procurement</li>
+  </ul>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — LEGAL + HR + REAL ESTATE
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Industry Applications</span>
+  </div>
+
+  <h2 class="h-section">Legal &amp; Compliance</h2>
+  <ul>
+    <li><strong>Litigation Evidence Verification</strong> — verify the authenticity and context of documentary evidence submitted in court against public records, official gazette publications, and known document registries</li>
+    <li><strong>Corporate Due Diligence</strong> — before M&amp;A, investment, or partnership, verify all material claims in information memoranda against public company filings, news coverage, and regulatory records</li>
+    <li><strong>Anti-Money Laundering (AML) Source Verification</strong> — cross-reference customer-stated source-of-funds claims against public business records, property registries, and tax filings</li>
+    <li><strong>Regulatory Change Monitoring</strong> — automatically ingest and index Gazette publications, SEC Ghana circulars, and BOG directives; alert lawyers and compliance officers to regulatory changes relevant to client matters</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Human Resources &amp; Executive Recruitment</h2>
+  <ul>
+    <li><strong>CV &amp; Credential Verification</strong> — cross-reference educational qualifications against WAEC, KNUST, UG, and GIMPA graduate databases; verify professional certifications against ICAG, ICA, CIMA registries</li>
+    <li><strong>Reference Check Intelligence</strong> — verify claims made about past employers, roles, and achievements against public records, company filings, and news coverage</li>
+    <li><strong>Executive Background Screen</strong> — for C-suite and board appointments, produce a full intelligence brief: media coverage, litigation history, regulatory actions, and public reputation score</li>
+    <li><strong>Employment Fraud Detection</strong> — flag forged offer letters, falsified payslips, and fabricated employment histories in loan and visa applications</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Real Estate</h2>
+  <ul>
+    <li><strong>Property Title Verification</strong> — cross-reference seller-stated land title claims against Lands Commission records; detect double-sold plots, disputed ownership, and fraudulent title deeds before purchase</li>
+    <li><strong>Developer Claims Audit</strong> — verify developer claims about property value, rental yields, and neighbourhood development plans against planning documents and market reports</li>
+    <li><strong>Mortgage Application Fraud</strong> — for HFC and mortgage lenders, verify income claims, employer identity, and asset declarations before disbursement</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Agriculture &amp; Commodity Trading</h2>
+  <ul>
+    <li><strong>Commodity Price Claim Verification</strong> — verify cocoa, gold, and palm oil price claims against COCOBOD, PMMC, and commodity exchange published prices; detect false pricing circulating in trader networks</li>
+    <li><strong>Export Certificate Authenticity</strong> — verify phytosanitary, organic certification, and Fairtrade claims against issuing body registries to prevent export fraud</li>
+    <li><strong>Climate &amp; Harvest Claim Monitor</strong> — verify crop yield and weather impact claims against meteorological service reports before insurance or commodity forward pricing</li>
+  </ul>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SECTION OPENER — SCALING ROADMAP
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="section-opener" data-num="02">
+  <div class="section-opener-kicker">Part Two</div>
+  <div class="section-opener-title">How This Scales:<br>The Evolution Roadmap</div>
+  <div class="section-opener-sub">From a Ghana fact-checking tool to a pan-African, multi-vertical intelligence verification platform.</div>
+  <div class="section-opener-rule"></div>
+</div>
+
+<div class="content" style="padding-top:1.2cm">
+  <h2 class="h-section">Five-Phase Evolution Roadmap</h2>
+
+  <div class="roadmap">
+
+    <div class="roadmap-item">
+      <div class="roadmap-dot dot-1">1</div>
+      <div class="roadmap-body">
+        <div class="roadmap-phase">Phase 1 &nbsp;·&nbsp; Now → Month 6</div>
+        <div class="roadmap-title">Vertical Expansion — Ghana Enterprise</div>
+        <div class="roadmap-desc">Sign the first 3–5 enterprise clients in Ghana: one telco, one bank, one government agency. Each gets a white-labelled deployment with their own source corpus. Build the enterprise sales playbook. Target MRR: $30,000–$80,000/month from Ghana alone. This validates the commercial model before geographic expansion.</div>
+      </div>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="roadmap-dot dot-2">2</div>
+      <div class="roadmap-body">
+        <div class="roadmap-phase">Phase 2 &nbsp;·&nbsp; Month 6–18</div>
+        <div class="roadmap-title">West Africa Horizontal Expansion</div>
+        <div class="roadmap-desc">Nigeria (200M population, NSE, 5 major banks, 4 major telcos), Senegal, Côte d'Ivoire. The architecture is country-agnostic — replacing the source corpus takes 2–4 weeks per country. Nigeria alone represents 10× the Ghana market. Establish local partnerships for source licensing and regulatory navigation. Target MRR: $300,000–$600,000/month across West Africa.</div>
+      </div>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="roadmap-dot dot-3">3</div>
+      <div class="roadmap-body">
+        <div class="roadmap-phase">Phase 3 &nbsp;·&nbsp; Month 18–36</div>
+        <div class="roadmap-title">Platform Deepening — Specialised Modules</div>
+        <div class="roadmap-desc">Build sector-specific modules that go beyond general verification: (a) <strong>FinCheck</strong> — financial claims, SEC filings, earnings verification; (b) <strong>LegalCheck</strong> — case law, regulatory circulars, document authentication; (c) <strong>HealthCheck</strong> — clinical claims, drug registration, outbreak verification; (d) <strong>TitleCheck</strong> — land and property records across West Africa. Each module commands a premium price point and creates category leadership.</div>
+      </div>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="roadmap-dot dot-4">4</div>
+      <div class="roadmap-body">
+        <div class="roadmap-phase">Phase 4 &nbsp;·&nbsp; Month 36–60</div>
+        <div class="roadmap-title">API-First Data Business &amp; Marketplace</div>
+        <div class="roadmap-desc">Open the platform as a developer API — any fintech, insurtech, or regtech can plug in real-time claim verification. Build a <strong>Verified Source Marketplace</strong> where data providers (government agencies, exchanges, registries) publish structured, machine-readable data feeds that clients subscribe to. VeriGhana becomes the trusted intermediary layer — the "Plaid for verified information" in Africa. ARR target: $15M–$40M.</div>
+      </div>
+    </div>
+
+    <div class="roadmap-item">
+      <div class="roadmap-dot dot-5">5</div>
+      <div class="roadmap-body">
+        <div class="roadmap-phase">Phase 5 &nbsp;·&nbsp; Year 5+</div>
+        <div class="roadmap-title">Pan-African Intelligence Infrastructure</div>
+        <div class="roadmap-desc">Deploy across all 54 African Union member states. Integrate with AU, ECOWAS, and AFCFTA trade data infrastructure. Provide verification-as-a-service for African Development Bank, IMF Africa desk, and multilateral lenders performing due diligence on sovereign and corporate borrowers. This is the exit path: acquisition by a global intelligence firm (LexisNexis, Refinitiv/LSEG, Moody's Analytics) or an African exchange (NSE, JSE).</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — PRODUCT EVOLUTION
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Product Evolution</span>
+  </div>
+
+  <h2 class="h-section">Product Evolution — Features That Unlock New Markets</h2>
+
+  <h3 class="h-sub">1. Multilingual Intelligence Engine</h3>
+  <p>Current system: English only. Unlock: Twi, Hausa, Yoruba, Swahili, French (for Francophone West Africa). Add multilingual-E5 or mBERT embedding models. This doubles the addressable market per country and opens Côte d'Ivoire, Senegal, and DRC without structural changes.</p>
+
+  <h3 class="h-sub">2. Document &amp; Image OCR Verification</h3>
+  <p>Current system: text claims only. Unlock: integrate Tesseract OCR + Google Vision API to extract text from uploaded images, PDFs, screenshots, and scanned documents. A bank uploads a customer's utility bill — the system reads it and cross-checks address, name, and account number against telco and utility public records. This unlocks KYC, insurance, and legal verticals at much higher depth.</p>
+
+  <h3 class="h-sub">3. Real-Time Social Media Stream Monitoring</h3>
+  <p>Current system: user-submitted claims. Unlock: connect to Twitter/X Academic API, Facebook CrowdTangle, and Telegram monitoring. The system watches for claims about a client's brand, products, or sector automatically — push alerts within 90 seconds of a false claim appearing, rather than waiting for a human to notice and submit. This transforms the product from reactive to proactive intelligence.</p>
+
+  <h3 class="h-sub">4. Source Confidence Scoring &amp; Trust Graph</h3>
+  <p>Current system: binary trusted/untrusted source categories. Unlock: build a dynamic trust graph where every source's reliability is scored against historical accuracy, correction rates, and cross-source agreement frequency. Claims from high-trust sources receive higher corroboration weight. Sell the Trust Graph as a standalone data product to media regulators and platforms.</p>
+
+  <h3 class="h-sub">5. Verified Data API Marketplace</h3>
+  <p>Turn the source corpus into a monetisable data marketplace. Government agencies pay to publish structured, machine-readable verified data. Enterprise clients pay to access real-time structured feeds. VeriGhana earns a commission on every data subscription — a marketplace revenue model on top of the SaaS licence model.</p>
+
+  <h3 class="h-sub">6. Blockchain-Anchored Verification Certificates</h3>
+  <p>Every verification produces a tamper-evident certificate anchored on a public blockchain. A journalist, lawyer, or regulator can produce a VeriGhana certificate as admissible evidence of due diligence. This unlocks legal, compliance, and insurance use cases where the audit trail has contractual or regulatory value.</p>
+
+  <h3 class="h-sub">7. Embedded Browser Extension &amp; WhatsApp Bot</h3>
+  <p>Bring verification to the point of encounter. A Chrome/Firefox extension surfaces a VeriGhana score on any selected text. A WhatsApp Business bot allows individuals to forward a suspicious message and receive a verdict within seconds. These consumer touchpoints drive top-of-funnel user acquisition and feed premium enterprise analytics with anonymised claim trend data.</p>
+
+  <h3 class="h-sub">8. Predictive Misinformation Risk Scoring</h3>
+  <p>Train a time-series model on the accumulated <code>vg_usage_logs</code> table. Identify which topics, which actors, and which events generate the highest frequency of false claims in the 24–72 hours before they appear in mainstream circulation. Sell <strong>Predictive Risk Briefs</strong> to political campaigns, corporate communications teams, and government ministries before high-stakes events (elections, budget announcements, earnings releases).</p>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SECTION OPENER — INVESTOR PITCH
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="section-opener" data-num="03">
+  <div class="section-opener-kicker">Part Three</div>
+  <div class="section-opener-title">The Investor Pitch</div>
+  <div class="section-opener-sub">Why back VeriGhana now, how the money works, and what the exit looks like.</div>
+  <div class="section-opener-rule"></div>
+</div>
+
+<div class="content" style="padding-top: 1.2cm">
+  <h2 class="h-section">The Market Opportunity</h2>
+
+  <div class="metric-row">
+    <div class="metric-card">
+      <div class="metric-num blue">$4.1B</div>
+      <div class="metric-label">Africa TAM by 2028 (RegTech + Data Intelligence)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-num green">$620M</div>
+      <div class="metric-label">Ghana + Nigeria SAM (Enterprise Info Verification)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-num gold">$28M</div>
+      <div class="metric-label">Ghana SOM — Year 3 Revenue Target</div>
+    </div>
+  </div>
+
+  <p>The global market for disinformation and misinformation management is projected to reach <strong>$11B by 2027</strong> (Grand View Research, 2023). Africa is currently underserved — the dominant players (Logically, Storyful, NewsGuard) are built for Western markets with Western source corpora. There is no incumbent with a dedicated African-market intelligence verification platform. VeriGhana enters a clear white space with a working product and paying users.</p>
+
+  <h3 class="h-sub">Why Now</h3>
+  <ul>
+    <li><strong>Regulatory tailwinds</strong> — Bank of Ghana, SEC Ghana, and NCA are all increasing digital fraud enforcement requirements; compliance budgets are rising</li>
+    <li><strong>AI cost collapse</strong> — Gemini, Groq, and Cohere APIs make running enterprise-grade AI at sub-$0.01 per query economical; margins that were impossible in 2020 are achievable today</li>
+    <li><strong>Mobile internet saturation</strong> — Ghana hit 45% social media penetration in 2024; every major corporation has now experienced at least one misinformation incident</li>
+    <li><strong>The Ghana advantage</strong> — Ghana's relatively stable regulatory environment and English-first media landscape makes it the ideal beachhead before expansion to Nigeria and beyond</li>
+  </ul>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — REVENUE MODEL
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Revenue Model</span>
+  </div>
+
+  <h2 class="h-section">Revenue Model</h2>
+
+  <p class="lead">Five parallel revenue streams, each self-reinforcing. Consumer drives brand awareness. Enterprise drives revenue. API drives scale. Data drives defensibility. Government drives credibility.</p>
+
+  <table class="rev-table">
+    <thead>
+      <tr>
+        <th>Stream</th>
+        <th>Target Customer</th>
+        <th>Pricing</th>
+        <th>Year 1 ARR Target</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Consumer SaaS</strong><br><span style="color:#64748b;font-size:8.5pt">Free / Pro / Institutional tiers</span></td>
+        <td>Journalists, researchers, NGOs, students</td>
+        <td class="price">$0 / $9.99 / $79.99 /mo</td>
+        <td>$120,000</td>
+      </tr>
+      <tr>
+        <td><strong>Enterprise Licence</strong><br><span style="color:#64748b;font-size:8.5pt">White-label, custom corpus</span></td>
+        <td>Banks, telcos, oil companies, large corporates</td>
+        <td class="price">$8,000–$25,000 /mo</td>
+        <td>$960,000</td>
+      </tr>
+      <tr>
+        <td><strong>Government &amp; Donor</strong><br><span style="color:#64748b;font-size:8.5pt">Grant-funded deployments</span></td>
+        <td>Government agencies, AU, EU, USAID, World Bank</td>
+        <td class="price">Project-based: $50K–$500K</td>
+        <td>$300,000</td>
+      </tr>
+      <tr>
+        <td><strong>API Access</strong><br><span style="color:#64748b;font-size:8.5pt">Per-query and monthly plans</span></td>
+        <td>Fintechs, insurtechs, regtechs, developers</td>
+        <td class="price">$0.05–$0.25 /query</td>
+        <td>$180,000</td>
+      </tr>
+      <tr>
+        <td><strong>Data &amp; Intelligence Reports</strong><br><span style="color:#64748b;font-size:8.5pt">Predictive briefs, trend reports</span></td>
+        <td>PR agencies, political campaigns, investment funds</td>
+        <td class="price">$2,000–$15,000 /report</td>
+        <td>$240,000</td>
+      </tr>
+      <tr style="background:#0d2240 !important">
+        <td style="background:#0d2240;color:#fff;font-weight:700;border:none">Total Year 1</td>
+        <td style="background:#0d2240;border:none"></td>
+        <td style="background:#0d2240;border:none"></td>
+        <td style="background:#0d2240;color:#c8a84b;font-weight:900;font-size:11pt;border:none">$1.8M ARR</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="h-sub">Unit Economics</h3>
+
+  <div class="industry-grid">
+    <div class="highlight-box green-box">
+      <h4>Gross Margin</h4>
+      <p>AI API costs at current Gemini pricing: ~$0.003 per verification. At a $9.99/mo Pro subscription with 300 verifications/month, COGS = $0.90/user/month. Gross margin on Pro: <strong>91%</strong>. Enterprise margin: <strong>85%+</strong> (custom deployments include onboarding cost).</p>
+    </div>
+    <div class="highlight-box">
+      <h4>CAC &amp; LTV</h4>
+      <p>Consumer CAC: $8–$15 (SEO + social). Enterprise CAC: $2,000–$8,000 (sales cycle). Consumer LTV at 18-month average tenure: $180. Enterprise LTV at 24-month average: $480,000. <strong>LTV:CAC ratio of 60:1 on enterprise.</strong></p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — COMPETITIVE MOAT + WHY VERIGHANA WINS
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Competitive Advantage</span>
+  </div>
+
+  <h2 class="h-section">Competitive Moat — Why VeriGhana Wins</h2>
+
+  <div class="moat-grid">
+    <div class="moat-card">
+      <h4>🗂 Data Moat</h4>
+      <p>The National Fact Database — continuously growing, Ghana-specific, source-diverse — is not replicable by a new entrant in less than 2 years. Every 6 hours it grows. Every verification query improves the relevance signals. This is a compounding data advantage.</p>
+    </div>
+    <div class="moat-card">
+      <h4>⚡ Speed to Market</h4>
+      <p>A working, deployed production system. Not a prototype. Not a deck. The Railway backend is live. The Vercel frontend is live. Paying subscribers exist. Enterprise competitors take 18–36 months to deploy in a new market. We are already here.</p>
+    </div>
+    <div class="moat-card">
+      <h4>🌍 Local Context</h4>
+      <p>Global platforms (NewsGuard, Logically) have no Ghanaian source corpus, no understanding of Ghanaian political actors, institutions, or misinformation patterns. Building this context takes years. We have it now. A new entrant cannot buy this — they must earn it.</p>
+    </div>
+    <div class="moat-card">
+      <h4>🔗 Network Effects</h4>
+      <p>Every new enterprise client adds their proprietary source corpus to the platform's collective intelligence. A bank adds its regulatory feed; a telco adds its press release archive; a government agency adds its official communications. Each new client makes the platform more valuable for all others.</p>
+    </div>
+    <div class="moat-card">
+      <h4>🤖 Provider Independence</h4>
+      <p>10-provider AI cascade means no single AI vendor's pricing, outage, or policy change can break the product. This is a structural resilience advantage over competitors built on a single LLM API.</p>
+    </div>
+    <div class="moat-card">
+      <h4>📜 Regulatory Credibility</h4>
+      <p>The DSR academic methodology, GIMPA institutional backing, and published research creates credibility with government and regulatory clients that a pure commercial startup cannot replicate quickly. Academic provenance accelerates public sector sales.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <h2 class="h-section">The Six-Point Investor Pitch</h2>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#dbeafe">🎯</div>
+    <div class="pitch-body">
+      <h4>Problem is Real and Expensive</h4>
+      <p>Every bank, telco, and government agency in Ghana has suffered a misinformation incident in the past 24 months. The average cost of a single major incident — brand damage, customer churn, regulatory response — exceeds $500,000. The market knows it has a problem and is already spending money on inadequate solutions (PR agencies, manual monitoring).</p>
+    </div>
+  </div>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#dcfce7">✅</div>
+    <div class="pitch-body">
+      <h4>Solution is Built, Deployed, and Validated</h4>
+      <p>This is not a concept. VeriGhana is live, handling real claims, with real paying users. The technology has been tested. The accuracy has been measured. The stack scales. An investor is not funding a prototype — they are funding distribution of a working product.</p>
+    </div>
+  </div>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#fef3c7">💰</div>
+    <div class="pitch-body">
+      <h4>Market Size is Underappreciated</h4>
+      <p>Most analysts price the "fact-checking market" narrowly. The correct frame is the <em>enterprise information verification market</em> — KYC, compliance, brand intelligence, financial intelligence — which is worth $4.1B in Africa alone by 2028. VeriGhana plays in all of these.</p>
+    </div>
+  </div>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#ede9fe">🏰</div>
+    <div class="pitch-body">
+      <h4>Defensible Moat, Not Just a Feature</h4>
+      <p>The data moat, local context, and network effects mean that a well-funded competitor entering in 12 months would need to build what took us 2 years — and by then we will be 2 further years ahead. This is not a feature that can be copied overnight. It is an infrastructure layer.</p>
+    </div>
+  </div>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#fce7f3">📈</div>
+    <div class="pitch-body">
+      <h4>Multiple Exit Paths</h4>
+      <p>Strategic acquirers are obvious and well-funded: <strong>LexisNexis</strong> (RELX Group) builds exactly these products for Western markets; <strong>Refinitiv/LSEG</strong> needs African intelligence; <strong>Moody's Analytics</strong> needs African risk data; <strong>Google</strong> has an explicit commitment to news integrity in emerging markets; <strong>NSE/JSE</strong> need exchange-grade information verification. Acquisition multiples in this sector range from 6–14× ARR.</p>
+    </div>
+  </div>
+
+  <div class="pitch-point">
+    <div class="pitch-icon" style="background:#ecfdf5">🌍</div>
+    <div class="pitch-body">
+      <h4>Ghana is the Perfect Beachhead</h4>
+      <p>Stable democracy. English-first media. Strong banking and telecom sectors. ECOWAS hub. The lessons and the playbook built in Ghana transfer directly to Nigeria, Kenya, and South Africa — markets 5–50× the size. Any serious pan-African tech play starts in Ghana for exactly this reason.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — INVESTOR ASK + USE OF FUNDS
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Investor Ask</span>
+  </div>
+
+  <h2 class="h-section">The Ask &amp; Use of Funds</h2>
+
+  <div class="ask-card">
+    <h3>Seeking: $750,000 Pre-Seed Round</h3>
+    <p>18-month runway to reach $1.8M ARR, close 5 enterprise clients in Ghana, and begin Nigeria market entry. This is a product-to-sales transition — the technology is built. The capital goes into distribution, team, and market expansion.</p>
+    <div class="ask-grid">
+      <div class="ask-item">
+        <div class="ask-pct">35%</div>
+        <div class="ask-label">$262,500 — Sales &amp; Enterprise BD</div>
+      </div>
+      <div class="ask-item">
+        <div class="ask-pct">28%</div>
+        <div class="ask-label">$210,000 — Product &amp; Engineering</div>
+      </div>
+      <div class="ask-item">
+        <div class="ask-pct">22%</div>
+        <div class="ask-label">$165,000 — Nigeria Market Entry</div>
+      </div>
+    </div>
+    <div class="ask-grid" style="margin-top:12px">
+      <div class="ask-item">
+        <div class="ask-pct">10%</div>
+        <div class="ask-label">$75,000 — Infrastructure &amp; Compliance</div>
+      </div>
+      <div class="ask-item">
+        <div class="ask-pct">5%</div>
+        <div class="ask-label">$37,500 — Legal, IP, Regulatory</div>
+      </div>
+      <div class="ask-item">
+        <div class="ask-pct">18mo</div>
+        <div class="ask-label">Runway at Burn Rate $41,000/mo</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="h-sub">18-Month Milestones</h3>
+  <ul>
+    <li><strong>Month 3</strong> — First enterprise client signed (telco or bank); $15,000 MRR</li>
+    <li><strong>Month 6</strong> — 3 enterprise clients live; $45,000 MRR; first government pilot agreement</li>
+    <li><strong>Month 9</strong> — Nigeria market entry; first Nigerian enterprise client signed</li>
+    <li><strong>Month 12</strong> — $120,000 MRR across Ghana + Nigeria; Series A preparation begins</li>
+    <li><strong>Month 18</strong> — $150,000 MRR; Series A raise at $8–12M targeting $40M valuation</li>
+  </ul>
+
+  <hr class="divider">
+
+  <h2 class="h-section">Non-Dilutive Funding Pathways</h2>
+  <p>In parallel with equity financing, VeriGhana qualifies for the following non-dilutive funding sources — each of which should be pursued independently:</p>
+
+  <div class="industry-grid">
+    <div class="highlight-box green-box">
+      <h4>USAID Digital Democracy Initiative</h4>
+      <p>Specifically funds AI-based tools that protect electoral integrity and combat disinformation in emerging democracies. Ghana is a priority country. Grants of $150K–$500K available.</p>
+    </div>
+    <div class="highlight-box">
+      <h4>Google News Initiative Africa Fund</h4>
+      <p>Funds journalism tools, fact-checking infrastructure, and news verification platforms. Direct alignment with VeriGhana's journalism vertical. Grants of $50K–$250K.</p>
+    </div>
+    <div class="highlight-box gold-box">
+      <h4>African Development Bank — Digital Africa</h4>
+      <p>Funds digital infrastructure projects with measurable economic impact. The AI verification layer for African enterprise qualifies. Grants and concessional loans of $250K–$2M.</p>
+    </div>
+    <div class="highlight-box">
+      <h4>EU Innovation Fund Africa</h4>
+      <p>Funds digital economy projects in ACP countries. Anti-disinformation technology is a 2024–2026 priority sector. Grants of $100K–$400K.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="pull-quote">"The cost of misinformation in Africa is not hypothetical. It costs elections, it costs lives, it costs billions. VeriGhana is the first infrastructure-grade answer — and it is already built."</div>
+
+  <div class="page-foot">
+    <span>VeriGhana — Commercial Expansion Strategy · Confidential</span>
+    <span>Ellis Lamptey · GIMPA · March 2026</span>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE — QUICK REFERENCE SUMMARY
+════════════════════════════════════════════════ -->
+<div class="page">
+<div class="content">
+  <div class="running-header">
+    <strong>VeriGhana</strong> — Commercial Expansion Strategy
+    <span>Quick Reference Summary</span>
+  </div>
+
+  <h2 class="h-section">One-Page Quick Reference</h2>
+
+  <h3 class="h-sub">Industries &amp; Primary Applications</h3>
+  <table class="rev-table">
+    <thead>
+      <tr>
+        <th>Industry</th>
+        <th>Primary Application</th>
+        <th>Revenue Model</th>
+        <th>Priority</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>🏦 Banking</td><td>KYC fraud detection, compliance monitoring, credit audit</td><td>Enterprise SaaS $8–25K/mo</td><td><span class="tag tag-red">Tier 1</span></td></tr>
+      <tr><td>📡 Telecom</td><td>Brand rumour firewall, customer verification bot</td><td>Enterprise SaaS $8–25K/mo</td><td><span class="tag tag-red">Tier 1</span></td></tr>
+      <tr><td>🏛 Government</td><td>Electoral integrity, public health, inter-agency verification</td><td>Grant + project-based</td><td><span class="tag tag-red">Tier 1</span></td></tr>
+      <tr><td>📈 Capital Markets</td><td>Pre-trading brief, earnings verification, rumour scoring</td><td>Data subscription $2–10K/mo</td><td><span class="tag tag-blue">Tier 2</span></td></tr>
+      <tr><td>🛢 Oil &amp; Gas</td><td>Operations intelligence, sanctions screening, ESG audit</td><td>Enterprise SaaS $15–40K/mo</td><td><span class="tag tag-blue">Tier 2</span></td></tr>
+      <tr><td>📣 Marketing &amp; PR</td><td>Brand monitoring, influencer due diligence, crisis intelligence</td><td>SaaS $2–8K/mo</td><td><span class="tag tag-blue">Tier 2</span></td></tr>
+      <tr><td>⚖️ Legal</td><td>Due diligence, AML source verification, evidence audit</td><td>Per-query API + reports</td><td><span class="tag tag-gold">Tier 3</span></td></tr>
+      <tr><td>🏥 Healthcare</td><td>Medical misinformation alerts, drug claim verification</td><td>Enterprise SaaS + grants</td><td><span class="tag tag-gold">Tier 3</span></td></tr>
+      <tr><td>🏠 Insurance</td><td>Claims fraud detection, underwriting intelligence</td><td>API integration $0.05–0.25/query</td><td><span class="tag tag-gold">Tier 3</span></td></tr>
+      <tr><td>🏗 Real Estate</td><td>Title verification, developer claims audit</td><td>Per-report $500–2K</td><td><span class="tag tag-green">Tier 4</span></td></tr>
+      <tr><td>👥 HR</td><td>CV verification, executive background screen</td><td>Per-report / API</td><td><span class="tag tag-green">Tier 4</span></td></tr>
+      <tr><td>🌾 Agriculture</td><td>Commodity price verification, export certificate audit</td><td>API + data subscriptions</td><td><span class="tag tag-green">Tier 4</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h-sub">Scaling Milestones Summary</h3>
+  <table class="rev-table">
+    <thead>
+      <tr><th>Phase</th><th>Geography</th><th>Focus</th><th>Target ARR</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Phase 1 (0–6mo)</td><td>Ghana</td><td>3–5 enterprise clients</td><td>$360K–$960K</td></tr>
+      <tr><td>Phase 2 (6–18mo)</td><td>Ghana + Nigeria</td><td>West Africa horizontal</td><td>$3.6M–$7.2M</td></tr>
+      <tr><td>Phase 3 (18–36mo)</td><td>West Africa</td><td>Sector-specific modules</td><td>$12M–$20M</td></tr>
+      <tr><td>Phase 4 (3–5yr)</td><td>Africa-wide</td><td>API marketplace + data</td><td>$40M–$80M</td></tr>
+      <tr><td>Phase 5 (5yr+)</td><td>Pan-African</td><td>Infrastructure + exit</td><td>$150M+ / M&amp;A</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="h-sub">Contact</h3>
+  <div class="highlight-box gold-box" style="margin-top:0.3cm">
+    <p style="margin:0">
+      <strong>Ellis Lamptey</strong> &nbsp;·&nbsp; Founder, VeriGhana<br>
+      Ghana Institute of Management and Public Administration<br>
+      Department of Computer Sciences, BSc Computer Science<br>
+      <strong>GitHub:</strong> github.com/lerryellis/VeriGhana-Core &nbsp;·&nbsp;
+      <strong>Live:</strong> verighana.gh
+    </p>
+  </div>
+
+  <div class="page-foot">
+    <span>VeriGhana — Commercial Expansion Strategy · Confidential · March 2026</span>
+    <span>This document contains forward-looking projections. All financial figures are estimates.</span>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

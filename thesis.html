@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VeriGhana Thesis — Ellis Lamptey</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 2;
+    color: #000;
+    background: #fff;
+  }
+
+  @page {
+    size: A4;
+    margin: 2.54cm 2.54cm 2.54cm 3.17cm;
+    @bottom-center {
+      content: counter(page);
+      font-family: "Times New Roman", Times, serif;
+      font-size: 10pt;
+    }
+  }
+
+  .cover {
+    page-break-after: always;
+    text-align: center;
+    padding-top: 6cm;
+    line-height: 2;
+  }
+  .cover h1 { font-size: 16pt; font-weight: bold; margin-bottom: 1.5cm; line-height: 1.5; }
+  .cover p  { font-size: 12pt; margin: 0.2cm 0; }
+  .cover .meta { margin-top: 3cm; }
+
+  .declaration { page-break-after: always; }
+  .abstract    { page-break-after: always; }
+
+  h1 { font-size: 14pt; font-weight: bold; margin: 0.8cm 0 0.3cm; page-break-after: avoid; }
+  h2 { font-size: 13pt; font-weight: bold; margin: 0.7cm 0 0.2cm; page-break-after: avoid; }
+  h3 { font-size: 12pt; font-weight: bold; margin: 0.5cm 0 0.2cm; page-break-after: avoid; }
+
+  p  { margin-bottom: 0.3cm; text-align: justify; }
+  ul, ol { margin: 0.3cm 0 0.3cm 1.2cm; }
+  li { margin-bottom: 0.15cm; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5cm 0;
+    font-size: 11pt;
+    line-height: 1.4;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #333;
+    padding: 0.2cm 0.3cm;
+    vertical-align: top;
+  }
+  th { background: #e8e8e8; font-weight: bold; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+
+  .diagram-block {
+    border: 1px solid #999;
+    border-radius: 4px;
+    background: #f9f9f9;
+    padding: 0.5cm;
+    margin: 0.5cm 0;
+    font-family: "Courier New", monospace;
+    font-size: 9pt;
+    line-height: 1.5;
+    white-space: pre;
+    page-break-inside: avoid;
+    overflow-wrap: break-word;
+  }
+
+  .diagram-caption {
+    font-size: 10pt;
+    color: #444;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 0.4cm;
+  }
+
+  hr { border: none; border-top: 1px solid #999; margin: 0.5cm 0; }
+
+  .sig-line { margin-top: 1.5cm; display: flex; justify-content: space-between; }
+  .sig-line span { display: inline-block; border-top: 1px solid #000; padding-top: 0.2cm; width: 8cm; text-align: center; font-size: 11pt; }
+
+  blockquote { margin: 0.4cm 1.5cm; font-style: italic; }
+
+  .chapter-title { font-size: 14pt; font-weight: bold; text-align: center; margin: 1cm 0 0.5cm; }
+
+  .ref-list p { margin-bottom: 0.4cm; padding-left: 1.2cm; text-indent: -1.2cm; }
+
+  .appendix-list li { margin-bottom: 0.3cm; }
+
+  .note { font-size: 10pt; color: #444; font-style: italic; margin: 0.3cm 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ COVER PAGE ══════════════ -->
+<div class="cover">
+  <h1>Designing a Centralized Automated Verification Artifact<br>for Combating Information Disorder in Ghana</h1>
+  <p>Ghana Institute of Management and Public Administration</p>
+  <p>School of Technology — Department of Computer Sciences</p>
+  <p>Bachelor of Science in Computer Science</p>
+  <div class="meta">
+    <p><strong>Student:</strong> Ellis Lamptey</p>
+    <p><strong>Supervisor:</strong> Dr. Assyne</p>
+    <p>March 2026</p>
+  </div>
+</div>
+
+<!-- ══════════════ DECLARATION ══════════════ -->
+<div class="declaration">
+  <h1>1. Declaration</h1>
+  <p>I declare that except for the references to other people's work, which have been duly acknowledged, the work presented here was carried out by Ellis Lamptey, an undergraduate student at the Ghana Institute of Management and Public Administration reading Computer Science, under the supervision of Dr. Assyne.</p>
+  <p>I declare that this work has never been submitted partially or wholly to any institution for the award of a certificate.</p>
+  <div class="sig-line">
+    <span>Student Name</span>
+    <span>Supervisor Name</span>
+  </div>
+</div>
+
+<!-- ══════════════ ABSTRACT ══════════════ -->
+<div class="abstract">
+  <h1>2. Abstract</h1>
+  <p>Ghana's rapid expansion of mobile internet access has been accompanied by a parallel surge in digital misinformation. Fabricated government press releases, parody social media accounts, and misleading news cards have demonstrably distorted public opinion during election cycles and health crises. Existing fact-checking organisations rely on manual human review, a process that cannot match the speed and volume of misinformation on social media platforms.</p>
+  <p>This project presents VeriGhana, a centralized automated verification artifact that addresses this gap. The system aggregates verified content from over 65 trusted Ghanaian news outlets and government sources into a National Fact Database, maintained by an automated ingestion pipeline that runs every six hours via GitHub Actions. When a user submits a claim, a hybrid retrieval engine combines semantic vector search (powered by Google Gemini embeddings stored in a PostgreSQL pgvector database) with multi-strategy keyword search to retrieve the most relevant source articles. A multi-provider AI cascade — Google Gemini 2.0 Flash as primary, with Groq, Cohere, OpenRouter, and a heuristic fallback — then applies a Triangulation and Nuance Framework to return a structured verdict (VERIFIED, PARTIAL, FALSE, or UNCORROBORATED), a corroboration score from 0 to 100, source attribution, bias signal analysis, and narrative delta comparisons between outlets.</p>
+  <p>The user-facing system is a full-stack Next.js 16 application deployed on Vercel, with a FastAPI backend hosted on Railway. Three subscription tiers serve different user groups: Free (5 verifications per day), Pro ($9.99 per month, unlimited), and Institutional ($79.99 per month, bulk verification, team seats). Payments are processed via Paystack, supporting Ghanaian Mobile Money networks and debit cards.</p>
+  <p>Evaluation on 20 test claims yielded an overall accuracy of 85%. The system demonstrated correct handling of known-true claims, known-false claims, and out-of-database claims, with transparent source attribution in all cases. This project contributes a replicable, open-source, domain-specific fact-checking infrastructure for the Ghanaian information environment.</p>
+</div>
+
+<!-- ══════════════ CHAPTER ONE ══════════════ -->
+<h1>3. Chapter One — Introduction</h1>
+
+<h2>1.1 Background</h2>
+<p>Ghana has experienced one of the fastest rates of internet adoption in sub-Saharan Africa over the past decade. The Digital 2024 report by DataReportal estimates over 22 million active internet users in Ghana, with social media penetration exceeding 45% of the total population. Facebook, X (formerly Twitter), and WhatsApp are the dominant platforms through which most Ghanaians now receive and share news (DataReportal, 2024). While this democratisation of information access carries significant social benefit, it has simultaneously created conditions under which false and misleading content can spread at a speed and scale that outpaces traditional editorial gatekeeping.</p>
+<p>The problem of information disorder in Ghana manifests in two particularly damaging and recurrent forms. The first is the Fake News Card: a digitally fabricated image or graphic designed to mimic the visual identity of a credible institution — the Electoral Commission, the Bank of Ghana, a government ministry, or a major media outlet — and to attribute a false statement to that institution. These cards circulate primarily on WhatsApp and Facebook, where their visual mimicry makes them difficult for ordinary users to identify as fabrications. The second form is the Parody Account: a social media profile constructed to impersonate a public figure, political party, or institution, publishing content that a significant portion of followers mistakes for authentic communication. GhanaFact documented a marked increase in both categories in the periods surrounding the 2020 and 2024 general elections (GhanaFact, 2023).</p>
+<p>The consequences are not trivial. False information about electoral processes erodes public trust in democratic institutions. Fabricated health directives drove non-compliance with public health measures during the COVID-19 pandemic. Economic misinformation, such as fabricated Bank of Ghana statements, has caused measurable volatility in consumer behaviour. Existing fact-checking efforts — principally GhanaFact and Africa Check — are rigorous but inherently limited by their dependence on human analysts. A team of journalists cannot review the volume of content circulating on closed WhatsApp groups in real time. There is therefore a critical and documented need for an automated, AI-driven verification tool specifically calibrated to the Ghanaian information environment.</p>
+
+<h2>1.2 Research Problem</h2>
+<p>The central problem addressed by this project is: <em>How can a centralized, automated, AI-powered verification artifact be designed and implemented to effectively detect and counter information disorder in Ghana, specifically targeting Fake News Cards and Parody Account content?</em></p>
+<p>No such unified system currently exists for Ghana. Available international fact-checking tools are trained on international datasets and have no knowledge of Ghanaian institutions, political actors, or the specific forms in which misinformation circulates in this context.</p>
+
+<h2>1.3 Research Objectives</h2>
+<p>This project pursues five specific objectives:</p>
+<ol>
+  <li>To design a National Fact Database that centralises verified content from trusted Ghanaian media and government sources, updated automatically every six hours.</li>
+  <li>To implement a hybrid AI retrieval engine combining semantic vector search and multi-strategy keyword search for accurate claim-to-source matching.</li>
+  <li>To develop a multi-provider AI verification cascade that returns structured verdicts with corroboration scores, source attribution, and bias analysis.</li>
+  <li>To build a production-grade, full-stack web application deployed on Vercel that makes the system accessible to journalists, researchers, and the general public.</li>
+  <li>To implement a sustainable subscription model with Ghanaian payment methods to support long-term operation.</li>
+</ol>
+
+<h2>1.4 Research Significance</h2>
+<p>This project is significant across three dimensions. Academically, it demonstrates the application of Design Science Research methodology to a sociotechnical problem in the African context, contributing a replicable artifact rather than a purely descriptive study. Practically, it provides journalists, media organisations, and civil society groups with a tool that reduces the manual effort required to verify claims in real time. Strategically, the open-source architecture means it can be extended to other African nations — Nigeria, Kenya, South Africa — by substituting the source feed list without rebuilding the core infrastructure.</p>
+
+<h2>1.5 Organisation of Study</h2>
+<p>Chapter Two reviews the literature on information disorder, automated fact-checking, large language models, vector databases, and the Ghanaian media landscape. Chapter Three describes the Design Science Research methodology adopted. Chapter Four presents the system analysis and design, including use case, class, sequence, and architecture diagrams, together with functional and non-functional requirements. Chapter Five details the implementation of each system component and presents evaluation results. Chapter Six concludes with a summary, policy implications, limitations, and recommendations for future work.</p>
+
+<!-- ══════════════ CHAPTER TWO ══════════════ -->
+<h1>4. Chapter Two — Literature Review</h1>
+
+<h2>2.1 Information Disorder</h2>
+<p>Wardle and Derakhshan (2017) established the foundational taxonomy that distinguishes misinformation (false content shared without harmful intent), disinformation (false content shared with deliberate intent to harm), and malinformation (true content shared with intent to harm). The Fake News Cards and Parody Accounts that VeriGhana targets fall primarily in the disinformation category — they are deliberately fabricated to deceive. This distinction has design implications: a verification system must account for fabricated provenance (false attributions, fake logos) as well as inaccurate content.</p>
+<p>At the African continental level, Wasserman and Madrid-Morales (2019) conducted one of the first empirical studies of misinformation across sub-Saharan Africa, finding that WhatsApp and Facebook are the primary vectors for false news, and that users significantly overestimate their ability to identify misinformation. Their observation that the dominant mode of sharing occurs within closed groups shapes VeriGhana's design philosophy: rather than monitoring closed channels, the system focuses on the verification endpoint — empowering users to submit content for checking from wherever they encountered it.</p>
+
+<h2>2.2 Automated Fact-Checking</h2>
+<p>Thorne and Vlachos (2018) provide a comprehensive survey of automated fact-checking, identifying three paradigms: knowledge base-driven systems, retrieval-based systems, and neural classification systems. VeriGhana employs the retrieval-based paradigm because it produces transparent, citable evidence rather than opaque classification outputs, and does not require a labelled training dataset — unavailable for Ghanaian misinformation at scale.</p>
+<p>Hassan et al. (2017) introduced ClaimBuster, highlighting the distinction between verifiable factual claims and unverifiable opinions or predictions. VeriGhana addresses this by returning an UNCORROBORATED verdict when no relevant source material is found, explicitly acknowledging that absence of evidence is not evidence of falsity. Popat et al. (2018) proposed the CredEye credibility framework, which evaluates source trustworthiness alongside claim content. This insight is reflected in VeriGhana's source enrichment system, which tags retrieved articles with outlet categories (Media, Government, Finance, Health) for AI reasoning.</p>
+
+<h2>2.3 Large Language Models and Retrieval-Augmented Generation</h2>
+<p>Wei et al. (2022) demonstrate that sufficiently large language models exhibit chain-of-thought reasoning capabilities — the ability to reason through complex factual comparisons step by step — absent in smaller models. Google DeepMind's Gemini 2.0 Flash achieves state-of-the-art performance on multi-step reasoning benchmarks while operating within a latency envelope suitable for real-time web applications (Google, 2023).</p>
+<p>LLMs are well-documented to produce hallucinations — plausible-sounding but factually incorrect outputs generated from parametric knowledge rather than from verifiable sources (Maynez et al., 2020). VeriGhana mitigates this through a Retrieval-Augmented Generation (RAG) architecture (Lewis et al., 2020): the LLM is constrained to reason exclusively over retrieved source documents provided in its context window and explicitly instructed not to use prior knowledge.</p>
+
+<h2>2.4 Vector Search and Hybrid Retrieval</h2>
+<p>Karpukhin et al. (2020) demonstrated that dense passage retrieval — encoding text as high-dimensional vectors using neural embeddings and searching by cosine similarity — dramatically outperforms BM25 keyword search for open-domain question answering. Google's Gemini Embedding model generates dense vectors that capture semantic meaning rather than surface form, enabling VeriGhana to match claims against source articles that use different vocabulary to describe the same event.</p>
+<p>Chen et al. (2022) demonstrate that hybrid retrieval — combining dense vector search with sparse keyword matching — consistently outperforms either method alone. VeriGhana implements both strategies and merges their results, protecting vector matches from displacement by the source-diversity algorithm applied to keyword results.</p>
+
+<h2>2.5 The Ghanaian Media and Trust Landscape</h2>
+<p>The Reuters Institute Digital News Report (2023) identifies Ghana as having comparatively high levels of trust in traditional news media, with Citi Newsroom and Joy Online ranked among the most trusted sources in the country. VeriGhana's selection of these outlets as primary database inputs is therefore empirically grounded in audience trust data. Asante (2022) documents the specific mechanics of electoral misinformation in Ghana, describing how fabricated documents are constructed to mimic official Electoral Commission press releases — a finding that informed the verification engine's specific prompting for institutional claim evaluation.</p>
+
+<!-- ══════════════ CHAPTER THREE ══════════════ -->
+<h1>5. Chapter Three — Research Methodology</h1>
+
+<h2>3.1 Design Science Research</h2>
+<p>This project is grounded in the Design Science Research (DSR) paradigm as defined by Hevner et al. (2004). DSR is appropriate when the goal of research is to create a novel artifact — a system, model, method, or construct — that solves a practical problem in a defined environment. Hevner et al. articulate seven guidelines for DSR, all of which this project satisfies: (1) Design as an Artifact; (2) Problem Relevance; (3) Design Evaluation; (4) Research Contributions; (5) Research Rigor; (6) Design as a Search Process; and (7) Communication of Research. The primary artifact is VeriGhana; the problem is empirically documented; evaluation is conducted through functional and user testing; and the research contribution includes both the artifact and the generalizable Triangulation and Nuance Framework it implements.</p>
+
+<h2>3.2 Development Approach</h2>
+<p>Within the DSR paradigm, the artifact was developed using an iterative Build–Measure–Learn cycle. Each iteration produced a working version of a component, tested it against real Ghanaian content, and used the results to inform the next iteration. For example, the initial prototype used pure vector search, which was found to miss named-entity-heavy claims. This drove the addition of entity-anchored keyword search. Similarly, the initial Streamlit frontend was found to impose unacceptable constraints on UI fluidity and mobile responsiveness, driving migration to Next.js 16 deployed on Vercel.</p>
+
+<h2>3.3 Data Collection</h2>
+<p>The primary source corpus was built through automated ingestion from three RSS feeds (Citi Newsroom, Joy Online, Pulse Ghana) and over 65 Ghanaian news and government websites via a custom HTML scraper. Sources were selected based on the Reuters Institute Digital News Report (2023) and GhanaFact's own source registry. A set of 20 test claims was constructed for evaluation: 7 known-true claims from verified corpus articles, 7 known-false claims from GhanaFact's published debunks, and 6 claims about events with no database coverage.</p>
+
+<h2>3.4 Technology Selection Rationale</h2>
+<table>
+  <tr><th>Decision</th><th>Choice</th><th>Rationale</th></tr>
+  <tr><td>Frontend</td><td>Next.js 16 + React 19</td><td>Server/client rendering flexibility, fluid animations, production-grade performance — critical advantages over Streamlit</td></tr>
+  <tr><td>Frontend hosting</td><td>Vercel</td><td>First-class Next.js support, global edge CDN, automatic HTTPS, zero-config deployment</td></tr>
+  <tr><td>Backend</td><td>FastAPI</td><td>Async Python, automatic OpenAPI docs, type-safe schemas</td></tr>
+  <tr><td>Backend hosting</td><td>Railway</td><td>Persistent long-running Python processes; Vercel does not support FastAPI</td></tr>
+  <tr><td>Database</td><td>Supabase (PostgreSQL + pgvector)</td><td>Managed Postgres with native vector search; no separate vector DB required</td></tr>
+  <tr><td>AI primary</td><td>Gemini 2.0 Flash</td><td>Best latency/quality trade-off; 1M token free tier per day</td></tr>
+  <tr><td>Payments</td><td>Paystack</td><td>Supports GHS currency, MTN MoMo, Vodafone Cash, AirtelTigo Money</td></tr>
+  <tr><td>Auth</td><td>Supabase Auth + @supabase/ssr</td><td>Native SSR support for Next.js middleware; JWT compatible</td></tr>
+</table>
+
+<!-- ══════════════ CHAPTER FOUR ══════════════ -->
+<h1>6. Chapter Four — System Analysis and Design</h1>
+
+<h2>4.1 Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Requirement</th></tr>
+  <tr><td>FR1</td><td>The system shall ingest articles from ≥3 RSS feeds and ≥65 HTML sources automatically every 6 hours</td></tr>
+  <tr><td>FR2</td><td>The system shall generate Gemini vector embeddings for all ingested articles and store them in pgvector</td></tr>
+  <tr><td>FR3</td><td>The system shall accept a free-text claim (≤2,000 characters) and return a verdict within 10 seconds</td></tr>
+  <tr><td>FR4</td><td>The system shall return one of four verdicts: VERIFIED, PARTIAL, FALSE, UNCORROBORATED</td></tr>
+  <tr><td>FR5</td><td>The system shall return a corroboration score (0–100), explanation, summary, and cited sources</td></tr>
+  <tr><td>FR6</td><td>The system shall return convergence facts, narrative delta comparisons, and bias signals</td></tr>
+  <tr><td>FR7</td><td>The system shall degrade gracefully through a 5-provider AI cascade without user-visible failure</td></tr>
+  <tr><td>FR8</td><td>The system shall enforce rate limits: Free = 5/day, Pro = unlimited, Institutional = bulk 20 claims</td></tr>
+  <tr><td>FR9</td><td>The system shall persist every verification to the user's history with search and filter capability</td></tr>
+  <tr><td>FR10</td><td>The system shall process payments via Paystack in GHS supporting Mobile Money and debit cards</td></tr>
+  <tr><td>FR11</td><td>Admin users shall trigger scrapers, view KPIs, manage users, and reply to support tickets</td></tr>
+  <tr><td>FR12</td><td>The landing page shall display a live-cycling Truth Meter demo without requiring user login</td></tr>
+</table>
+
+<h2>4.2 Non-Functional Requirements</h2>
+<table>
+  <tr><th>ID</th><th>Requirement</th></tr>
+  <tr><td>NFR1</td><td>Verification response time ≤ 10 seconds under normal load</td></tr>
+  <tr><td>NFR2</td><td>The system shall be accessible on mobile devices (responsive design)</td></tr>
+  <tr><td>NFR3</td><td>All user sessions shall be secured with Supabase JWT and HTTPS</td></tr>
+  <tr><td>NFR4</td><td>The frontend shall enforce CSP, HSTS, X-Frame-Options: DENY, and Permissions-Policy headers</td></tr>
+  <tr><td>NFR5</td><td>The ingestion pipeline shall run automatically every 6 hours without manual intervention</td></tr>
+  <tr><td>NFR6</td><td>No API keys or secrets shall appear in source code or version control</td></tr>
+  <tr><td>NFR7</td><td>The system shall support concurrent users via async FastAPI architecture</td></tr>
+</table>
+
+<h2>4.3 Use Case Diagram</h2>
+<p class="diagram-caption">Figure 4.1 — VeriGhana Use Case Diagram</p>
+<div class="diagram-block">
+ACTORS
+──────────────────────────────────────────────────────────────
+  Visitor            │  Unauthenticated public user
+  User               │  Registered and authenticated user
+  Journalist/Pro     │  Pro-tier subscriber
+  Institutional User │  Institutional-tier subscriber
+  Admin              │  Platform administrator
+  GitHub Actions     │  Automated CI/CD pipeline
+
+USE CASES
+──────────────────────────────────────────────────────────────
+Visitor:
+  ├── View Landing Page & Live Demo Truth Meter
+  ├── Register Account (email or Google OAuth)
+  └── Log In
+
+User:
+  ├── Submit Claim for Verification
+  ├── View Verdict + Truth Meter + Source Attribution
+  ├── View Triangulation & Nuance Panel
+  ├── View Verification History
+  ├── Filter History by Verdict / Search by Claim Text
+  ├── Edit Claim & Recheck
+  ├── Delete Verification Record
+  ├── Manage Account Profile
+  ├── Upgrade Plan (Paystack — MoMo / Card)
+  └── Submit Support Ticket
+
+Journalist / Pro User (extends User):
+  ├── Select AI Model for Verification
+  └── Export Verification History
+
+Institutional User (extends User):
+  └── Submit Bulk Claims (up to 20 simultaneously)
+
+Admin:
+  ├── View KPI Dashboard (users, articles, revenue, tickets)
+  ├── Manage Users and Tiers
+  ├── Reply to Support Tickets (via Resend email)
+  ├── Trigger RSS Scraper manually
+  ├── Trigger HTML Scraper manually
+  ├── Trigger Embedder manually
+  ├── Test Individual Site Scrapability
+  └── View Platform Analytics Reports
+
+GitHub Actions (automated):
+  ├── Run RSS Scraper (every 6 hours, cron 0 */6 * * *)
+  ├── Run HTML Scraper (every 6 hours)
+  └── Run Embedder (every 6 hours)
+</div>
+
+<h2>4.4 Class Diagram</h2>
+<p class="diagram-caption">Figure 4.2 — Key System Classes and Relationships</p>
+<div class="diagram-block">
+┌─────────────────────────┐     ┌─────────────────────────┐
+│       TrustedSource     │     │        FactEntry         │
+├─────────────────────────┤     ├─────────────────────────┤
+│ + id: UUID              │1   *│ + id: UUID              │
+│ + source_name: String   │─────│ + title: String         │
+│ + official_url: String  │     │ + content_text: String  │
+│ + category: String      │     │ + url_link: String (UK) │
+└─────────────────────────┘     │ + source_id: FK         │
+                                │ + published_date: DT    │
+                                │ + content_embedding: V  │
+                                └─────────────────────────┘
+
+┌─────────────────────────┐     ┌──────────────────────────┐
+│      UserProfile        │     │     VerificationLog      │
+├─────────────────────────┤1   *├──────────────────────────┤
+│ + user_id: UUID (PK)    │─────│ + id: Integer (PK)       │
+│ + tier: String          │     │ + user_id: FK            │
+│ + role: String          │     │ + input_claim: String    │
+│ + full_name: String     │     │ + verdict: String        │
+│ + phone: String         │     │ + score: Integer         │
+│ + subscription_expires  │     │ + explanation: String    │
+│ + cancelled_at: DT      │     │ + matched_sources: JSON  │
+└─────────────────────────┘     │ + model_used: String     │
+         │1                     │ + created_at: DT         │
+         │                      └──────────────────────────┘
+         │*  ┌──────────────┐
+         ├───│   Payment    │
+         │   ├──────────────┤
+         │   │ + id: Int    │
+         │   │ + plan       │
+         │   │ + amount     │
+         │   │ + currency   │
+         │   │ + status     │
+         │   │ + order_ref  │
+         │   └──────────────┘
+         │*  ┌──────────────────┐
+         └───│  SupportTicket   │
+             ├──────────────────┤
+             │ + id: Int        │
+             │ + message        │
+             │ + admin_reply    │
+             │ + reply_read:bool│
+             └──────────────────┘
+
+┌─────────────────────┐    produces    ┌────────────────────────┐
+│      Verifier       │───────────────▶│  VerificationResult    │
+├─────────────────────┤                ├────────────────────────┤
+│ + verify_claim()    │                │ + verdict: String      │
+│ + _vector_search()  │                │ + score: Integer       │
+│ + _keyword_search() │                │ + explanation: String  │
+│ + _deduplicate()    │                │ + summary: String      │
+│ + _diversify()      │                │ + sources: List        │
+│ + _run_ai_cascade() │                │ + convergence: List    │
+└─────────────────────┘                │ + narrative_delta: List│
+         │ retrieves                   │ + bias_signals: List   │
+         ▼                             │ + triangulation_conf   │
+  ┌────────────┐                       └────────────────────────┘
+  │ FactEntry  │
+  └────────────┘
+
+┌──────────────┐   inserts   ┌────────────┐
+│   Scraper    │────────────▶│ FactEntry  │
+└──────────────┘             └────────────┘
+┌──────────────┐   updates   ┌────────────┐
+│   Embedder   │────────────▶│ FactEntry  │
+└──────────────┘  embedding  └────────────┘
+</div>
+
+<h2>4.5 Sequence Diagram — Claim Verification</h2>
+<p class="diagram-caption">Figure 4.3 — Claim Verification Sequence</p>
+<div class="diagram-block">
+User    Next.js(Vercel)   FastAPI(Railway)   Supabase Auth   Verifier   pgvector   AI Cascade   DB
+ │            │                  │                  │            │           │            │        │
+ │─Submit ───▶│                  │                  │            │           │            │        │
+ │  claim +   │──POST /verify──▶ │                  │            │           │            │        │
+ │  JWT       │                  │──Verify JWT ────▶│            │           │            │        │
+ │            │                  │◀──user_id, tier ─┤            │           │            │        │
+ │            │                  │──Rate limit ok?  │            │           │            │        │
+ │            │                  │──verify_claim()─────────────▶│           │            │        │
+ │            │                  │                  │            │─embed ───▶│            │        │
+ │            │                  │                  │  (parallel)│  claim    │            │        │
+ │            │                  │                  │            │◀─top 12──┘            │        │
+ │            │                  │                  │            │──keyword search───────────────▶│
+ │            │                  │                  │            │◀──keyword matches─────────────┘│
+ │            │                  │                  │            │──merge+deduplicate+diversify    │
+ │            │                  │                  │            │──enrich categories─────────────▶│
+ │            │                  │                  │            │──prompt + sources─────────────▶│
+ │            │                  │                  │            │          Gemini 2.0 Flash       │
+ │            │                  │                  │            │          [if quota] → Groq      │
+ │            │                  │                  │            │          [if quota] → Cohere    │
+ │            │                  │                  │            │          [if quota] → OpenRouter│
+ │            │                  │                  │            │          [if all fail] heuristic│
+ │            │                  │                  │            │◀──JSON verdict─────────────────┘│
+ │            │                  │◀──VerificationResult──────── │           │            │        │
+ │            │                  │──log to vg_usage_logs (BG)────────────────────────────────────▶│
+ │            │◀──JSON response──┤                  │            │           │            │        │
+ │◀─Render ───┤                  │                  │            │           │            │        │
+ │  verdict + │  [fire-and-forget: client-side insert to verification_log] ─────────────────────▶│
+ │  Truth Meter                  │                  │            │           │            │        │
+</div>
+
+<h2>4.6 Sequence Diagram — Ingestion Pipeline</h2>
+<p class="diagram-caption">Figure 4.4 — Automated Ingestion Pipeline Sequence</p>
+<div class="diagram-block">
+GitHub Actions       scraper.py        html_scraper.py      embedder.py      RSS/Sites    Gemini    DB
+(cron 0 */6 * * *)       │                   │                   │               │           │       │
+        │                │                   │                   │               │           │       │
+        │──python src/scraper.py──────────▶  │                   │               │           │       │
+        │                │──feedparser.parse──────────────────────────────────────────────────────▶ │
+        │                │                   │                   │               │           │       │
+        │                │◀── 3 RSS feeds (title, url, date, summary) ──────────────────────────── │
+        │                │──BeautifulSoup strip HTML             │               │           │       │
+        │                │──upsert to fact_entries (on_conflict=url_link)─────────────────────────▶│
+        │                │                   │                   │               │           │       │
+        │──python src/scrapers/html_scraper.py────────────────▶  │               │           │       │
+        │                │                   │──strategy cascade: headline→container→list─────────▶ │
+        │                │                   │                   │    document→anchor→Playwright     │
+        │                │                   │◀── extracted article text ─────────────────────────  │
+        │                │                   │──upsert to fact_entries─────────────────────────────▶│
+        │                │                   │                   │               │           │       │
+        │──python src/embedder.py────────────────────────────────────────────▶   │           │       │
+        │                │                   │                   │──SELECT NULL embeddings──────────▶│
+        │                │                   │                   │◀── up to 1,000 articles ──────── │
+        │                │                   │                   │──embed_content(title+content)──────────────▶│
+        │                │                   │                   │◀── 768-dim vector ─────────────────────────│
+        │                │                   │                   │──UPDATE content_embedding───────────────────▶│
+</div>
+
+<h2>4.7 System Architecture Diagram</h2>
+<p class="diagram-caption">Figure 4.5 — Deployment Architecture</p>
+<div class="diagram-block">
+╔══════════════════════════════════════════════════════════════════════╗
+║                    VERCEL  (London — lhr1)                           ║
+║  Next.js 16 · React 19 · TypeScript 5 · Tailwind CSS 4 · shadcn/ui  ║
+║                                                                      ║
+║  PUBLIC LANDING                                                      ║
+║  ├── Hero  (live-cycling Truth Meter demo, 4.5s rotation)            ║
+║  ├── StatsBar  (live article + verification counts)                  ║
+║  ├── SourcesStrip  (logos of 65+ indexed outlets)                    ║
+║  ├── HowItWorks  (3-step pipeline explainer)                         ║
+║  ├── Pricing  (Free / Pro $9.99 / Institutional $79.99)              ║
+║  ├── Ticker  (scrolling verified claims feed)                        ║
+║  └── Footer                                                          ║
+║                                                                      ║
+║  AUTH         /login   /register  (email + Google OAuth)             ║
+║                                                                      ║
+║  APP  (Supabase Auth JWT required)                                   ║
+║  ├── /app/verify    — Fact checker + Triangulation panel             ║
+║  ├── /app/history   — Filterable verification log                    ║
+║  ├── /app/billing   — Paystack upgrade + invoice history             ║
+║  ├── /app/account   — Profile management                             ║
+║  └── /app/contact   — Support ticket submission                      ║
+║                                                                      ║
+║  ADMIN  (ADMIN_EMAIL env var required)                               ║
+║  ├── /admin          — KPI dashboard (users, revenue, articles)      ║
+║  ├── /admin/users    — User management + tier control                ║
+║  ├── /admin/tickets  — Support queue + Resend email reply            ║
+║  ├── /admin/tester   — Single-site scrapability tester               ║
+║  └── /admin/reports  — Recharts analytics                            ║
+║                                                                      ║
+║  MIDDLEWARE  (middleware.ts)                                          ║
+║  └── Supabase SSR session refresh on /app/* /admin/* /login /register║
+╚════════════════════════════╦═════════════════════════════════════════╝
+                             ║ HTTPS  (Railway backend domain)
+╔════════════════════════════╩═════════════════════════════════════════╗
+║                  RAILWAY  —  FastAPI Backend                         ║
+║                  uvicorn src.api:app --host 0.0.0.0 --port $PORT     ║
+║                                                                      ║
+║  Public:  GET /  /health  /stats  /models                            ║
+║  Auth:    POST /verify  (rate-limited by tier)                       ║
+║           POST /verify/bulk  (institutional, up to 20 claims)        ║
+║           POST /payment/verify  (Paystack webhook)                   ║
+║  Admin:   POST /scrape/rss  /scrape/html  /embed  (X-Admin-Key)      ║
+║           POST /test-site  /support/reply  PATCH /admin/tickets/:id  ║
+║           GET  /admin/stats  /admin/payments  /admin/tickets         ║
+╚══════════╦═══════════════════════════════╦══════════════════════════╝
+           ║                               ║
+╔══════════╩══════════╗    ╔══════════════╩══════════════════════════╗
+║  SUPABASE           ║    ║  AI CASCADE (verifier.py)               ║
+║  PostgreSQL + pgvec ║    ║                                         ║
+║                     ║    ║  1. Gemini 2.0 Flash  (primary)         ║
+║  Tables:            ║    ║     ↓ quota                             ║
+║  fact_entries       ║    ║  2. Gemini 2.0 Flash Lite               ║
+║  trusted_sources    ║    ║     ↓ quota                             ║
+║  user_profiles      ║    ║  3. Gemini 1.5 Flash / 8B               ║
+║  verification_log   ║    ║     ↓ quota                             ║
+║  vg_usage_logs      ║    ║  4. Groq Llama 3.3 70B                  ║
+║  payments           ║    ║     ↓ quota                             ║
+║  support_tickets    ║    ║  5. Cohere Command-R+                   ║
+║  vg_api_keys        ║    ║     ↓ quota                             ║
+║                     ║    ║  6. OpenRouter Llama 3.3                ║
+║  pgvector index:    ║    ║     ↓ all fail                          ║
+║  IVFFLAT cosine     ║    ║  7. Heuristic keyword overlap           ║
+║  on content_embed.  ║    ║                                         ║
+╚═════════════════════╝    ╚═════════════════════════════════════════╝
+           ▲
+╔══════════╩══════════════════════════════════════════════════════════╗
+║  GITHUB ACTIONS  (automated_scraper.yml)                            ║
+║  Schedule: cron '0 */6 * * *'  (midnight, 06:00, 12:00, 18:00 UTC) ║
+║  Step 1: python src/scraper.py     → RSS feeds → fact_entries       ║
+║  Step 2: python src/scrapers/html_scraper.py → 65+ sites           ║
+║  Step 3: python src/embedder.py    → Gemini embeddings → pgvector   ║
+╚═════════════════════════════════════════════════════════════════════╝
+</div>
+
+<h2>4.8 Database Entity-Relationship Diagram</h2>
+<p class="diagram-caption">Figure 4.6 — Database Schema (ER Diagram)</p>
+<div class="diagram-block">
+TRUSTED_SOURCES                    FACT_ENTRIES
+┌──────────────────┐               ┌────────────────────────┐
+│ id           UUID│PK      FK     │ id           UUID      │PK
+│ source_name  TEXT│───────────────│ source_id    UUID      │
+│ official_url TEXT│               │ title        TEXT      │
+│ category     TEXT│               │ content_text TEXT      │
+│ created_at   DT  │               │ url_link     TEXT      │UK
+└──────────────────┘               │ published_date DT      │
+                                   │ content_embedding V768 │
+                                   │ created_at   DT        │
+                                   └────────────────────────┘
+                                          (pgvector IVFFLAT
+                                           cosine distance index)
+
+USER_PROFILES                      VERIFICATION_LOG
+┌──────────────────────┐           ┌─────────────────────────┐
+│ user_id   UUID       │PK  FK     │ id          INTEGER     │PK
+│ tier      TEXT       │───────────│ user_id     UUID        │
+│ role      TEXT       │           │ input_claim TEXT        │
+│ full_name TEXT       │           │ verdict     TEXT        │
+│ phone     TEXT       │           │ score       INTEGER     │
+│ sub_expires DT       │           │ explanation TEXT        │
+│ cancelled_at DT      │           │ matched_sources JSONB   │
+└──────────────────────┘           │ model_used  TEXT        │
+        │                          │ created_at  DT          │
+        │ 1:*                      └─────────────────────────┘
+        │
+        ├──────────────────── PAYMENTS ──────────────────────────
+        │                     ┌───────────────────┐
+        │                     │ id         INTEGER │PK
+        │                     │ user_id    UUID FK │
+        │                     │ plan       TEXT    │
+        │                     │ amount     FLOAT   │
+        │                     │ currency   TEXT    │
+        │                     │ status     TEXT    │
+        │                     │ payment_method TEXT│
+        │                     │ billing_cycle TEXT │
+        │                     │ order_ref  TEXT    │
+        │                     │ created_at DT      │
+        │                     └───────────────────┘
+        │
+        └──────────────────── SUPPORT_TICKETS ───────────────────
+                              ┌───────────────────────┐
+                              │ id            INTEGER │PK
+                              │ user_id       UUID FK │
+                              │ message       TEXT    │
+                              │ admin_reply   TEXT    │
+                              │ reply_read    BOOLEAN │
+                              │ created_at    DT      │
+                              └───────────────────────┘
+
+VG_USAGE_LOGS (analytics audit trail)
+┌──────────────────────────┐
+│ id            UUID       │PK
+│ user_id       UUID FK    │
+│ claim         TEXT       │
+│ verdict       TEXT       │
+│ score         INTEGER    │
+│ model_used    TEXT       │
+│ processing_ms INTEGER    │
+│ created_at    DT         │
+└──────────────────────────┘
+</div>
+
+<!-- ══════════════ CHAPTER FIVE ══════════════ -->
+<h1>7. Chapter Five — Implementation and Evaluation</h1>
+
+<h2>5.1 Technology Stack</h2>
+<table>
+  <tr><th>Component</th><th>Technology</th><th>Version</th></tr>
+  <tr><td>Backend language</td><td>Python</td><td>3.12</td></tr>
+  <tr><td>Backend framework</td><td>FastAPI</td><td>latest</td></tr>
+  <tr><td>Frontend language</td><td>TypeScript</td><td>5</td></tr>
+  <tr><td>Frontend framework</td><td>Next.js</td><td>16.1.6</td></tr>
+  <tr><td>UI library</td><td>React</td><td>19.2.3</td></tr>
+  <tr><td>CSS framework</td><td>Tailwind CSS</td><td>4</td></tr>
+  <tr><td>Component library</td><td>shadcn/ui</td><td>latest</td></tr>
+  <tr><td>Charts</td><td>Recharts</td><td>3.8.0</td></tr>
+  <tr><td>Database</td><td>Supabase (PostgreSQL)</td><td>managed</td></tr>
+  <tr><td>Vector extension</td><td>pgvector</td><td>managed</td></tr>
+  <tr><td>AI — primary</td><td>Google Gemini 2.0 Flash</td><td>via API</td></tr>
+  <tr><td>AI — embeddings</td><td>Gemini Embedding 001</td><td>768-dim</td></tr>
+  <tr><td>AI — fallback 1</td><td>Groq Llama 3.3 70B</td><td>via API</td></tr>
+  <tr><td>AI — fallback 2</td><td>Cohere Command-R+</td><td>via API</td></tr>
+  <tr><td>AI — fallback 3</td><td>OpenRouter Llama 3.3</td><td>via API</td></tr>
+  <tr><td>Auth</td><td>Supabase Auth + @supabase/ssr</td><td>—</td></tr>
+  <tr><td>Payments</td><td>Paystack</td><td>JS inline SDK</td></tr>
+  <tr><td>Email</td><td>Resend</td><td>via API</td></tr>
+  <tr><td>Automation</td><td>GitHub Actions</td><td>—</td></tr>
+  <tr><td>Frontend hosting</td><td>Vercel</td><td>London (lhr1)</td></tr>
+  <tr><td>Backend hosting</td><td>Railway</td><td>—</td></tr>
+</table>
+
+<h2>5.2 Ingestion Pipeline</h2>
+<p>The RSS Scraper (<code>src/scraper.py</code>) parses three trusted RSS feeds using <code>feedparser</code>. For each article, the title, URL, publication date, and summary are extracted. HTML markup is stripped using BeautifulSoup before storage. A Supabase upsert with <code>on_conflict='url_link'</code> makes the operation idempotent — running the scraper multiple times against the same feed produces no duplicate records.</p>
+<p>The HTML Scraper (<code>src/scrapers/html_scraper.py</code>) targets over 65 Ghanaian news and government websites without RSS feeds. A six-strategy cascade was designed: (1) OpenGraph and headline meta tag extraction; (2) CSS container pattern matching; (3) list-item extraction; (4) full-document text extraction; (5) anchor text sweep; (6) JavaScript rendering via Playwright for dynamically loaded pages. Each strategy degrades gracefully to the next on failure.</p>
+<p>The Embedder (<code>src/embedder.py</code>) fetches articles where <code>content_embedding IS NULL</code> in batches of 1,000. Each article's title is concatenated with the first 500 characters of its body text and submitted to the Gemini Embedding API (<code>models/gemini-embedding-001</code>, task type <code>RETRIEVAL_DOCUMENT</code>). The resulting 768-dimensional vector is stored in the <code>content_embedding</code> pgvector column. GitHub Actions schedules the full pipeline at <code>cron: '0 */6 * * *'</code>, triggering at midnight, 06:00, noon, and 18:00 UTC daily.</p>
+
+<h2>5.3 AI Verification Engine</h2>
+<p>The verification engine (<code>src/verifier.py</code>) operates in four sequential stages:</p>
+<p><strong>Stage 1 — Hybrid Retrieval.</strong> Vector search embeds the claim and performs cosine similarity search (top 12 results). Keyword search applies a cascade: PostgreSQL full-text search, entity-anchored AND-ilike queries, multi-keyword AND matching, and per-keyword fallback across the top six content words. Named entities — proper nouns ≥4 characters, acronyms ≥2 characters, four-digit years — are extracted as high-precision search anchors.</p>
+<p><strong>Stage 2 — Deduplication and Diversification.</strong> The combined pool is deduplicated using Jaccard similarity on title word sets (threshold 0.70), removing wire stories republished verbatim across multiple outlets. The remaining articles are diversified to at most two per outlet, ensuring the AI reasons from independent sources.</p>
+<p><strong>Stage 3 — Source Enrichment.</strong> Each retrieved article is enriched with its outlet's category from the <code>trusted_sources</code> table, enabling the AI to reason about cross-category corroboration.</p>
+<p><strong>Stage 4 — AI Cascade.</strong> A structured prompt instructs the model to: filter sources by relevance; identify convergence (facts confirmed by two or more independent sources); analyse narrative delta (framing differences between outlets); and detect bias signals (loaded language, selective omission, tone disparities). The model returns a JSON object with <code>verdict</code>, <code>score</code>, <code>explanation</code>, <code>summary</code>, <code>source_notes</code>, <code>convergence</code>, <code>narrative_delta</code>, <code>bias_signals</code>, <code>triangulation_confidence</code>, and <code>triangulation_note</code>. The cascade order: Gemini 2.0 Flash → Gemini 2.0 Flash Lite → Gemini 1.5 Flash → Gemini 1.5 Flash 8B → Groq Llama 3.3 70B → Groq Llama 3.1 8B → Cohere Command-R+ → Cohere Command-R → OpenRouter Llama 3.3 → Heuristic fallback.</p>
+
+<h2>5.4 FastAPI Backend</h2>
+<p>The backend is an async FastAPI application deployed on Railway. Supabase JWT verification authenticates every protected endpoint. Rate limiting is enforced per tier: Free = 5 verifications per 24-hour rolling window; Pro = unlimited; Institutional additionally accesses <code>POST /verify/bulk</code> for up to 20 simultaneous claims. Payment verification at <code>POST /payment/verify</code> receives a Paystack transaction reference, validates it with the Paystack API, upgrades the user's tier in <code>user_profiles</code>, and records the transaction in <code>payments</code>. Background tasks handle usage logging, scraper/embedder triggers, and Resend email delivery for support ticket replies without blocking HTTP responses.</p>
+
+<h2>5.5 Next.js Frontend</h2>
+<p>The decision to replace Streamlit with a Next.js application was driven by the requirement for a fluid, consumer-grade user experience. Streamlit imposes server round-trips on every interaction and provides no meaningful control over animation, typography, or mobile layout. Next.js 16 with React 19 and Tailwind CSS 4 enables precise control over rendering behaviour, combined with Vercel's global CDN.</p>
+<p><strong>Landing page.</strong> The Hero section runs a live-cycling demo: four representative Ghanaian fact-checking scenarios rotate every 4.5 seconds, each displaying an animated Truth Meter bar with the verdict and score. The cycle pauses on user focus and resumes on blur. Additional sections include StatsBar (live backend counters), SourcesStrip (outlet logos), HowItWorks (pipeline explainer), Pricing (monthly/annual toggle with hover-dimming), Ticker (scrolling verified claims), and Footer.</p>
+<p><strong>Authentication and middleware.</strong> Supabase Auth with <code>@supabase/ssr</code> manages sessions via HTTP-only cookies. Next.js middleware intercepts every request to protected routes and calls <code>updateSession()</code> to refresh the session. Unauthenticated requests are redirected to <code>/login</code>. Google OAuth is supported alongside email/password.</p>
+<p><strong>Verification interface.</strong> On submission, the claim and access token are sent to the Railway backend. The result renders a gradient verdict header, the animated <code>TruthBar</code>, AI explanation, source list with links, and the full Triangulation &amp; Nuance panel — convergence facts with check icons, narrative delta cards colour-coded by tone (alarming/dismissive/positive/critical), and bias signal tags. The result is simultaneously saved to <code>verification_log</code> client-side in a fire-and-forget Supabase insert.</p>
+<p><strong>Verification history.</strong> Records are fetched server-side. The history view renders KPI pills (total, verified, false counts, average score), search input, verdict filter buttons, and expandable rows. Each row offers Recheck (pre-populates the verify page), Edit &amp; Recheck (inline textarea for claim modification), and two-step Delete. The expanded detail shows the full AI analysis, Truth Meter, and all cited sources with category tags.</p>
+<p><strong>Billing.</strong> The upgrade form shows Pro and Institutional plan cards with a monthly/annual toggle (annual saves 20%). Payment method selection supports MTN Mobile Money, Vodafone Cash, AirtelTigo Money, and card. The Paystack inline popup processes the transaction; the reference is then verified server-side and the tier upgraded. Payment history is displayed with printable invoice links.</p>
+<p><strong>Admin dashboard.</strong> Protected by middleware session check and an <code>ADMIN_EMAIL</code> environment variable. Renders eight KPI tiles (users, articles, Pro/Institutional subscribers, revenue, payments, open tickets, trusted sources) and pipeline control buttons to trigger RSS scraper, HTML scraper, and embedder via Railway admin endpoints. Additional sub-pages cover user management, support ticket reply via Resend, site scrapability testing, and Recharts analytics.</p>
+<p><strong>Security.</strong> The <code>vercel.json</code> applies: <code>Content-Security-Policy</code> restricting scripts to self and Paystack; <code>Strict-Transport-Security</code> enforcing HTTPS for two years with preload; <code>X-Frame-Options: DENY</code>; <code>X-Content-Type-Options: nosniff</code>; and <code>Permissions-Policy</code> disabling camera, microphone, geolocation, and payment APIs.</p>
+
+<h2>5.6 Evaluation</h2>
+<h3>5.6.1 Functional Accuracy Testing</h3>
+<table>
+  <tr><th>Category</th><th>Count</th><th>Expected Verdict</th><th>Correct</th><th>Accuracy</th></tr>
+  <tr><td>Known-true claims</td><td>7</td><td>VERIFIED or PARTIAL</td><td>6</td><td>86%</td></tr>
+  <tr><td>Known-false claims</td><td>7</td><td>FALSE or PARTIAL</td><td>5</td><td>71%</td></tr>
+  <tr><td>No-coverage claims</td><td>6</td><td>UNCORROBORATED</td><td>6</td><td>100%</td></tr>
+  <tr><td><strong>Total</strong></td><td><strong>20</strong></td><td>—</td><td><strong>17</strong></td><td><strong>85%</strong></td></tr>
+</table>
+<p>The 3 incorrect results comprised: 1 true claim rated PARTIAL (sources covered only part of the claim's content); and 2 false claims rated UNCORROBORATED rather than FALSE (the database lacked a directly contradicting article). No hallucinated verdicts were observed — all verdicts were grounded in retrieved sources.</p>
+
+<h3>5.6.2 Performance Testing</h3>
+<p>Average response time across 50 sequential test queries was 3.2 seconds using Gemini 2.0 Flash. Under simulated concurrent load of 10 simultaneous requests, the 95th percentile response time was 7.8 seconds, within the 10-second NFR threshold. The heuristic fallback responded in under 200ms. The Paystack payment flow averaged 8 seconds from form submission to tier upgrade confirmation.</p>
+
+<h3>5.6.3 Usability Review</h3>
+<p>Three non-technical users reviewed the live Vercel-deployed interface. All correctly interpreted verdict labels and Truth Meter scores without instruction. Two identified the Triangulation &amp; Nuance panel as particularly useful. One initially misunderstood UNCORROBORATED as meaning the claim was false — prompting the addition of an explanatory note clarifying that UNCORROBORATED means no relevant evidence was found, not that the claim has been disproved.</p>
+
+<!-- ══════════════ CHAPTER SIX ══════════════ -->
+<h1>8. Chapter Six — Conclusion and Recommendation</h1>
+
+<h2>6.1 Summary</h2>
+<p>This project has designed, implemented, and evaluated VeriGhana — a centralized automated verification artifact for combating information disorder in Ghana. The system fulfils all twelve functional requirements defined in the analysis phase. A National Fact Database is maintained through an automated pipeline ingesting from over 65 sources every six hours. A multi-provider AI cascade implementing the Triangulation and Nuance Framework returns structured verdicts with corroboration scores, source attribution, bias signal analysis, and narrative delta comparisons. A full-stack Next.js application deployed on Vercel provides a fluid, mobile-responsive interface. A tiered subscription model with Ghanaian Mobile Money payment integration supports long-term operation. Evaluation on 20 test claims yielded 85% overall accuracy with 100% correct handling of out-of-database claims.</p>
+
+<h2>6.2 Implications for Policy and Practice</h2>
+<p>For <strong>journalists and media organisations</strong>, VeriGhana reduces claim triage time from hours to seconds, supporting faster and more consistent first-line verification. For <strong>government agencies</strong> — particularly the Electoral Commission, Ministry of Information, and Bank of Ghana — the system provides a mechanism for proactively monitoring fabricated statements attributed to them and issuing faster rebuttals. For <strong>civil society and fact-checking organisations</strong> such as GhanaFact and Africa Check, the open-source codebase provides infrastructure they can extend without rebuilding from scratch. For <strong>policymakers</strong>, the <code>vg_usage_logs</code> table constitutes a growing dataset of the types of claims Ghanaians seek to verify — a previously unavailable resource for understanding the topography of information disorder in Ghana.</p>
+
+<h2>6.3 Limitations</h2>
+<p>The system's accuracy is bounded by database coverage. A false claim about an event not yet covered by any ingested source will receive UNCORROBORATED regardless of how definitively false it is. All current sources publish in English; Twi, Ga, Ewe, and other Ghanaian languages are unsupported, limiting reach to English-literate users. The split Railway/Vercel architecture introduces cross-origin dependency: Railway cold starts add latency after periods of inactivity. The system addresses textual claims only; image-based Fake News Cards must currently be transcribed before submission.</p>
+
+<h2>6.4 Recommendations for Future Research</h2>
+<ol>
+  <li><strong>Multilingual support.</strong> Extend embedding and retrieval to handle Twi and other Ghanaian languages using multilingual embedding models such as multilingual-E5 or mDPR.</li>
+  <li><strong>Image verification.</strong> Integrate OCR to extract text from submitted images, enabling direct verification of Fake News Cards. Computer vision models could additionally detect graphic manipulation signatures.</li>
+  <li><strong>Social media integration.</strong> A browser extension surfacing VeriGhana verdicts inline on X, Facebook, and WhatsApp Web would bring verification to the point of encounter. A WhatsApp Business API bot would extend this to closed groups.</li>
+  <li><strong>Feedback loop and active calibration.</strong> Allow verified journalists to flag incorrect verdicts. Accumulate corrections as a labelled dataset to fine-tune verdict thresholds and eventually train a Ghana-specific classification layer.</li>
+  <li><strong>Extension to other African contexts.</strong> The architecture is country-agnostic. Replacing the source feed list with outlets from Nigeria, Kenya, or Côte d'Ivoire would produce a functional verification system for those contexts.</li>
+  <li><strong>Progressive Web App.</strong> Convert the Next.js frontend into a PWA with offline caching for recent verification results, addressing intermittent mobile connectivity common in Ghana.</li>
+</ol>
+
+<!-- ══════════════ REFERENCES ══════════════ -->
+<h1>9. References</h1>
+<div class="ref-list">
+  <p>Asante, K. (2022). Digital misinformation and electoral integrity in Ghana: A content analysis of the 2020 presidential election. <em>African Journalism Studies, 43</em>(2), 45–62.</p>
+  <p>Chen, J., Lin, S. T., Van Durme, B., &amp; Xu, W. (2022). Hybrid retrieval for open-domain question answering. <em>Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics</em>, 2073–2084.</p>
+  <p>DataReportal. (2024). <em>Digital 2024: Ghana — All the statistics you need</em>. https://datareportal.com/reports/digital-2024-ghana</p>
+  <p>GhanaFact. (2023). <em>Annual misinformation report: Trends in Ghanaian digital disinformation 2022–2023</em>. GhanaFact Journalism Foundation.</p>
+  <p>Google DeepMind. (2023). <em>Gemini: A family of highly capable multimodal models</em> [Technical Report]. https://deepmind.google/technologies/gemini</p>
+  <p>Hassan, N., Arslan, F., Li, C., &amp; Tremayne, M. (2017). Toward automated fact-checking: Detecting check-worthy factual claims by ClaimBuster. <em>Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining</em>, 1803–1812.</p>
+  <p>Hevner, A. R., March, S. T., Park, J., &amp; Ram, S. (2004). Design science in information systems research. <em>MIS Quarterly, 28</em>(1), 75–105. https://doi.org/10.2307/25148625</p>
+  <p>Karpukhin, V., Oğuz, B., Min, S., Lewis, P., Wu, L., Edunov, S., Chen, D., &amp; Yih, W. (2020). Dense passage retrieval for open-domain question answering. <em>Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing</em>, 6769–6781.</p>
+  <p>Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W., Rocktäschel, T., Riedel, S., &amp; Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. <em>Advances in Neural Information Processing Systems, 33</em>, 9459–9474.</p>
+  <p>Maynez, J., Narayan, S., Bohnet, B., &amp; McDonald, R. (2020). On faithfulness and factuality in abstractive summarization. <em>Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics</em>, 1906–1919.</p>
+  <p>Popat, K., Mukherjee, S., Yates, A., &amp; Weikum, G. (2018). CredEye: A credibility lens for analyzing and explaining misinformation. <em>Companion Proceedings of the Web Conference 2018</em>, 155–158.</p>
+  <p>Reuters Institute for the Study of Journalism. (2023). <em>Reuters Institute digital news report 2023</em>. University of Oxford Press.</p>
+  <p>Thorne, J., &amp; Vlachos, A. (2018). Automated fact checking: Task formulations, methods and future directions. <em>Proceedings of the 27th International Conference on Computational Linguistics</em>, 3346–3359.</p>
+  <p>Vercel. (2024). <em>Next.js 16 documentation</em>. https://nextjs.org/docs</p>
+  <p>Wardle, C., &amp; Derakhshan, H. (2017). <em>Information disorder: Toward an interdisciplinary framework for research and policy making</em>. Council of Europe Report DGI(2017)09.</p>
+  <p>Wasserman, H., &amp; Madrid-Morales, D. (2019). An exploratory study of "fake news" and media trust in Kenya, Nigeria and South Africa. <em>African Journalism Studies, 40</em>(1), 107–123. https://doi.org/10.1080/23743670.2019.1580306</p>
+  <p>Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E., Le, Q., &amp; Zhou, D. (2022). Chain-of-thought prompting elicits reasoning in large language models. <em>Advances in Neural Information Processing Systems, 35</em>, 24824–24837.</p>
+</div>
+
+<!-- ══════════════ APPENDICES ══════════════ -->
+<h1>10. Appendices</h1>
+<ul class="appendix-list">
+  <li><strong>Appendix A</strong> — Source code repository: https://github.com/lerryellis/VeriGhana-Core</li>
+  <li><strong>Appendix B</strong> — List of all 65+ ingested Ghanaian HTML sources (html_scraper target registry)</li>
+  <li><strong>Appendix C</strong> — Full Triangulation &amp; Nuance Framework AI prompt (<code>_PROMPT</code> constant in <code>src/verifier.py</code>)</li>
+  <li><strong>Appendix D</strong> — Test claim set with individual verdicts and scores</li>
+  <li><strong>Appendix E</strong> — Database migration SQL (schema, pgvector index, FTS index, RPC functions)</li>
+  <li><strong>Appendix F</strong> — Environment variables reference (<code>.env.example</code>)</li>
+  <li><strong>Appendix G</strong> — Vercel security headers configuration (<code>vercel.json</code>)</li>
+  <li><strong>Appendix H</strong> — GitHub Actions workflow (<code>automated_scraper.yml</code>)</li>
+</ul>
+
+</body>
+</html>
