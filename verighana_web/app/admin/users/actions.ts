@@ -12,7 +12,6 @@ async function adminClient() {
 
 export async function deleteUser(userId: string): Promise<{ error?: string }> {
   try {
-    // Only admins may call this — verify caller's session
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Unauthorized' }
@@ -54,7 +53,7 @@ export async function changeUserPlan(
     const admin = await adminClient()
     const { error } = await admin
       .from('user_profiles')
-      .update({ tier, subscription_status: tier === 'free' ? 'active' : 'active' })
+      .update({ tier, subscription_status: 'active' })
       .eq('user_id', userId)
     if (error) return { error: error.message }
 
@@ -62,5 +61,30 @@ export async function changeUserPlan(
     return {}
   } catch (e) {
     return { error: String(e) }
+  }
+}
+
+export type UserPayment = {
+  plan_label:     string
+  amount:         number
+  currency:       string
+  payment_method: string
+  created_at:     string
+}
+
+export async function getUserLastPayment(userId: string): Promise<UserPayment | null> {
+  try {
+    const admin = await adminClient()
+    const { data } = await admin
+      .from('payments')
+      .select('plan_label,amount,currency,payment_method,created_at')
+      .eq('user_id', userId)
+      .eq('status', 'succeeded')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return data ?? null
+  } catch {
+    return null
   }
 }

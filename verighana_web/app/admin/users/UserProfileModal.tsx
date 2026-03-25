@@ -1,8 +1,8 @@
 'use client'
 
-import { useTransition, useState } from 'react'
+import { useTransition, useState, useEffect } from 'react'
 import type { AdminUser } from './page'
-import { deleteUser, changeUserPlan } from './actions'
+import { deleteUser, changeUserPlan, getUserLastPayment, type UserPayment } from './actions'
 
 interface Props {
   user: AdminUser
@@ -30,13 +30,18 @@ function Avatar({ name, email }: { name: string | null; email: string }) {
 }
 
 export function UserProfileModal({ user, onClose, onDeleted, onTierChanged }: Props) {
-  const [isPending,    startTransition]    = useTransition()
-  const [confirmDel,   setConfirmDel]      = useState(false)
+  const [isPending,    startTransition]     = useTransition()
+  const [confirmDel,   setConfirmDel]       = useState(false)
   const [planPending,  startPlanTransition] = useTransition()
-  const [editingPlan,  setEditingPlan]     = useState(false)
-  const [tier,         setTier]            = useState<AdminUser['tier']>(user.tier)
-  const [err,          setErr]             = useState<string | null>(null)
-  const [resetSent,    setResetSent]       = useState(false)
+  const [editingPlan,  setEditingPlan]      = useState(false)
+  const [tier,         setTier]             = useState<AdminUser['tier']>(user.tier)
+  const [err,          setErr]              = useState<string | null>(null)
+  const [resetSent,    setResetSent]        = useState(false)
+  const [payment,      setPayment]          = useState<UserPayment | null | 'loading'>('loading')
+
+  useEffect(() => {
+    getUserLastPayment(user.user_id).then(setPayment)
+  }, [user.user_id])
 
   const limit   = TIER_LIMIT[tier]
   const used    = user.daily_queries_used ?? 0
@@ -197,7 +202,49 @@ export function UserProfileModal({ user, onClose, onDeleted, onTierChanged }: Pr
                   </tr>
                 </tbody>
               </table>
+              {/* Payment Method */}
+            <div>
+              <p className="text-[0.6rem] font-bold tracking-[0.18em] text-slate-400 uppercase mb-4">Payment Method</p>
+              {payment === 'loading' ? (
+                <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+              ) : payment === null ? (
+                <p className="text-xs text-slate-400 italic">No payments on record</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr>
+                      <td className="text-slate-400 text-xs py-1.5 pr-4 w-1/2">Method</td>
+                      <td className="py-1.5">
+                        <span className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                          <svg className="w-5 h-4 text-slate-400" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="1" y="1" width="22" height="14" rx="2"/>
+                            <path d="M1 5h22"/>
+                          </svg>
+                          {payment.payment_method === 'card' ? 'Card' : payment.payment_method}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-slate-400 text-xs py-1.5 pr-4">Plan Paid</td>
+                      <td className="text-xs font-medium text-slate-700 py-1.5">{payment.plan_label}</td>
+                    </tr>
+                    <tr>
+                      <td className="text-slate-400 text-xs py-1.5 pr-4">Amount</td>
+                      <td className="text-xs font-medium text-slate-700 py-1.5">
+                        ${payment.amount.toFixed(2)} {payment.currency}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-slate-400 text-xs py-1.5 pr-4">Last Payment</td>
+                      <td className="text-xs font-medium text-slate-700 py-1.5">
+                        {new Date(payment.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
+          </div>
           </div>
         </div>
 
