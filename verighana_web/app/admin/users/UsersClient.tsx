@@ -3,6 +3,7 @@
 import { useState, useMemo, useTransition } from 'react'
 import type { AdminUser } from './page'
 import { deleteUser, changeUserPlan } from './actions'
+import { UserProfileModal } from './UserProfileModal'
 
 interface Props { users: AdminUser[] }
 
@@ -31,7 +32,7 @@ function downloadCSV(content: string) {
   URL.revokeObjectURL(url)
 }
 
-function UserRow({ u, onDeleted }: { u: AdminUser; onDeleted: (id: string) => void }) {
+function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: string) => void; onRowClick: () => void }) {
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [tier, setTier] = useState<AdminUser['tier']>(u.tier)
@@ -56,7 +57,7 @@ function UserRow({ u, onDeleted }: { u: AdminUser; onDeleted: (id: string) => vo
   }
 
   return (
-    <tr className={`border-b border-slate-50 transition-colors ${isPending ? 'opacity-40' : 'hover:bg-slate-50'}`}>
+    <tr onClick={onRowClick} className={`border-b border-slate-50 transition-colors cursor-pointer ${isPending ? 'opacity-40' : 'hover:bg-blue-50/40'}`}>
       <td className="px-4 py-3">
         <p className="font-medium text-[#0f2240] text-xs">{u.full_name || '—'}</p>
         <p className="text-xs text-slate-400">{u.email}</p>
@@ -67,6 +68,7 @@ function UserRow({ u, onDeleted }: { u: AdminUser; onDeleted: (id: string) => vo
         <select
           value={tier}
           disabled={planPending}
+          title="Change plan"
           onChange={e => handlePlanChange(e.target.value as AdminUser['tier'])}
           className={`text-xs font-mono-vg px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer
             ${TIER_STYLES[tier] ?? TIER_STYLES.free}
@@ -98,7 +100,7 @@ function UserRow({ u, onDeleted }: { u: AdminUser; onDeleted: (id: string) => vo
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         {err && <p className="text-red-500 text-[10px] mb-1">{err}</p>}
         {confirmDelete ? (
           <div className="flex items-center gap-1">
@@ -135,6 +137,7 @@ function UserRow({ u, onDeleted }: { u: AdminUser; onDeleted: (id: string) => vo
 
 export function UsersClient({ users: initial }: Props) {
   const [users, setUsers]         = useState(initial)
+  const [selected, setSelected]   = useState<AdminUser | null>(null)
   const [search,      setSearch]      = useState('')
   const [tierFilter,  setTierFilter]  = useState('all')
   const [roleFilter,  setRoleFilter]  = useState('all')
@@ -158,6 +161,7 @@ export function UsersClient({ users: initial }: Props) {
   }
 
   return (
+    <>
     <div className="max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-[#0f2240]">Users</h1>
@@ -232,6 +236,7 @@ export function UsersClient({ users: initial }: Props) {
                     key={u.user_id}
                     u={u}
                     onDeleted={id => setUsers(prev => prev.filter(x => x.user_id !== id))}
+                    onRowClick={() => setSelected(u)}
                   />
                 ))
               )}
@@ -240,5 +245,18 @@ export function UsersClient({ users: initial }: Props) {
         </div>
       </div>
     </div>
+
+    {selected && (
+      <UserProfileModal
+        user={selected}
+        onClose={() => setSelected(null)}
+        onDeleted={id => { setUsers(prev => prev.filter(x => x.user_id !== id)); setSelected(null) }}
+        onTierChanged={(id, tier) => {
+          setUsers(prev => prev.map(x => x.user_id === id ? { ...x, tier } : x))
+          setSelected(prev => prev && prev.user_id === id ? { ...prev, tier } : prev)
+        }}
+      />
+    )}
+    </>
   )
 }
