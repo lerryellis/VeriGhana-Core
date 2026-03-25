@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 
+type DbUpdate = { action: 'inserted' | 'updated' | 'skipped' | 'error' | 'none'; source_name?: string; reason?: string }
+
 type TestResult = {
   url: string
   status: 'ok' | 'error' | 'empty'
@@ -10,6 +12,7 @@ type TestResult = {
   strategy?: string
   error?: string
   elapsed_ms?: number
+  db_update?: DbUpdate
 }
 
 interface Props {
@@ -140,6 +143,18 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
                   </li>
                 ))}
               </ul>
+            )}
+            {result.db_update && result.db_update.action !== 'none' && (
+              <div className={`mt-3 text-[10px] font-mono-vg px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5
+                ${result.db_update.action === 'inserted' ? 'bg-green-100 text-green-700' :
+                  result.db_update.action === 'updated'  ? 'bg-blue-100 text-blue-700' :
+                  result.db_update.action === 'error'    ? 'bg-red-100 text-red-600' :
+                  'bg-slate-100 text-slate-500'}`}>
+                {result.db_update.action === 'inserted' && '✦ Added to trusted sources'}
+                {result.db_update.action === 'updated'  && `↻ Updated source: ${result.db_update.source_name ?? ''}`}
+                {result.db_update.action === 'skipped'  && `⚠ DB skipped: ${result.db_update.reason ?? ''}`}
+                {result.db_update.action === 'error'    && `✗ DB error: ${result.db_update.reason ?? ''}`}
+              </div>
             )}
           </div>
         )}
