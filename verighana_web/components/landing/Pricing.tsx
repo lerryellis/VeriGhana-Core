@@ -50,7 +50,8 @@ const plans = [
 ]
 
 export function Pricing() {
-  const [annual, setAnnual] = useState(false)
+  const [annual, setAnnual]     = useState(false)
+  const [hovered, setHovered]   = useState<string | null>(null)
 
   return (
     <section id="pricing" className="py-20 px-[5%] bg-white text-center">
@@ -62,6 +63,7 @@ export function Pricing() {
       <div className="flex items-center justify-center gap-3 mb-10">
         <span className={`text-sm ${!annual ? 'text-[#0f2240] font-semibold' : 'text-slate-400'}`}>Monthly</span>
         <button
+          type="button"
           onClick={() => setAnnual(a => !a)}
           className={`relative w-11 h-6 rounded-full transition-colors ${annual ? 'bg-blue-600' : 'bg-slate-300'}`}
           aria-label="Toggle billing"
@@ -73,8 +75,22 @@ export function Pricing() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-        {plans.map(p => (
-          <div key={p.name} className={`rounded-xl overflow-hidden border ${p.featured ? 'border-blue-400/40 shadow-xl shadow-blue-900/20 scale-[1.02]' : 'border-slate-200'}`}>
+        {plans.map(p => {
+          const isHovered  = hovered === p.name
+          const isDimmed   = hovered !== null && !isHovered
+          return (
+          <div
+            key={p.name}
+            onMouseEnter={() => setHovered(p.name)}
+            onMouseLeave={() => setHovered(null)}
+            className={`rounded-xl overflow-hidden border transition-all duration-200 cursor-pointer
+              ${p.featured && !hovered ? 'border-blue-400/40 shadow-xl shadow-blue-900/20 scale-[1.02]' : ''}
+              ${p.featured && isHovered  ? 'border-blue-400/60' : ''}
+              ${!p.featured             ? 'border-slate-200' : ''}
+              ${isHovered  ? 'scale-[1.05] shadow-2xl shadow-slate-300/60 z-10 relative' : ''}
+              ${isDimmed   ? 'opacity-50 scale-[0.98]' : ''}
+            `}
+          >
             <div className={`px-6 py-5 ${p.headerClass}`}>
               <div className={`font-display font-extrabold text-base tracking-wide ${p.nameClass}`}>{p.name}</div>
               <div className="flex items-baseline gap-1 mt-1">
@@ -106,7 +122,7 @@ export function Pricing() {
               </Link>
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </section>
   )

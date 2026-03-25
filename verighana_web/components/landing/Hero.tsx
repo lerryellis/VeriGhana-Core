@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import type { VerifyResponse as ApiVerifyResponse } from '@/types/api'
 
@@ -55,6 +56,7 @@ const VERDICT_TEXT: Record<string, string> = {
 type ResultState = VerifyResponse & { barWidth: number }
 
 export function Hero({ models }: { models: { id: string; name: string }[] }) {
+  const router = useRouter()
   const [claim, setClaim] = useState('')
   const [selectedModel, setSelectedModel] = useState(models[0]?.id ?? 'gemini-2.0-flash')
   const [loading, setLoading] = useState(false)
@@ -165,18 +167,13 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
           />
           <button
             type="button"
-            onClick={verify}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-medium px-5 flex items-center gap-2 transition-colors"
+            onClick={() => router.push('/register')}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-5 flex items-center gap-2 transition-colors"
           >
-            {loading ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM14 14l-3-3" />
-              </svg>
-            )}
-            {loading ? 'Checking…' : 'Check Now'}
+            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM14 14l-3-3" />
+            </svg>
+            Check Now
           </button>
         </div>
 
