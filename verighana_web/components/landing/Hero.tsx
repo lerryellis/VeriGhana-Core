@@ -119,30 +119,31 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
   return (
     <section className="relative overflow-hidden py-20 px-[5%] text-center" style={{ background: 'linear-gradient(150deg,#c8b5a2 0%,#ddd3c4 25%,#ede8e0 50%,#cddce8 80%,#b4cce0 100%)' }}>
 
-      {/* Adinkra watermark — left */}
-      <svg className="absolute left-0 top-0 h-full w-[22%] pointer-events-none opacity-[0.13]" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="#7a6a58" strokeWidth="1.4">
-          {/* Gye Nyame inspired interlocking symbol */}
-          <path d="M100 80 C60 80 40 110 60 140 C80 170 120 170 140 140 C160 110 140 80 100 80Z" />
-          <path d="M100 80 C100 50 80 30 60 50 C40 70 50 100 70 110" />
-          <path d="M100 80 C100 50 120 30 140 50 C160 70 150 100 130 110" />
-          <circle cx="100" cy="140" r="18" />
-          <path d="M82 140 C82 120 118 120 118 140 C118 160 82 160 82 140Z" />
-          <path d="M100 160 C70 175 60 210 80 225 C100 240 120 225 120 200" />
-          <path d="M100 160 C130 175 140 210 120 225 C100 240 80 225 80 200" />
-          <circle cx="100" cy="210" r="12" />
-          <path d="M60 250 Q100 230 140 250 Q160 270 140 290 Q100 310 60 290 Q40 270 60 250Z" />
-          <path d="M100 290 L100 330" />
-          <circle cx="100" cy="335" r="8" />
-          <path d="M78 335 L122 335" />
-          {/* dots */}
-          <circle cx="100" cy="50" r="3" fill="#7a6a58" />
-          <circle cx="70"  cy="115" r="2" fill="#7a6a58" />
-          <circle cx="130" cy="115" r="2" fill="#7a6a58" />
+      {/* Constellation mesh — left */}
+      <svg className="absolute left-0 top-0 w-[30%] h-full pointer-events-none opacity-20" viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#4a7fa8" strokeWidth="0.8">
+          <line x1="80"  y1="20"  x2="20"  y2="80"  />
+          <line x1="20"  y1="80"  x2="40"  y2="150" />
+          <line x1="40"  y1="150" x2="100" y2="120" />
+          <line x1="100" y1="120" x2="80"  y2="20"  />
+          <line x1="40"  y1="150" x2="10"  y2="220" />
+          <line x1="10"  y1="220" x2="70"  y2="240" />
+          <line x1="70"  y1="240" x2="100" y2="120" />
+          <line x1="70"  y1="240" x2="50"  y2="310" />
+          <line x1="50"  y1="310" x2="10"  y2="350" />
+          <line x1="10"  y1="350" x2="10"  y2="220" />
+          <line x1="120" y1="60"  x2="80"  y2="20"  />
+          <line x1="120" y1="60"  x2="100" y2="120" />
         </g>
+        <g fill="#4a7fa8">
+          {[[80,20],[20,80],[40,150],[100,120],[10,220],[70,240],[50,310],[10,350],[120,60]].map(([x,y],i) => (
+            <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 3.5 : 2} opacity={i % 2 === 0 ? 0.9 : 0.6} />
+          ))}
+        </g>
+        <path d="M15 375 L17 368 L19 375 L26 377 L19 379 L17 386 L15 379 L8 377Z" fill="#6ab4d8" opacity="0.7" />
       </svg>
 
-      {/* Constellation network — top right */}
+      {/* Constellation mesh — right */}
       <svg className="absolute right-0 top-0 w-[30%] h-full pointer-events-none opacity-20" viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g stroke="#4a7fa8" strokeWidth="0.8">
           <line x1="220" y1="20"  x2="280" y2="80"  />
@@ -163,7 +164,6 @@ export function Hero({ models }: { models: { id: string; name: string }[] }) {
             <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 3.5 : 2} opacity={i % 2 === 0 ? 0.9 : 0.6} />
           ))}
         </g>
-        {/* sparkle bottom-right */}
         <path d="M285 375 L287 368 L289 375 L296 377 L289 379 L287 386 L285 379 L278 377Z" fill="#6ab4d8" opacity="0.7" />
       </svg>
 
