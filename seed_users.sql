@@ -41,33 +41,34 @@ BEGIN
         -- Vary created_at across the last 90 days
         created_offset := (random() * 90 || ' days')::INTERVAL;
 
-        -- Insert into Supabase Auth
-        INSERT INTO auth.users (
-            id,
-            email,
-            encrypted_password,
-            email_confirmed_at,
-            raw_app_meta_data,
-            raw_user_meta_data,
-            created_at,
-            updated_at,
-            role,
-            aud
-        ) VALUES (
-            new_uid,
-            u[2],
-            crypt('TestPass123!', gen_salt('bf')),
-            NOW() - created_offset,
-            '{"provider":"email","providers":["email"]}'::jsonb,
-            jsonb_build_object('full_name', u[1]),
-            NOW() - created_offset,
-            NOW() - created_offset,
-            'authenticated',
-            'authenticated'
-        )
-        ON CONFLICT (email) DO NOTHING;
+        -- Skip if email already exists in auth.users
+        IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = u[2]) THEN
+            INSERT INTO auth.users (
+                id,
+                email,
+                encrypted_password,
+                email_confirmed_at,
+                raw_app_meta_data,
+                raw_user_meta_data,
+                created_at,
+                updated_at,
+                role,
+                aud
+            ) VALUES (
+                new_uid,
+                u[2],
+                crypt('123456', gen_salt('bf')),
+                NOW() - created_offset,
+                '{"provider":"email","providers":["email"]}'::jsonb,
+                jsonb_build_object('full_name', u[1]),
+                NOW() - created_offset,
+                NOW() - created_offset,
+                'authenticated',
+                'authenticated'
+            );
+        END IF;
 
-        -- Fetch the actual id (in case of conflict the UUID above was unused)
+        -- Fetch the actual id (handles both new inserts and pre-existing rows)
         SELECT id INTO new_uid FROM auth.users WHERE email = u[2];
 
         -- Insert matching user_profiles row
