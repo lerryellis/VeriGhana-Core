@@ -87,9 +87,16 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const VAT_RATE   = 0.15   // Ghana VAT 15%
+
   const plan       = PLANS[selectedPlan]
   const price      = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
   const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
+
+  // Tax breakdown
+  const subtotal   = billing === 'annual' ? price * 12 : price
+  const taxAmount  = Math.round(subtotal * VAT_RATE * 100) / 100
+  const totalPrice = Math.round((subtotal + taxAmount) * 100) / 100
 
   // Load Paystack script
   useEffect(() => {
@@ -110,7 +117,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
 
     const isCard    = payMethod === 'card'
     const channels  = isCard ? ['card'] : ['mobile_money']
-    const amount    = billing === 'annual' ? toKobo(price * 12) : toKobo(price)
+    const amount    = toKobo(totalPrice)   // tax-inclusive total
 
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PK,
@@ -320,18 +327,22 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
               />
             </div>
 
-            {/* Summary row */}
-            <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#0f2240]">{plan.name} · {billing === 'annual' ? 'Annual' : 'Monthly'}</p>
-                <p className="text-xs text-slate-400 font-mono-vg">
-                  {billing === 'annual' ? `$${(price * 12).toFixed(2)}/year` : `$${price}/month`}
-                </p>
+            {/* Order summary with tax breakdown */}
+            <div className="bg-slate-50 rounded-xl px-4 py-3 space-y-2">
+              <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-3">Order Summary</p>
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>{plan.name} · {billing === 'annual' ? 'Annual' : 'Monthly'}</span>
+                <span>${subtotal.toFixed(2)}</span>
               </div>
-              <div className="text-right">
-                <p className="text-xl font-display font-extrabold text-[#0f2240]">${price}</p>
-                <p className="text-xs text-slate-400 font-mono-vg">per month</p>
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>VAT (15%)</span>
+                <span>+${taxAmount.toFixed(2)}</span>
               </div>
+              <div className="border-t border-slate-200 pt-2 flex justify-between items-baseline">
+                <span className="text-sm font-medium text-slate-600">Total due</span>
+                <span className="text-xl font-display font-extrabold text-[#0f2240]">${totalPrice.toFixed(2)}</span>
+              </div>
+              <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Ghana VAT included · GHS {(totalPrice * USD_TO_GHS).toFixed(2)}</p>
             </div>
 
             {/* Status message */}

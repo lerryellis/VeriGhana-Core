@@ -14,6 +14,8 @@ type Payment = {
   plan_label: string
   plan_key: string
   amount: number
+  tax_rate: number | null
+  tax_amount: number | null
   currency: string
   payment_method: string
   status: string
@@ -34,11 +36,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   if (!res.ok) notFound()
   const p: Payment = await res.json()
 
-  const date    = new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const date       = new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const planMap: Record<string, string> = { pro: 'Pro Plan', institutional: 'Institutional Plan' }
-  const planName = planMap[p.plan_key] ?? p.plan_label ?? 'Subscription'
-  const amount   = parseFloat(String(p.amount)).toFixed(2)
-  const currency = (p.currency ?? 'USD').toUpperCase()
+  const planName   = planMap[p.plan_key] ?? p.plan_label ?? 'Subscription'
+  const subtotal   = parseFloat(String(p.amount))
+  const taxRate    = p.tax_rate ?? 15
+  const taxAmount  = p.tax_amount ?? Math.round(subtotal * 0.15 * 100) / 100
+  const total      = Math.round((subtotal + taxAmount) * 100) / 100
+  const currency   = (p.currency ?? 'USD').toUpperCase()
 
   return (
     <>
@@ -100,13 +105,17 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <p className="font-medium text-[#0f2240]">{planName}</p>
                 <p className="text-xs text-slate-400 mt-0.5">VeriGhana subscription — {date}</p>
               </td>
-              <td className="py-4 text-right font-medium text-[#0f2240]">{currency} {amount}</td>
+              <td className="py-4 text-right font-medium text-[#0f2240]">{currency} {subtotal.toFixed(2)}</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-3 text-sm text-slate-500">VAT ({taxRate}%) — Ghana Revenue Authority</td>
+              <td className="py-3 text-right text-sm text-slate-500">+{currency} {taxAmount.toFixed(2)}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
               <td className="pt-4 text-sm text-slate-500">Total</td>
-              <td className="pt-4 text-right font-display font-bold text-xl text-[#0f2240]">{currency} {amount}</td>
+              <td className="pt-4 text-right font-display font-bold text-xl text-[#0f2240]">{currency} {total.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>

@@ -970,10 +970,14 @@ async def verify_payment(
     # ── 1b. Verify paid amount matches expected plan price ────────────────────
     plan_key_check = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
     cycle_check    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
-    expected_usd   = PLAN_PRICES[plan_key_check][cycle_check]
+    VAT_RATE       = 0.15
+    base_usd       = PLAN_PRICES[plan_key_check][cycle_check]
+    if cycle_check == "annual":
+        base_usd  *= 12
+    expected_usd   = round(base_usd * (1 + VAT_RATE), 2)   # tax-inclusive total
     paid_kobo      = tx.get("amount", 0)               # Paystack amounts are in lowest denomination
     paid_usd       = paid_kobo / 100 / 15              # convert pesewas→GHS→USD at fixed 15 GHS/USD rate
-    if abs(paid_usd - expected_usd) > 0.10:            # allow 10¢ tolerance for rounding
+    if abs(paid_usd - expected_usd) > 0.25:            # allow 25¢ tolerance for rounding
         raise HTTPException(
             status_code=402,
             detail="Payment amount does not match the selected plan price.",
@@ -992,10 +996,13 @@ async def verify_payment(
         raise HTTPException(status_code=409, detail="This payment reference has already been used.")
 
     # ── 3. Determine plan details ─────────────────────────────────────────────
-    plan_key = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
-    cycle    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
-    amount   = PLAN_PRICES[plan_key][cycle]
-    expires  = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=PLAN_EXPIRY_DAYS[cycle])
+    plan_key   = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
+    cycle      = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
+    base_price = PLAN_PRICES[plan_key][cycle]
+    amount     = base_price * 12 if cycle == "annual" else base_price  # subtotal (pre-tax)
+    tax_rate   = 15.0
+    tax_amount = round(amount * 0.15, 2)
+    expires    = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=PLAN_EXPIRY_DAYS[cycle])
 
     # ── 4. Save payment record ────────────────────────────────────────────────
     import uuid
@@ -1008,6 +1015,8 @@ async def verify_payment(
         "plan_key":       plan_key,
         "plan_label":     f"{plan_key.title()} ({cycle})",
         "amount":         amount,
+        "tax_rate":       tax_rate,
+        "tax_amount":     tax_amount,
         "currency":       "USD",
         "payment_method": req.payment_method or tx.get("channel", "card"),
         "status":         "succeeded",
