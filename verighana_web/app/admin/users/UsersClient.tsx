@@ -90,7 +90,7 @@ function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: s
           aria-label={`Role for ${u.email}`}
           onChange={e => {
             const prev = role
-            const next = e.target.value as 'admin' | 'staff'
+            const next = e.target.value as 'admin' | 'staff' | 'user'
             setRole(next)
             startRoleTransition(async () => {
               const result = await changeUserRole(u.user_id, next)
@@ -98,9 +98,10 @@ function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: s
             })
           }}
           className={`text-xs font-mono-vg px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer
-            ${role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}
+            ${role === 'admin' ? 'bg-amber-100 text-amber-700' : role === 'staff' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}
             ${rolePending ? 'opacity-50' : ''}`}
         >
+          <option value="user">user</option>
           <option value="staff">staff</option>
           <option value="admin">admin</option>
         </select>
@@ -228,6 +229,7 @@ export function UsersClient({ users: initial }: Props) {
         <select title="Filter by role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
           className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400">
           <option value="all">All roles</option>
+          <option value="user">User</option>
           <option value="staff">Staff</option>
           <option value="admin">Admin</option>
         </select>

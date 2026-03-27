@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single()
 
   const tier = (profile?.tier ?? 'free') as Tier
-  const role = profile?.role ?? 'staff'
+  const role = profile?.role ?? 'user'
 
   // Count tickets with an unread admin reply
   const { count: unreadCount } = await supabase

@@ -1,5 +1,7 @@
--- ── Rename existing 'client' role to 'staff' ─────────────────────────────
-UPDATE user_profiles SET role = 'staff' WHERE role = 'client';
+-- ── Rename legacy 'client' role to 'user' (end-users) ────────────────────
+UPDATE user_profiles SET role = 'user' WHERE role = 'client';
+-- ── Rename legacy 'staff' role (if any were set before this migration) ────
+-- Staff should be explicitly assigned; leave existing 'staff' rows as-is
 
 -- ── Promote accounts to admin ─────────────────────────────────────────────
 UPDATE user_profiles

@@ -31,7 +31,7 @@ BEGIN
       split_part(NEW.email, '@', 1)   -- fallback: use email prefix
     ),
     'free',
-    'client',
+    'user',
     'active',
     0,
     NOW()
