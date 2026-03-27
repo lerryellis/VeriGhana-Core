@@ -13,7 +13,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('user_id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') redirect('/app/verify')
+  const role = profile?.role ?? 'staff'
+  if (role !== 'admin' && role !== 'staff') redirect('/app/verify')
 
   // Count open tickets + unread user follow-ups
   const { count: openCount } = await supabase
@@ -33,8 +34,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-[#f0f4f8] flex flex-col">
       <AppNav
         email={user.email ?? ''}
-        tier={(profile?.tier ?? 'institutional') as 'free' | 'pro' | 'institutional'}
-        role="admin"
+        tier={(profile?.tier ?? 'free') as 'free' | 'pro' | 'institutional'}
+        role={role}
         unreadCount={unreadCount}
       />
       <main className="flex-1 px-4 md:px-8 py-6 max-w-5xl mx-auto w-full">

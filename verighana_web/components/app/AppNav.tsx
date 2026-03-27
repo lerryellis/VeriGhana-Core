@@ -42,7 +42,10 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
     { label: 'API Docs',    href: '/admin/api-docs' },
   ]
 
-  const tabs = role === 'admin' ? ADMIN_TABS : USER_TABS
+  // Staff see admin tabs but without Finance (sensitive revenue/tax data)
+  const STAFF_TABS: Tab[] = ADMIN_TABS.filter(t => t.href !== '/admin/finance')
+
+  const tabs = role === 'admin' ? ADMIN_TABS : role === 'staff' ? STAFF_TABS : USER_TABS
 
   async function signOut() {
     const supabase = createClient()

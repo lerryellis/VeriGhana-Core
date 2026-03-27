@@ -66,7 +66,7 @@ export async function changeUserPlan(
 
 export async function changeUserRole(
   userId: string,
-  role: 'admin' | 'client'
+  role: 'admin' | 'staff'
 ): Promise<{ error?: string }> {
   try {
     const supabase = await createClient()

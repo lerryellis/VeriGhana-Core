@@ -167,7 +167,7 @@ const ENDPOINTS: Endpoint[] = [
   {
     method: 'GET', path: '/admin/users', auth: 'X-Admin-Key', tag: 'Admin',
     summary: 'List All Users',
-    description: 'Returns all registered user profiles including their subscription tier, role (admin/client), organisation, country, daily query usage, and join date. Used by the Users admin page for user management, tier changes, and role promotion.',
+    description: 'Returns all registered user profiles including their subscription tier, role (admin/staff), organisation, country, daily query usage, and join date. Used by the Users admin page for user management, tier changes, and role promotion.',
     request: [
       { name: 'limit', type: 'integer', required: false, description: 'Max records (default 1000)' },
     ],

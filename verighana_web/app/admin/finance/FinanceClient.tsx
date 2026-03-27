@@ -6,6 +6,7 @@ import type { FinancePayment, FinancePayrollRun } from './page'
 interface Props {
   payments: FinancePayment[]
   payrollRuns: FinancePayrollRun[]
+  isAdmin: boolean
 }
 
 const USD_TO_GHS = 15
@@ -21,7 +22,7 @@ function fmtUsd(n: number) {
 
 type Period = '30d' | '90d' | '1y' | 'all'
 
-export function FinanceClient({ payments, payrollRuns }: Props) {
+export function FinanceClient({ payments, payrollRuns, isAdmin }: Props) {
   const [period, setPeriod] = useState<Period>('all')
 
   const cutoff = useMemo(() => {
@@ -93,7 +94,7 @@ export function FinanceClient({ payments, payrollRuns }: Props) {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-[#0f2240]">Finance</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Earnings, tax obligations, and payroll</p>
+          <p className="text-sm text-slate-500 mt-0.5">{isAdmin ? 'Earnings, tax obligations, and payroll' : 'Payroll overview'}</p>
         </div>
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
           {(['30d','90d','1y','all'] as Period[]).map(p => (
@@ -105,43 +106,47 @@ export function FinanceClient({ payments, payrollRuns }: Props) {
         </div>
       </div>
 
-      {/* ── Top KPIs ────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Gross Collected',  value: fmtUsd(grossUsd),   sub: fmt(grossGhs),   color: 'text-[#0f2240]',  tip: 'Subtotal + all taxes received' },
-          { label: 'Revenue (pre-tax)',value: fmtUsd(revenueUsd),  sub: fmt(revenueGhs), color: 'text-green-600',  tip: 'Subscription fees before taxes' },
-          { label: 'Tax Collected',    value: fmtUsd(taxUsd),      sub: fmt(taxGhs),     color: 'text-amber-600',  tip: 'To be remitted to GRA' },
-          { label: 'Est. Profit',      value: fmt(profitGhs),      sub: 'after payroll', color: profitGhs >= 0 ? 'text-green-600' : 'text-red-500', tip: 'Revenue − payroll cost (GHS)' },
-        ].map(k => (
-          <div key={k.label} className="bg-white border border-slate-200 rounded-xl p-4" title={k.tip}>
-            <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-1">{k.label}</p>
-            <p className={`text-xl font-display font-extrabold ${k.color}`}>{k.value}</p>
-            <p className="text-xs text-slate-400 font-mono-vg mt-0.5">{k.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Tax Breakdown — GRA ──────────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Tax Obligations to GRA</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ── Top KPIs — admin only ───────────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'VAT (15%)',          value: vatGhs,     note: 'Value Added Tax',                   color: 'text-red-600',    due: 'File monthly VAT return' },
-            { label: 'NHIL (2.5%)',         value: nhilGhs,    note: 'Nat. Health Insurance Levy',        color: 'text-orange-500', due: 'Remit with VAT return' },
-            { label: 'GETFund (2.5%)',      value: getfundGhs, note: 'Ghana Education Trust Fund Levy',   color: 'text-amber-500',  due: 'Remit with VAT return' },
-          ].map(({ label, value, note, color, due }) => (
-            <div key={label} className="border border-slate-100 rounded-xl p-4">
-              <p className={`text-xl font-display font-extrabold ${color}`}>{fmt(value)}</p>
-              <p className="text-sm font-medium text-[#0f2240] mt-1">{label}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{note}</p>
-              <p className="text-xs text-slate-300 font-mono-vg mt-2">{due}</p>
+            { label: 'Gross Collected',  value: fmtUsd(grossUsd),   sub: fmt(grossGhs),   color: 'text-[#0f2240]',  tip: 'Subtotal + all taxes received' },
+            { label: 'Revenue (pre-tax)',value: fmtUsd(revenueUsd),  sub: fmt(revenueGhs), color: 'text-green-600',  tip: 'Subscription fees before taxes' },
+            { label: 'Tax Collected',    value: fmtUsd(taxUsd),      sub: fmt(taxGhs),     color: 'text-amber-600',  tip: 'To be remitted to GRA' },
+            { label: 'Est. Profit',      value: fmt(profitGhs),      sub: 'after payroll', color: profitGhs >= 0 ? 'text-green-600' : 'text-red-500', tip: 'Revenue − payroll cost (GHS)' },
+          ].map(k => (
+            <div key={k.label} className="bg-white border border-slate-200 rounded-xl p-4" title={k.tip}>
+              <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-1">{k.label}</p>
+              <p className={`text-xl font-display font-extrabold ${k.color}`}>{k.value}</p>
+              <p className="text-xs text-slate-400 font-mono-vg mt-0.5">{k.sub}</p>
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-400 mt-4 font-mono-vg">
-          Total GRA tax liability: <span className="font-bold text-slate-600">{fmt(taxGhs)}</span> · Estimated at 15 GHS/USD
-        </p>
-      </div>
+      )}
+
+      {/* ── Tax Breakdown — admin only ───────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Tax Obligations to GRA</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: 'VAT (15%)',     value: vatGhs,     note: 'Value Added Tax',                 color: 'text-red-600',    due: 'File monthly VAT return' },
+              { label: 'NHIL (2.5%)',   value: nhilGhs,    note: 'Nat. Health Insurance Levy',      color: 'text-orange-500', due: 'Remit with VAT return' },
+              { label: 'GETFund (2.5%)',value: getfundGhs, note: 'Ghana Education Trust Fund Levy', color: 'text-amber-500',  due: 'Remit with VAT return' },
+            ].map(({ label, value, note, color, due }) => (
+              <div key={label} className="border border-slate-100 rounded-xl p-4">
+                <p className={`text-xl font-display font-extrabold ${color}`}>{fmt(value)}</p>
+                <p className="text-sm font-medium text-[#0f2240] mt-1">{label}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{note}</p>
+                <p className="text-xs text-slate-300 font-mono-vg mt-2">{due}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 mt-4 font-mono-vg">
+            Total GRA tax liability: <span className="font-bold text-slate-600">{fmt(taxGhs)}</span> · Estimated at 15 GHS/USD
+          </p>
+        </div>
+      )}
 
       {/* ── Payroll Cost Summary ─────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-xl p-6">
@@ -168,7 +173,7 @@ export function FinanceClient({ payments, payrollRuns }: Props) {
       </div>
 
       {/* ── Monthly Revenue Chart ────────────────────────────────────────────── */}
-      {monthlyRevenue.length > 0 && (
+      {isAdmin && monthlyRevenue.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Monthly Revenue (GHS, pre-tax)</p>
           <div className="flex items-end gap-2 h-32">
@@ -187,7 +192,7 @@ export function FinanceClient({ payments, payrollRuns }: Props) {
       )}
 
       {/* ── P&L Summary ─────────────────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
+      {isAdmin && <div className="bg-white border border-slate-200 rounded-xl p-6">
         <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">P&L Summary (GHS)</p>
         <div className="space-y-2 max-w-sm">
           {[
@@ -208,7 +213,7 @@ export function FinanceClient({ payments, payrollRuns }: Props) {
         <p className="text-xs text-slate-300 font-mono-vg mt-4">
           Note: USD converted at ₵{USD_TO_GHS}/USD (fixed rate). Profit estimate does not include hosting, tooling, or other operational costs.
         </p>
-      </div>
+      </div>}
     </div>
   )
 }

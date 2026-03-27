@@ -142,7 +142,7 @@ export function StaffClient({ staff: initialStaff, payrollRuns: initialRuns }: P
     setStaff(prev => prev.map(s => s.id === id ? { ...s, status } : s))
   }
 
-  async function updateSystemRole(email: string, role: 'admin' | 'client') {
+  async function updateSystemRole(email: string, role: 'admin' | 'staff') {
     const supabase = createClient()
     // Find user_profile by email via user_id join
     const { data: profile } = await supabase
@@ -351,13 +351,13 @@ export function StaffClient({ staff: initialStaff, payrollRuns: initialRuns }: P
                     <option value="terminated">Terminated</option>
                   </select>
                   <select
-                    defaultValue="client"
-                    onChange={e => updateSystemRole(s.email, e.target.value as 'admin' | 'client')}
+                    defaultValue="staff"
+                    onChange={e => updateSystemRole(s.email, e.target.value as 'admin' | 'staff')}
                     aria-label={`System role for ${s.full_name}`}
                     className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-2 py-1 rounded-lg outline-none cursor-pointer"
                     title="Platform system role (requires a registered account)"
                   >
-                    <option value="client">client</option>
+                    <option value="staff">staff</option>
                     <option value="admin">admin</option>
                   </select>
                 </div>

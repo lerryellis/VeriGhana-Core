@@ -25,11 +25,14 @@ export default async function FinancePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('user_profiles').select('role').eq('user_id', user.id).single()
+  const isAdmin = profile?.role === 'admin'
+
   const [{ data: payments }, { data: payrollRuns }] = await Promise.all([
-    supabase
-      .from('payments')
-      .select('amount, tax_amount, created_at, status, plan_key')
-      .order('created_at', { ascending: false }),
+    isAdmin
+      ? supabase.from('payments').select('amount, tax_amount, created_at, status, plan_key').order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
     supabase
       .from('payroll_runs')
       .select('period_year, period_month, total_gross_ghs, total_paye_ghs, total_ssf_employer_ghs, total_net_ghs, status')
@@ -41,6 +44,7 @@ export default async function FinancePage() {
     <FinanceClient
       payments={(payments ?? []) as FinancePayment[]}
       payrollRuns={(payrollRuns ?? []) as FinancePayrollRun[]}
+      isAdmin={isAdmin}
     />
   )
 }
