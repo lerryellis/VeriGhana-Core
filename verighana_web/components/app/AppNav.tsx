@@ -39,6 +39,7 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
     { label: 'Feedback',    href: '/admin/feedback' },
     { label: 'Users',       href: '/admin/users' },
     { label: 'Site Tester', href: '/admin/tester' },
+    { label: 'API Docs',    href: '/admin/api-docs' },
   ]
 
   const tabs = role === 'admin' ? ADMIN_TABS : USER_TABS

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import type { AdminUser } from './page'
-import { deleteUser, changeUserPlan } from './actions'
+import { deleteUser, changeUserPlan, changeUserRole } from './actions'
 import { UserProfileModal } from './UserProfileModal'
 
 interface Props { users: AdminUser[] }
@@ -36,7 +36,9 @@ function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: s
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [tier, setTier] = useState<AdminUser['tier']>(u.tier)
+  const [role, setRole] = useState<string>(u.role)
   const [planPending, startPlanTransition] = useTransition()
+  const [rolePending, startRoleTransition] = useTransition()
   const [err, setErr] = useState<string | null>(null)
 
   function handlePlanChange(newTier: AdminUser['tier']) {
@@ -80,10 +82,28 @@ function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: s
         </select>
       </td>
 
-      <td className="px-4 py-3">
-        <span className={`text-xs font-mono-vg px-2 py-0.5 rounded-full ${
-          u.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-        }`}>{u.role}</span>
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+        <select
+          value={role}
+          disabled={rolePending}
+          title="Change role"
+          aria-label={`Role for ${u.email}`}
+          onChange={e => {
+            const prev = role
+            const next = e.target.value as 'admin' | 'client'
+            setRole(next)
+            startRoleTransition(async () => {
+              const result = await changeUserRole(u.user_id, next)
+              if (result.error) { setRole(prev); setErr(result.error) }
+            })
+          }}
+          className={`text-xs font-mono-vg px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer
+            ${role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}
+            ${rolePending ? 'opacity-50' : ''}`}
+        >
+          <option value="client">client</option>
+          <option value="admin">admin</option>
+        </select>
       </td>
       <td className="px-4 py-3 text-xs text-slate-500">{u.organisation || '—'}</td>
       <td className="px-4 py-3 text-xs text-slate-500">{u.country || '—'}</td>

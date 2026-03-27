@@ -64,6 +64,39 @@ export async function changeUserPlan(
   }
 }
 
+export async function changeUserRole(
+  userId: string,
+  role: 'admin' | 'client'
+): Promise<{ error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Unauthorized' }
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+    if (profile?.role !== 'admin') return { error: 'Forbidden' }
+
+    // Prevent removing your own admin role
+    if (userId === user.id && role !== 'admin') return { error: 'Cannot remove your own admin role.' }
+
+    const admin = await adminClient()
+    const { error } = await admin
+      .from('user_profiles')
+      .update({ role })
+      .eq('user_id', userId)
+    if (error) return { error: error.message }
+
+    revalidatePath('/admin/users')
+    return {}
+  } catch (e) {
+    return { error: String(e) }
+  }
+}
+
 export type UserPayment = {
   plan_label:     string
   amount:         number

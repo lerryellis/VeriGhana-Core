@@ -142,6 +142,22 @@ export function StaffClient({ staff: initialStaff, payrollRuns: initialRuns }: P
     setStaff(prev => prev.map(s => s.id === id ? { ...s, status } : s))
   }
 
+  async function updateSystemRole(email: string, role: 'admin' | 'client') {
+    const supabase = createClient()
+    // Find user_profile by email via user_id join
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('user_id')
+      .eq('email', email)
+      .single()
+    if (!profile) {
+      setEnrollMsg({ type: 'error', text: `No system account found for ${email}. They must register first.` })
+      return
+    }
+    await supabase.from('user_profiles').update({ role }).eq('user_id', profile.user_id)
+    setEnrollMsg({ type: 'success', text: `${email} system role updated to "${role}".` })
+  }
+
   // ── Run payroll ───────────────────────────────────────────────────────────
   async function runPayroll() {
     if (!payrollPreview.length) return
@@ -298,7 +314,7 @@ export function StaffClient({ staff: initialStaff, payrollRuns: initialRuns }: P
               <div>
                 <label className="block text-xs text-slate-400 mb-1 font-mono-vg uppercase tracking-wider">Notes (optional)</label>
                 <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  rows={2} className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors resize-none" />
+                  aria-label="Notes" rows={2} className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors resize-none" />
               </div>
               <div className="flex justify-end">
                 <button type="submit" disabled={enrolling}
@@ -327,12 +343,22 @@ export function StaffClient({ staff: initialStaff, payrollRuns: initialRuns }: P
                   <select
                     value={s.status}
                     onChange={e => updateStatus(s.id, e.target.value)}
-                    aria-label={`Update status for ${s.full_name}`}
+                    aria-label={`Update employment status for ${s.full_name}`}
                     className="text-xs bg-slate-50 border border-slate-200 text-slate-600 px-2 py-1 rounded-lg outline-none cursor-pointer"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                     <option value="terminated">Terminated</option>
+                  </select>
+                  <select
+                    defaultValue="client"
+                    onChange={e => updateSystemRole(s.email, e.target.value as 'admin' | 'client')}
+                    aria-label={`System role for ${s.full_name}`}
+                    className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-2 py-1 rounded-lg outline-none cursor-pointer"
+                    title="Platform system role (requires a registered account)"
+                  >
+                    <option value="client">client</option>
+                    <option value="admin">admin</option>
                   </select>
                 </div>
               ))
