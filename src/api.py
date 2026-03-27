@@ -763,7 +763,7 @@ async def verify_bulk(
 #  SCRAPER PIPELINE  [X-Admin-Key required]
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/scrape/rss", tags=["Scraper"])
+@app.post("/scrape/rss", tags=["Scraper"], include_in_schema=False)
 async def scrape_rss(
     background: BackgroundTasks,
     _: str = Depends(require_admin_key),
@@ -781,7 +781,7 @@ async def scrape_rss(
     return {"status": "started", "job": "rss_scraper"}
 
 
-@app.post("/scrape/html", tags=["Scraper"])
+@app.post("/scrape/html", tags=["Scraper"], include_in_schema=False)
 async def scrape_html(
     background: BackgroundTasks,
     _: str = Depends(require_admin_key),
@@ -799,7 +799,7 @@ async def scrape_html(
     return {"status": "started", "job": "html_scraper"}
 
 
-@app.post("/embed", tags=["Scraper"])
+@app.post("/embed", tags=["Scraper"], include_in_schema=False)
 async def run_embed(
     background: BackgroundTasks,
     _: str = Depends(require_admin_key),
@@ -1046,7 +1046,7 @@ async def verify_payment(
 #  ADMIN DATA  [X-Admin-Key required]
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/admin/stats", tags=["Admin"])
+@app.get("/admin/stats", tags=["Admin"], include_in_schema=False)
 async def admin_stats(_: str = Depends(require_admin_key)):
     """Platform-wide KPIs for the admin dashboard."""
     if not (SUPABASE_URL and SUPABASE_SVC_KEY):
@@ -1077,7 +1077,7 @@ async def admin_stats(_: str = Depends(require_admin_key)):
     return out
 
 
-@app.get("/admin/payments", tags=["Admin"])
+@app.get("/admin/payments", tags=["Admin"], include_in_schema=False)
 async def admin_payments(
     limit:     int           = 500,
     date_from: Optional[str] = None,   # ISO date e.g. 2025-01-01
@@ -1114,7 +1114,7 @@ async def admin_payments(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/admin/payments/{payment_id}/invoice", tags=["Admin"])
+@app.get("/admin/payments/{payment_id}/invoice", tags=["Admin"], include_in_schema=False)
 async def download_invoice(
     payment_id: str,
     _: str = Depends(require_admin_key),
@@ -1142,7 +1142,7 @@ async def download_invoice(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/admin/users", tags=["Admin"])
+@app.get("/admin/users", tags=["Admin"], include_in_schema=False)
 async def admin_users(
     limit:  int           = 500,
     search: Optional[str] = None,   # email or name substring
@@ -1177,7 +1177,7 @@ async def admin_users(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/admin/tickets", tags=["Admin"])
+@app.get("/admin/tickets", tags=["Admin"], include_in_schema=False)
 async def admin_tickets(
     limit:  int           = 200,
     status: Optional[str] = None,
@@ -1205,7 +1205,7 @@ async def admin_tickets(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.patch("/admin/tickets/{ticket_id}", tags=["Admin"])
+@app.patch("/admin/tickets/{ticket_id}", tags=["Admin"], include_in_schema=False)
 async def update_ticket_status(
     ticket_id: str,
     body:      TicketStatusUpdate,
