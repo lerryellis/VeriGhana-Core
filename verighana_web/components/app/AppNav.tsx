@@ -21,11 +21,12 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
   const router   = useRouter()
 
   const USER_TABS: Tab[] = [
-    { label: 'Verify',   href: '/app/verify' },
-    { label: 'History',  href: '/app/history' },
-    { label: 'Account',  href: '/app/account' },
-    { label: 'Billing',  href: '/app/billing' },
-    { label: 'Support',  href: '/app/contact', badge: unreadCount },
+    { label: 'Verify',    href: '/app/verify' },
+    { label: 'History',   href: '/app/history' },
+    { label: 'Account',   href: '/app/account' },
+    { label: 'Billing',   href: '/app/billing' },
+    { label: 'Support',   href: '/app/contact', badge: unreadCount },
+    { label: 'Feedback',  href: '/app/feedback' },
   ]
 
   const ADMIN_TABS: Tab[] = [
@@ -33,6 +34,9 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
     { label: 'Admin',       href: '/admin' },
     { label: 'Tickets',     href: '/admin/tickets',  badge: unreadCount },
     { label: 'Reports',     href: '/admin/reports' },
+    { label: 'Finance',     href: '/admin/finance' },
+    { label: 'Staff',       href: '/admin/staff' },
+    { label: 'Feedback',    href: '/admin/feedback' },
     { label: 'Users',       href: '/admin/users' },
     { label: 'Site Tester', href: '/admin/tester' },
   ]

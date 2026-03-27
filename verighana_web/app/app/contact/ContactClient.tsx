@@ -11,6 +11,7 @@ const CATEGORIES = [
   'API / Integration',
   'Bug report',
   'Feature request',
+  'Feedback',
   'Other',
 ]
 
@@ -153,6 +154,7 @@ export function ContactClient({ authEmail, fullName, tier, accessToken, tickets:
                 type="text"
                 value={fullName || authEmail}
                 readOnly
+                aria-label="Sender name or email"
                 className="w-full bg-slate-50 border border-slate-200 text-slate-500 text-sm px-3 py-2 rounded-lg outline-none cursor-default"
               />
             </div>
