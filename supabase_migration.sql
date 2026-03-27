@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS vg_users (
     password_hash   TEXT NOT NULL,
     full_name       TEXT,
     organisation    TEXT,                    -- for institutional accounts
-    role            TEXT NOT NULL DEFAULT 'client'
-                    CHECK (role IN ('admin','client')),
+    role            TEXT NOT NULL DEFAULT 'user'
+                    CHECK (role IN ('admin','staff','user')),
     tier            TEXT NOT NULL DEFAULT 'free'
                     CHECK (tier IN ('free','pro','institutional')),
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
