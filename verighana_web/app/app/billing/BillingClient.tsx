@@ -87,16 +87,20 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const VAT_RATE   = 0.15   // Ghana VAT 15%
+  // Ghana tax levies (GRA, effective Jan 2026)
+  const TAX = { vat: 0.15, nhil: 0.025, getfund: 0.025 }  // combined 20%
 
   const plan       = PLANS[selectedPlan]
   const price      = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
   const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
 
-  // Tax breakdown
-  const subtotal   = billing === 'annual' ? price * 12 : price
-  const taxAmount  = Math.round(subtotal * VAT_RATE * 100) / 100
-  const totalPrice = Math.round((subtotal + taxAmount) * 100) / 100
+  // Tax breakdown (all levies applied on subtotal per GRA re-coupling 2026)
+  const subtotal     = billing === 'annual' ? price * 12 : price
+  const vatAmount    = Math.round(subtotal * TAX.vat     * 100) / 100
+  const nhilAmount   = Math.round(subtotal * TAX.nhil    * 100) / 100
+  const getfundAmount = Math.round(subtotal * TAX.getfund * 100) / 100
+  const totalTax     = Math.round((vatAmount + nhilAmount + getfundAmount) * 100) / 100
+  const totalPrice   = Math.round((subtotal + totalTax) * 100) / 100
 
   // Load Paystack script
   useEffect(() => {
@@ -336,13 +340,21 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
               </div>
               <div className="flex justify-between text-sm text-slate-500">
                 <span>VAT (15%)</span>
-                <span>+${taxAmount.toFixed(2)}</span>
+                <span>+${vatAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>NHIL (2.5%)</span>
+                <span>+${nhilAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>GETFund Levy (2.5%)</span>
+                <span>+${getfundAmount.toFixed(2)}</span>
               </div>
               <div className="border-t border-slate-200 pt-2 flex justify-between items-baseline">
                 <span className="text-sm font-medium text-slate-600">Total due</span>
                 <span className="text-xl font-display font-extrabold text-[#0f2240]">${totalPrice.toFixed(2)}</span>
               </div>
-              <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Ghana VAT included · GHS {(totalPrice * USD_TO_GHS).toFixed(2)}</p>
+              <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Taxes per GRA · GHS {(totalPrice * USD_TO_GHS).toFixed(2)}</p>
             </div>
 
             {/* Status message */}

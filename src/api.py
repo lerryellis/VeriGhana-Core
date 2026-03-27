@@ -970,11 +970,11 @@ async def verify_payment(
     # ── 1b. Verify paid amount matches expected plan price ────────────────────
     plan_key_check = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
     cycle_check    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
-    VAT_RATE       = 0.15
+    GRA_TAX_RATE   = 0.20  # VAT 15% + NHIL 2.5% + GETFund 2.5% (GRA, Jan 2026)
     base_usd       = PLAN_PRICES[plan_key_check][cycle_check]
     if cycle_check == "annual":
         base_usd  *= 12
-    expected_usd   = round(base_usd * (1 + VAT_RATE), 2)   # tax-inclusive total
+    expected_usd   = round(base_usd * (1 + GRA_TAX_RATE), 2)   # tax-inclusive total
     paid_kobo      = tx.get("amount", 0)               # Paystack amounts are in lowest denomination
     paid_usd       = paid_kobo / 100 / 15              # convert pesewas→GHS→USD at fixed 15 GHS/USD rate
     if abs(paid_usd - expected_usd) > 0.25:            # allow 25¢ tolerance for rounding
@@ -1000,8 +1000,8 @@ async def verify_payment(
     cycle      = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
     base_price = PLAN_PRICES[plan_key][cycle]
     amount     = base_price * 12 if cycle == "annual" else base_price  # subtotal (pre-tax)
-    tax_rate   = 15.0
-    tax_amount = round(amount * 0.15, 2)
+    tax_rate   = 20.0  # VAT 15% + NHIL 2.5% + GETFund 2.5% (GRA, Jan 2026)
+    tax_amount = round(amount * 0.20, 2)
     expires    = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=PLAN_EXPIRY_DAYS[cycle])
 
     # ── 4. Save payment record ────────────────────────────────────────────────

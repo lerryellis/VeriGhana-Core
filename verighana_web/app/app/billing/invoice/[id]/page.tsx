@@ -39,11 +39,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const date       = new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const planMap: Record<string, string> = { pro: 'Pro Plan', institutional: 'Institutional Plan' }
   const planName   = planMap[p.plan_key] ?? p.plan_label ?? 'Subscription'
-  const subtotal   = parseFloat(String(p.amount))
-  const taxRate    = p.tax_rate ?? 15
-  const taxAmount  = p.tax_amount ?? Math.round(subtotal * 0.15 * 100) / 100
-  const total      = Math.round((subtotal + taxAmount) * 100) / 100
-  const currency   = (p.currency ?? 'USD').toUpperCase()
+  const subtotal      = parseFloat(String(p.amount))
+  // GRA levies (Jan 2026): VAT 15% + NHIL 2.5% + GETFund 2.5% = 20%
+  const vatAmount     = Math.round(subtotal * 0.15  * 100) / 100
+  const nhilAmount    = Math.round(subtotal * 0.025 * 100) / 100
+  const getfundAmount = Math.round(subtotal * 0.025 * 100) / 100
+  const totalTaxAmt   = p.tax_amount ?? Math.round((vatAmount + nhilAmount + getfundAmount) * 100) / 100
+  const total         = Math.round((subtotal + totalTaxAmt) * 100) / 100
+  const currency      = (p.currency ?? 'USD').toUpperCase()
 
   return (
     <>
@@ -108,8 +111,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <td className="py-4 text-right font-medium text-[#0f2240]">{currency} {subtotal.toFixed(2)}</td>
             </tr>
             <tr className="border-b border-slate-100">
-              <td className="py-3 text-sm text-slate-500">VAT ({taxRate}%) — Ghana Revenue Authority</td>
-              <td className="py-3 text-right text-sm text-slate-500">+{currency} {taxAmount.toFixed(2)}</td>
+              <td className="py-2 text-sm text-slate-500">VAT (15%) — Ghana Revenue Authority</td>
+              <td className="py-2 text-right text-sm text-slate-500">+{currency} {vatAmount.toFixed(2)}</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-2 text-sm text-slate-500">NHIL (2.5%) — National Health Insurance Levy</td>
+              <td className="py-2 text-right text-sm text-slate-500">+{currency} {nhilAmount.toFixed(2)}</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <td className="py-2 text-sm text-slate-500">GETFund Levy (2.5%)</td>
+              <td className="py-2 text-right text-sm text-slate-500">+{currency} {getfundAmount.toFixed(2)}</td>
             </tr>
           </tbody>
           <tfoot>
