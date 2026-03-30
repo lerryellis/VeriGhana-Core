@@ -534,33 +534,25 @@ async def public_stats():
     except Exception:
         pass
 
-    # Claims checked + last verification — service key bypasses RLS on usage_logs
+    # Claims checked — service key bypasses RLS on usage_logs
     try:
         sb = _supa(service=True)
         out["total_verifications"] = sb.table("vg_usage_logs").select("id", count="exact").execute().count or 0
-        latest_use = (sb.table("vg_usage_logs")
-                        .select("created_at")
-                        .order("created_at", desc=True)
-                        .limit(1)
-                        .execute())
-        if latest_use.data:
-            out["last_scrape"] = latest_use.data[0]["created_at"]
     except Exception:
         pass
 
-    # Fall back to last article scrape if no verifications yet
-    if not out["last_scrape"]:
-        try:
-            sb     = _supa()
-            latest = (sb.table("fact_entries")
-                        .select("created_at")
-                        .order("created_at", desc=True)
-                        .limit(1)
-                        .execute())
-            if latest.data:
-                out["last_scrape"] = latest.data[0]["created_at"]
-        except Exception:
-            pass
+    # Last scrape — most recent article inserted by the scraper
+    try:
+        sb     = _supa()
+        latest = (sb.table("fact_entries")
+                    .select("created_at")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute())
+        if latest.data:
+            out["last_scrape"] = latest.data[0]["created_at"]
+    except Exception:
+        pass
 
     return out
 
