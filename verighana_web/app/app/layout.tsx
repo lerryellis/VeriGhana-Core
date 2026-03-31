@@ -17,8 +17,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('user_id', user.id)
     .single()
 
-  const tier = (profile?.tier ?? 'free') as Tier
-  const role = profile?.role ?? 'user'
+  // Env-based superuser override
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isEnvAdmin  = adminEmails.includes((user.email ?? '').toLowerCase())
+  const role        = isEnvAdmin ? 'admin' : (profile?.role ?? 'user')
+  const tier        = (role === 'admin' || role === 'staff') ? 'free' as Tier : (profile?.tier ?? 'free') as Tier
 
   // Count tickets with an unread admin reply
   const { count: unreadCount } = await supabase

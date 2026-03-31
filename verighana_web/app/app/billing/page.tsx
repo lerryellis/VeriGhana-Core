@@ -34,12 +34,17 @@ export default async function BillingPage() {
 
   const session = await supabase.auth.getSession()
 
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isEnvAdmin  = adminEmails.includes((user.email ?? '').toLowerCase())
+  const role        = isEnvAdmin ? 'admin' : (profile?.role ?? 'user')
+
   return (
     <BillingClient
       profile={profile as UserProfile | null}
       authEmail={user.email ?? ''}
       accessToken={session.data.session?.access_token ?? ''}
       payments={(payments ?? []) as PaymentRecord[]}
+      role={role}
     />
   )
 }

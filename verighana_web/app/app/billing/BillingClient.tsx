@@ -67,9 +67,11 @@ interface Props {
   authEmail: string
   accessToken: string
   payments: PaymentRecord[]
+  role?: string
 }
 
-export function BillingClient({ profile, authEmail, accessToken, payments }: Props) {
+export function BillingClient({ profile, authEmail, accessToken, payments, role = 'user' }: Props) {
+  const isPrivileged = role === 'admin' || role === 'staff'
   const tier = profile?.tier ?? 'free'
   const isPaid = tier !== 'free'
   const isCancelled = !!(profile?.cancelled_at)
@@ -180,9 +182,22 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
     handler.openIframe()
   }
 
+  if (isPrivileged) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-5">
+        <h1 className="font-display text-2xl font-bold text-[#0f2240]">Billing</h1>
+        <div className="bg-white border border-slate-200 rounded-xl p-8 text-center">
+          <p className="text-2xl mb-2">🔑</p>
+          <p className="font-semibold text-[#0f2240]">Admin accounts are not tied to a subscription plan.</p>
+          <p className="text-sm text-slate-400 mt-1">You have full platform access. Billing only applies to regular user accounts.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-      <h1 className="font-display text-2xl font-bold text-[#0f2240]">Billing</h1>
+      <h1 className="font-display font-bold text-2xl text-[#0f2240]">Billing</h1>
 
       {/* Current plan */}
       <div className="bg-white border border-slate-200 rounded-xl p-6">

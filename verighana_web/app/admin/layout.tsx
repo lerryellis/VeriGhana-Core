@@ -13,7 +13,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('user_id', user.id)
     .single()
 
-  const role = profile?.role ?? 'user'
+  // Env-based superuser override — these emails are always admin regardless of DB
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isEnvAdmin  = adminEmails.includes((user.email ?? '').toLowerCase())
+  const role        = isEnvAdmin ? 'admin' : (profile?.role ?? 'user')
+
   if (role !== 'admin' && role !== 'staff') redirect('/app/verify')
 
   // Count open tickets + unread user follow-ups
