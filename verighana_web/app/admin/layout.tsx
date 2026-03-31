@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { AppNav } from '@/components/app/AppNav'
+import { AdminSidebar } from '@/components/app/AdminSidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -31,14 +31,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const unreadCount = (openCount ?? 0) + (followupCount ?? 0)
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] flex flex-col">
-      <AppNav
+    <div className="min-h-screen bg-[#f0f4f8] flex flex-col lg:flex-row">
+      <AdminSidebar
         email={user.email ?? ''}
         tier={(profile?.tier ?? 'free') as 'free' | 'pro' | 'institutional'}
         role={role}
         unreadCount={unreadCount}
       />
-      <main className="flex-1 px-4 md:px-8 py-6 max-w-5xl mx-auto w-full">
+      <main className="flex-1 min-w-0 px-4 md:px-8 py-6 max-w-5xl w-full mx-auto">
         {children}
       </main>
     </div>
