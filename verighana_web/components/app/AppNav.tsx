@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ShieldCheck, Clock, UserCircle, CreditCard, HelpCircle, Star } from 'lucide-react'
+import { ShieldCheck, Clock, UserCircle, CreditCard, HelpCircle, Star, LayoutDashboard } from 'lucide-react'
 import { TierChip } from '@/components/ui/TierChip'
 
 type Tier = 'free' | 'pro' | 'institutional'
@@ -17,18 +17,23 @@ interface AppNavProps {
 
 type Tab = { label: string; href: string; icon: React.ElementType; badge?: number }
 
+const USER_TABS: Tab[] = [
+  { label: 'Verify',    href: '/app/verify',   icon: ShieldCheck },
+  { label: 'History',   href: '/app/history',  icon: Clock },
+  { label: 'Account',   href: '/app/account',  icon: UserCircle },
+  { label: 'Billing',   href: '/app/billing',  icon: CreditCard },
+  { label: 'Support',   href: '/app/contact',  icon: HelpCircle },
+  { label: 'Feedback',  href: '/app/feedback', icon: Star },
+]
+
 export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
   const pathname = usePathname()
   const router   = useRouter()
+  const isPrivileged = role === 'admin' || role === 'staff'
 
-  const USER_TABS: Tab[] = [
-    { label: 'Verify',    href: '/app/verify',   icon: ShieldCheck },
-    { label: 'History',   href: '/app/history',  icon: Clock },
-    { label: 'Account',   href: '/app/account',  icon: UserCircle },
-    { label: 'Billing',   href: '/app/billing',  icon: CreditCard },
-    { label: 'Support',   href: '/app/contact',  icon: HelpCircle, badge: unreadCount },
-    { label: 'Feedback',  href: '/app/feedback', icon: Star },
-  ]
+  const tabs: Tab[] = USER_TABS.map(t =>
+    t.href === '/app/contact' ? { ...t, badge: unreadCount } : t
+  )
 
   async function signOut() {
     const supabase = createClient()
@@ -47,7 +52,18 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
           Veri<span className="text-blue-400">Ghana</span>
         </Link>
 
-        <TierChip tier={tier} />
+        {/* Admin badge OR tier chip */}
+        {isPrivileged ? (
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-300 text-xs font-semibold tracking-wide hover:bg-blue-500/20 transition-colors"
+          >
+            <LayoutDashboard size={11} />
+            {role === 'admin' ? 'Admin' : 'Staff'}
+          </Link>
+        ) : (
+          <TierChip tier={tier} />
+        )}
 
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-blue-600/25 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-300">
@@ -67,7 +83,7 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
 
       {/* Tab bar */}
       <div className="flex items-center gap-0.5 px-4 pb-2 overflow-x-auto scrollbar-none">
-        {USER_TABS.map(tab => {
+        {tabs.map(tab => {
           const active = pathname === tab.href || pathname.startsWith(tab.href + '/')
           const Icon = tab.icon
           return (
@@ -80,10 +96,7 @@ export function AppNav({ email, tier, role, unreadCount = 0 }: AppNavProps) {
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
                 }`}
             >
-              <Icon
-                size={15}
-                className={`shrink-0 ${active ? 'text-blue-400' : 'text-slate-500'}`}
-              />
+              <Icon size={15} className={`shrink-0 ${active ? 'text-blue-400' : 'text-slate-500'}`} />
               {tab.label}
               {!!tab.badge && tab.badge > 0 && (
                 <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
