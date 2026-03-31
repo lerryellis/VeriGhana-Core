@@ -206,6 +206,39 @@ export function BillingClient({ profile, authEmail, accessToken, payments }: Pro
         )}
       </div>
 
+      {/* Entitlements — what you get on your current plan */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Your Plan Includes</p>
+        <div className="space-y-2">
+          {[
+            { feature: 'Daily verifications',     free: '5 / day',      pro: 'Unlimited',  inst: 'Unlimited' },
+            { feature: 'AI verification models',  free: 'Basic only',   pro: 'All models', inst: 'All models' },
+            { feature: 'Bulk claim verification', free: false,          pro: false,        inst: 'Up to 20 claims' },
+            { feature: 'Verification history',    free: 'Last 7 days',  pro: 'Full history', inst: 'Full history' },
+            { feature: 'History export (CSV)',    free: false,          pro: true,         inst: true },
+            { feature: 'API key access',          free: false,          pro: true,         inst: true },
+            { feature: 'Team seats',              free: false,          pro: false,        inst: true },
+            { feature: 'Support',                 free: 'Community',    pro: 'Priority email', inst: 'Priority + SLA' },
+            { feature: 'Custom integrations',     free: false,          pro: false,        inst: true },
+            { feature: 'Invoice & receipts',      free: false,          pro: true,         inst: true },
+          ].map(row => {
+            const val = tier === 'institutional' ? row.inst : tier === 'pro' ? row.pro : row.free
+            const included = val !== false
+            return (
+              <div key={row.feature} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <span className="text-sm text-slate-600">{row.feature}</span>
+                <span className={`text-sm font-medium ${included ? 'text-green-600' : 'text-slate-300'}`}>
+                  {val === true ? '✓' : val === false ? '—' : String(val)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        {tier === 'free' && (
+          <p className="text-xs text-slate-400 mt-4 font-mono-vg">Upgrade to unlock more features →</p>
+        )}
+      </div>
+
       {/* Upgrade section — hidden if already on institutional */}
       {tier !== 'institutional' && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">

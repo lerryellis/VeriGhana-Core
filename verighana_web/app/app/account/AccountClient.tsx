@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TierChip } from '@/components/ui/TierChip'
+import { deleteAccount } from './actions'
 import type { UserProfile } from './page'
 
 type Tier = 'free' | 'pro' | 'institutional'
@@ -41,6 +42,16 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
   const [cancelled, setCancelled]         = useState(
     profile?.cancelled_at !== null && profile?.cancelled_at !== undefined
   )
+
+  // Email preferences (stored in Supabase auth user_metadata)
+  const [marketingEmails, setMarketingEmails] = useState(true)
+  const [emailPrefMsg, setEmailPrefMsg]       = useState<string | null>(null)
+
+  // Delete account
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [showDeleteForm, setShowDeleteForm]       = useState(false)
+  const [deleting, setDeleting]                   = useState(false)
+  const [deleteError, setDeleteError]             = useState<string | null>(null)
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -92,6 +103,27 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
       setCancelConfirm(false)
       setCancelMsg('Subscription cancelled. You keep access until the period ends.')
     }
+  }
+
+  async function saveEmailPrefs(checked: boolean) {
+    setMarketingEmails(checked)
+    setEmailPrefMsg(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ data: { marketing_emails: checked } })
+    setEmailPrefMsg(error ? `Error: ${error.message}` : checked ? 'Subscribed to emails.' : 'Unsubscribed from emails.')
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== 'DELETE') return
+    setDeleting(true)
+    setDeleteError(null)
+    const result = await deleteAccount()
+    if (result.error) {
+      setDeleting(false)
+      setDeleteError(result.error)
+      return
+    }
+    router.push('/login?deleted=true')
   }
 
   const expiresAt  = profile?.subscription_expires_at
@@ -262,6 +294,42 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
         )}
       </div>
 
+      {/* Email Preferences */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Email Preferences</p>
+        <div className="space-y-3">
+          {[
+            { key: 'marketing', label: 'Product updates & news', desc: 'New features, platform announcements, and VeriGhana news.', checked: marketingEmails, onChange: saveEmailPrefs },
+          ].map(pref => (
+            <label key={pref.key} className="flex items-start justify-between gap-4 cursor-pointer group">
+              <div>
+                <p className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">{pref.label}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{pref.desc}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={pref.checked ? 'true' : 'false'}
+                onClick={() => pref.onChange(!pref.checked)}
+                className={`relative shrink-0 w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none
+                  ${pref.checked ? 'bg-blue-600' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
+                  ${pref.checked ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </label>
+          ))}
+        </div>
+        {emailPrefMsg && (
+          <p className={`mt-3 text-xs font-mono-vg ${emailPrefMsg.startsWith('Error') ? 'text-red-500' : 'text-green-600'}`}>
+            {emailPrefMsg}
+          </p>
+        )}
+        <p className="text-xs text-slate-400 mt-4">
+          Transactional emails (account security, billing receipts) are always sent regardless of preferences.
+        </p>
+      </div>
+
       {/* Security */}
       <div className="bg-white border border-slate-200 rounded-xl p-6">
         <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Security</p>
@@ -306,6 +374,57 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
             Sign out of all devices
           </button>
         </div>
+      </div>
+      {/* Danger Zone */}
+      <div className="bg-white border border-red-100 rounded-xl p-6">
+        <p className="text-xs text-red-400 font-mono-vg uppercase tracking-widest mb-4">Danger Zone</p>
+        {!showDeleteForm ? (
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Delete account</p>
+              <p className="text-xs text-slate-400 mt-0.5">Permanently delete your account and all associated data. This cannot be undone.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteForm(true)}
+              className="shrink-0 text-sm text-red-500 hover:text-red-600 font-medium border border-red-200 hover:border-red-300 px-4 py-2 rounded-lg transition-colors"
+            >
+              Delete account
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-700">
+              This will permanently delete your account, all verification history, and cancel any active subscription.
+              <span className="font-semibold text-slate-900"> Type <span className="font-mono text-red-600">DELETE</span> to confirm.</span>
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              className="w-full max-w-xs bg-slate-50 border border-slate-200 focus:border-red-400 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none transition-colors font-mono"
+            />
+            {deleteError && <p className="text-xs text-red-500 font-mono-vg">{deleteError}</p>}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'DELETE' || deleting}
+                className="bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                {deleting ? 'Deleting…' : 'Permanently delete my account'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteForm(false); setDeleteConfirmText(''); setDeleteError(null) }}
+                className="text-sm text-slate-400 hover:text-slate-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
