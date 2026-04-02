@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShieldCheck, Ticket, BarChart3, DollarSign,
   Users, MessageSquare, UserCog, Globe, BookOpen, LogOut,
-  ChevronLeft, ChevronRight, Menu, X,
+  ChevronLeft, ChevronRight, Menu, X, Truck,
 } from 'lucide-react'
 
 type Tier = 'free' | 'pro' | 'institutional'
@@ -39,6 +39,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Staff',       href: '/admin/staff',     icon: Users },
   { label: 'Feedback',    href: '/admin/feedback',  icon: MessageSquare },
   { label: 'Users',       href: '/admin/users',     icon: UserCog },
+  { label: 'Supply Chain', href: '/admin/supply-chain', icon: Truck },
   { label: 'Site Tester', href: '/admin/tester',    icon: Globe },
   { label: 'API Docs',    href: '/admin/api-docs',  icon: BookOpen },
 ]
