@@ -36,6 +36,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   if (!res.ok) notFound()
   const p: Payment = await res.json()
 
+  // Access control: only the payment owner or admin can view this invoice
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isAdmin = adminEmails.includes((user.email ?? '').toLowerCase())
+  const { data: profile } = await supabase.from('user_profiles').select('role').eq('user_id', user.id).single()
+  const isOwner = p.user_email?.toLowerCase() === (user.email ?? '').toLowerCase()
+  if (!isOwner && !isAdmin && profile?.role !== 'admin' && profile?.role !== 'staff') notFound()
+
   const date       = new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const planMap: Record<string, string> = { pro: 'Pro Plan', institutional: 'Institutional Plan' }
   const planName   = planMap[p.plan_key] ?? p.plan_label ?? 'Subscription'

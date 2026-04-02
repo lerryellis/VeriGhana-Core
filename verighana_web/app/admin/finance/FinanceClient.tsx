@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { USD_TO_GHS } from '@/lib/constants'
 import type { FinancePayment, FinancePayrollRun } from './page'
 
 interface Props {
@@ -8,8 +9,6 @@ interface Props {
   payrollRuns: FinancePayrollRun[]
   isAdmin: boolean
 }
-
-const USD_TO_GHS = 15
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 function fmt(n: number, currency = '₵') {

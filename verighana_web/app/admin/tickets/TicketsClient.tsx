@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { markFollowupRead as serverMarkFollowupRead, updateTicketStatus, sendTicketReply } from './actions'
 import type { AdminTicket } from './page'
 
 type Status = AdminTicket['status']
@@ -16,11 +17,9 @@ const STATUSES: Status[] = ['open', 'in_progress', 'resolved', 'closed']
 
 interface Props {
   tickets: AdminTicket[]
-  adminKey: string
-  apiUrl: string
 }
 
-export function TicketsClient({ tickets: initial, adminKey, apiUrl }: Props) {
+export function TicketsClient({ tickets: initial }: Props) {
   const [tickets, setTickets] = useState<AdminTicket[]>(initial)
   const [filter, setFilter]   = useState<Status | 'all'>('all')
   const [search, setSearch]   = useState('')
@@ -40,31 +39,18 @@ export function TicketsClient({ tickets: initial, adminKey, apiUrl }: Props) {
     return matchStatus && matchSearch
   })
 
-  async function markFollowupRead(id: string) {
+  async function handleMarkFollowupRead(id: string) {
     const t = tickets.find(x => x.id === id)
     if (!t?.user_followup || t.user_followup_read) return
-    await fetch(`${apiUrl}/admin/tickets/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
-      body: JSON.stringify({ user_followup_read: true }),
-    })
+    await serverMarkFollowupRead(id)
     setTickets(prev => prev.map(x => x.id === id ? { ...x, user_followup_read: true } : x))
   }
 
   async function updateStatus(id: string, status: Status) {
     setUpdating(id)
     try {
-      const res = await fetch(`${apiUrl}/admin/tickets/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Key': adminKey,
-        },
-        body: JSON.stringify({ status }),
-      })
-      if (res.ok) {
-        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t))
-      }
+      const ok = await updateTicketStatus(id, status)
+      if (ok) setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t))
     } finally {
       setUpdating(null)
     }
@@ -77,29 +63,23 @@ export function TicketsClient({ tickets: initial, adminKey, apiUrl }: Props) {
     setSending(t.id)
     setReplyMsg(prev => ({ ...prev, [t.id]: { type: 'success', text: '' } }))
     try {
-      const res = await fetch(`${apiUrl}/support/reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
-        body: JSON.stringify({
-          to_email:   t.email,
-          to_name:    t.name ?? t.email,
-          subject:    t.subject,
-          body,
-          ticket_id:  t.id,
-          new_status: newStatus,
-        }),
+      const result = await sendTicketReply({
+        ticketId: t.id,
+        toEmail: t.email,
+        toName: t.name ?? t.email,
+        subject: t.subject,
+        body,
+        newStatus,
       })
-      if (res.ok) {
-        const data = await res.json() as { saved: boolean; email_sent: boolean; email_error?: string }
-        setTickets(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus } : x))
+      if (result.ok) {
+        setTickets(prev => prev.map(x => x.id === t.id ? { ...x, status: newStatus as Status } : x))
         setReplyText(prev => ({ ...prev, [t.id]: '' }))
-        const emailNote = data.email_sent
+        const emailNote = result.emailSent
           ? ` · Email sent to ${t.email}`
-          : ` · In-app only (email: ${data.email_error ?? 'not configured'})`
+          : ` · In-app only (email: ${result.emailError ?? 'not configured'})`
         setReplyMsg(prev => ({ ...prev, [t.id]: { type: 'success', text: `Reply saved${emailNote}` } }))
       } else {
-        const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
-        setReplyMsg(prev => ({ ...prev, [t.id]: { type: 'error', text: err.detail ?? 'Failed to send.' } }))
+        setReplyMsg(prev => ({ ...prev, [t.id]: { type: 'error', text: result.error ?? 'Failed to send.' } }))
       }
     } catch (e: unknown) {
       setReplyMsg(prev => ({ ...prev, [t.id]: { type: 'error', text: (e as Error).message } }))
@@ -170,7 +150,7 @@ export function TicketsClient({ tickets: initial, adminKey, apiUrl }: Props) {
                 onClick={() => {
                   const opening = expanded !== t.id
                   setExpanded(opening ? t.id : null)
-                  if (opening) markFollowupRead(t.id)
+                  if (opening) handleMarkFollowupRead(t.id)
                 }}
                 className="w-full text-left px-5 py-4 hover:bg-slate-50 transition-colors"
               >

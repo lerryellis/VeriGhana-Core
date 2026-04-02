@@ -33,5 +33,5 @@ async function fetchTickets(): Promise<AdminTicket[]> {
 
 export default async function TicketsPage() {
   const tickets = await fetchTickets()
-  return <TicketsClient tickets={tickets} adminKey={ADMIN_KEY} apiUrl={API_URL} />
+  return <TicketsClient tickets={tickets} />
 }

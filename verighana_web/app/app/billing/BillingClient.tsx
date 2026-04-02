@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { TierChip } from '@/components/ui/TierChip'
 import type { UserProfile } from '../account/page'
 import type { PaymentRecord } from './page'
@@ -8,8 +9,7 @@ import type { PaymentRecord } from './page'
 const API_URL         = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 const PAYSTACK_PK     = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''
 
-// GHS pesewas (1 GHS = 100 pesewas). Rate: ~15 GHS per USD
-const USD_TO_GHS = 15
+import { USD_TO_GHS, GRA_TAX } from '@/lib/constants'
 function toKobo(usd: number) { return Math.round(usd * USD_TO_GHS * 100) }
 
 declare global {
@@ -71,6 +71,7 @@ interface Props {
 }
 
 export function BillingClient({ profile, authEmail, accessToken, payments, role = 'user' }: Props) {
+  const router = useRouter()
   const isPrivileged = role === 'admin' || role === 'staff'
   const tier = profile?.tier ?? 'free'
   const isPaid = tier !== 'free'
@@ -89,18 +90,15 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Ghana tax levies (GRA, effective Jan 2026)
-  const TAX = { vat: 0.15, nhil: 0.025, getfund: 0.025 }  // combined 20%
-
   const plan       = PLANS[selectedPlan]
   const price      = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
   const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
 
   // Tax breakdown (all levies applied on subtotal per GRA re-coupling 2026)
   const subtotal     = billing === 'annual' ? price * 12 : price
-  const vatAmount    = Math.round(subtotal * TAX.vat     * 100) / 100
-  const nhilAmount   = Math.round(subtotal * TAX.nhil    * 100) / 100
-  const getfundAmount = Math.round(subtotal * TAX.getfund * 100) / 100
+  const vatAmount    = Math.round(subtotal * GRA_TAX.vat     * 100) / 100
+  const nhilAmount   = Math.round(subtotal * GRA_TAX.nhil    * 100) / 100
+  const getfundAmount = Math.round(subtotal * GRA_TAX.getfund * 100) / 100
   const totalTax     = Math.round((vatAmount + nhilAmount + getfundAmount) * 100) / 100
   const totalPrice   = Math.round((subtotal + totalTax) * 100) / 100
 
@@ -165,7 +163,8 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
         })
           .then(res => {
             if (!res.ok) return res.json().catch(() => ({})).then((e: { detail?: string }) => { throw new Error(e.detail ?? `Verification failed (${res.status})`) })
-            setMsg({ type: 'success', text: `Payment successful! Your ${plan.name} plan is now active. Refresh the page to see your updated tier.` })
+            setMsg({ type: 'success', text: `Payment successful! Your ${plan.name} plan is now active.` })
+            setTimeout(() => router.refresh(), 1500)
           })
           .catch((err: Error) => {
             setMsg({ type: 'error', text: err.message })

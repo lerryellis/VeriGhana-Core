@@ -27,7 +27,8 @@ export default async function FinancePage() {
 
   const { data: profile } = await supabase
     .from('user_profiles').select('role').eq('user_id', user.id).single()
-  const isAdmin = profile?.role === 'admin'
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isAdmin = adminEmails.includes((user.email ?? '').toLowerCase()) || profile?.role === 'admin'
 
   const [{ data: payments }, { data: payrollRuns }] = await Promise.all([
     isAdmin
