@@ -10,6 +10,13 @@ async function adminClient() {
   return createAdmin(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
+async function auditLog(adminEmail: string, action: string, targetId: string, targetEmail: string, details: Record<string, unknown> = {}) {
+  try {
+    const admin = await adminClient()
+    await admin.from('admin_audit_log').insert({ admin_email: adminEmail, action, target_id: targetId, target_email: targetEmail, details })
+  } catch { /* non-blocking */ }
+}
+
 export async function deleteUser(userId: string): Promise<{ error?: string }> {
   try {
     const supabase = await createClient()
@@ -24,9 +31,11 @@ export async function deleteUser(userId: string): Promise<{ error?: string }> {
     if (profile?.role !== 'admin') return { error: 'Forbidden' }
 
     const admin = await adminClient()
+    const { data: target } = await admin.from('user_profiles').select('email').eq('user_id', userId).single()
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) return { error: error.message }
 
+    await auditLog(user.email ?? '', 'delete_user', userId, target?.email ?? '', {})
     revalidatePath('/admin/users')
     return {}
   } catch (e) {
@@ -51,12 +60,14 @@ export async function changeUserPlan(
     if (profile?.role !== 'admin') return { error: 'Forbidden' }
 
     const admin = await adminClient()
+    const { data: target } = await admin.from('user_profiles').select('email, tier').eq('user_id', userId).single()
     const { error } = await admin
       .from('user_profiles')
       .update({ tier, subscription_status: 'active' })
       .eq('user_id', userId)
     if (error) return { error: error.message }
 
+    await auditLog(user.email ?? '', 'change_tier', userId, target?.email ?? '', { from: target?.tier, to: tier })
     revalidatePath('/admin/users')
     return {}
   } catch (e) {
@@ -84,12 +95,14 @@ export async function changeUserRole(
     if (userId === user.id && role !== 'admin') return { error: 'Cannot remove your own admin role.' }
 
     const admin = await adminClient()
+    const { data: target } = await admin.from('user_profiles').select('email, role').eq('user_id', userId).single()
     const { error } = await admin
       .from('user_profiles')
       .update({ role })
       .eq('user_id', userId)
     if (error) return { error: error.message }
 
+    await auditLog(user.email ?? '', 'change_role', userId, target?.email ?? '', { from: target?.role, to: role })
     revalidatePath('/admin/users')
     return {}
   } catch (e) {
