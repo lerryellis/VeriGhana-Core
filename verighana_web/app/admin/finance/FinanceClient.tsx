@@ -66,10 +66,23 @@ export function FinanceClient({ payments, payrollRuns, isAdmin }: Props) {
   const payrollSsfEmpr   = relevantRuns.reduce((s, r) => s + Number(r.total_ssf_employer_ghs), 0)
   const totalPayrollCost = payrollGross + payrollSsfEmpr  // employer's true cost
 
+  // ── Operational Expenses (monthly estimates in GHS) ────────────────────────
+  const DEFAULT_EXPENSES = [
+    { name: 'Railway hosting',    amount: 0 },
+    { name: 'Vercel hosting',     amount: 0 },
+    { name: 'Supabase (DB)',      amount: 0 },
+    { name: 'AI API credits',     amount: 0 },
+    { name: 'Domain & DNS',       amount: 0 },
+    { name: 'Other tools',        amount: 0 },
+  ]
+  const [expenses, setExpenses] = useState(DEFAULT_EXPENSES)
+  const totalOpex = expenses.reduce((s, e) => s + e.amount, 0)
+  // Scale opex by period
+  const periodMonths = period === '30d' ? 1 : period === '90d' ? 3 : period === '1y' ? 12 : Math.max(1, Math.ceil(succeeded.length / 10))
+  const scaledOpex = totalOpex * periodMonths
+
   // ── Profit ────────────────────────────────────────────────────────────────
-  // Profit = Revenue (pre-tax) in GHS − total payroll cost
-  // Tax collected from customers is a liability (pass-through to GRA)
-  const profitGhs = revenueGhs - totalPayrollCost
+  const profitGhs = revenueGhs - totalPayrollCost - scaledOpex
 
   // ── Month-by-month revenue ────────────────────────────────────────────────
   const monthlyRevenue = useMemo(() => {
@@ -190,6 +203,37 @@ export function FinanceClient({ payments, payrollRuns, isAdmin }: Props) {
         </div>
       )}
 
+      {/* ── Operational Expenses ─────────────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">Monthly Operational Expenses (GHS)</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {expenses.map((exp, i) => (
+              <div key={exp.name} className="flex items-center gap-2">
+                <label className="text-xs text-slate-500 w-28 shrink-0 truncate" title={exp.name}>{exp.name}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={exp.amount || ''}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value) || 0
+                    setExpenses(prev => prev.map((x, j) => j === i ? { ...x, amount: val } : x))
+                  }}
+                  placeholder="0.00"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-xs px-2 py-1.5 rounded-lg outline-none focus:border-blue-400 font-mono-vg"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+            <span className="text-xs text-slate-500">Total monthly OPEX</span>
+            <span className="text-sm font-mono-vg font-bold text-[#0f2240]">{fmt(totalOpex)}</span>
+          </div>
+          <p className="text-xs text-slate-300 font-mono-vg mt-2">Enter monthly estimates. These are multiplied by the selected period for the P&L below.</p>
+        </div>
+      )}
+
       {/* ── P&L Summary ─────────────────────────────────────────────────────── */}
       {isAdmin && <div className="bg-white border border-slate-200 rounded-xl p-6">
         <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-4">P&L Summary (GHS)</p>
@@ -199,6 +243,7 @@ export function FinanceClient({ payments, payrollRuns, isAdmin }: Props) {
             { label: '− GRA taxes (VAT/NHIL/GETFund)', value: taxGhs,   sign: '−',  color: 'text-amber-600' },
             { label: '= Net Revenue',          value: revenueGhs,        sign: '=',  color: 'text-green-600', bold: true },
             { label: '− Total payroll cost',   value: totalPayrollCost,  sign: '−',  color: 'text-slate-600' },
+            { label: `− Operational expenses (${periodMonths}mo)`, value: scaledOpex, sign: '−', color: 'text-slate-600' },
             { label: '= Estimated Profit',     value: profitGhs,         sign: '=',  color: profitGhs >= 0 ? 'text-green-700' : 'text-red-500', bold: true },
           ].map(row => (
             <div key={row.label} className={`flex items-center justify-between ${row.bold ? 'border-t border-slate-200 pt-2 mt-2' : ''}`}>
@@ -210,7 +255,7 @@ export function FinanceClient({ payments, payrollRuns, isAdmin }: Props) {
           ))}
         </div>
         <p className="text-xs text-slate-300 font-mono-vg mt-4">
-          Note: USD converted at ₵{USD_TO_GHS}/USD (fixed rate). Profit estimate does not include hosting, tooling, or other operational costs.
+          Note: USD converted at ₵{USD_TO_GHS}/USD (fixed rate). Operational expenses are monthly estimates entered above.
         </p>
       </div>}
     </div>
