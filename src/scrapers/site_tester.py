@@ -24,13 +24,9 @@ import sys, os, time
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/120.0.0.0 Safari/537.36",
-    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-}
+from scrapers.bot_identity import BROWSER_HEADERS, BOT_HEADERS, is_challenge_page
+
+HEADERS = BROWSER_HEADERS
 
 # ──────────────────────────────────────────────
 #  STRATEGY 1 — HEADLINE TAG PATTERNS
@@ -218,12 +214,12 @@ def _resolve(href, base_url):
 
 
 def _fetch(url):
-    """Fetch URL, retry without SSL on certificate errors. Returns response or error dict."""
+    """Fetch URL, retry without SSL on certificate errors. Auto-retries with bot identity on challenge pages."""
     try:
-        return requests.get(url, headers=HEADERS, timeout=15, verify=True)
+        resp = requests.get(url, headers=HEADERS, timeout=15, verify=True)
     except requests.exceptions.SSLError:
         try:
-            return requests.get(url, headers=HEADERS, timeout=15, verify=False)
+            resp = requests.get(url, headers=HEADERS, timeout=15, verify=False)
         except Exception:
             return {"_error": "ssl_error"}
     except requests.exceptions.ConnectionError:
@@ -232,6 +228,27 @@ def _fetch(url):
         return {"_error": "timeout"}
     except Exception as e:
         return {"_error": str(e)}
+
+    # Detect Akamai/Cloudflare challenge → retry with honest bot identity
+    if is_challenge_page(resp):
+        print(f"  🤖 Challenge detected — retrying with VeriGhana-Bot identity...")
+        try:
+            bot_resp = requests.get(url, headers=BOT_HEADERS, timeout=15, verify=True)
+        except requests.exceptions.SSLError:
+            try:
+                bot_resp = requests.get(url, headers=BOT_HEADERS, timeout=15, verify=False)
+            except Exception:
+                return resp  # return original challenge response
+        except Exception:
+            return resp
+
+        if not is_challenge_page(bot_resp):
+            print(f"  ✅ Bot identity bypassed the challenge successfully")
+            return bot_resp
+        else:
+            print(f"  ⚠️  Bot identity also challenged — site has strict bot protection")
+
+    return resp
 
 
 def _print_tag_debug(soup):
@@ -523,7 +540,17 @@ def test_site(site, update_db: bool = False):
         return {"name": name, "url": url, "category": category, "status": err, "samples": []}
 
     code = response.status_code
-    print(f"Status:   {code}  |  Size: {len(response.text):,} chars")
+    size = len(response.text)
+    print(f"Status:   {code}  |  Size: {size:,} chars")
+
+    # Check if we still got a challenge page after retry
+    if is_challenge_page(response):
+        print("RESULT:   🛡️  BOT CHALLENGE — site uses Akamai/Cloudflare protection")
+        print("          Both browser and bot identities were challenged.")
+        print("ACTION:   Try using the site's RSS feed or sitemap instead.")
+        return {"name": name, "url": url, "category": category,
+                "status": "challenge_blocked", "samples": [],
+                "challenge_detected": True}
 
     if code == 403:
         print("RESULT:   ❌ BLOCKED (403) — rejecting scrapers")

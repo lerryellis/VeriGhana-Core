@@ -33,13 +33,9 @@ from database_utils import get_source_id, get_supabase_client
 from dotenv import load_dotenv
 load_dotenv()
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/120.0.0.0 Safari/537.36",
-    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-}
+from scrapers.bot_identity import BROWSER_HEADERS, BOT_HEADERS, is_challenge_page
+
+HEADERS = BROWSER_HEADERS
 
 MIN_LENGTH = {
     "headline":     20,
@@ -297,16 +293,31 @@ HTML_SOURCES = [
 # ══════════════════════════════════════════════════════════════
 def fetch_page(url: str):
     try:
-        return requests.get(url, headers=HEADERS, timeout=15, verify=True)
+        resp = requests.get(url, headers=HEADERS, timeout=15, verify=True)
     except requests.exceptions.SSLError:
         try:
-            return requests.get(url, headers=HEADERS, timeout=15, verify=False)
+            resp = requests.get(url, headers=HEADERS, timeout=15, verify=False)
         except Exception as e:
             print(f"  SSL error: {e}")
             return None
     except Exception as e:
         print(f"  Could not fetch {url}: {e}")
         return None
+
+    # If we got a challenge page, retry with honest bot identity
+    if is_challenge_page(resp):
+        print(f"  Challenge detected — retrying with VeriGhana-Bot identity...")
+        try:
+            resp = requests.get(url, headers=BOT_HEADERS, timeout=15, verify=True)
+        except requests.exceptions.SSLError:
+            try:
+                resp = requests.get(url, headers=BOT_HEADERS, timeout=15, verify=False)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    return resp
 
 
 # ══════════════════════════════════════════════════════════════
