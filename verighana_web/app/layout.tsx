@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { CookieConsent } from '@/components/ui/CookieConsent'
 
 export const metadata: Metadata = {
   title: 'VeriGhana — AI Fact Verification for Ghana',
@@ -19,7 +20,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   )
 }
