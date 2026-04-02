@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import type { AdminUser } from './page'
 import { deleteUser, changeUserPlan, changeUserRole } from './actions'
 import { UserProfileModal } from './UserProfileModal'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface Props { users: AdminUser[] }
 
@@ -156,12 +157,15 @@ function UserRow({ u, onDeleted, onRowClick }: { u: AdminUser; onDeleted: (id: s
   )
 }
 
+const PAGE_SIZE = 25
+
 export function UsersClient({ users: initial }: Props) {
   const [users, setUsers]         = useState(initial)
   const [selected, setSelected]   = useState<AdminUser | null>(null)
   const [search,      setSearch]      = useState('')
   const [tierFilter,  setTierFilter]  = useState('all')
   const [roleFilter,  setRoleFilter]  = useState('all')
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -174,6 +178,8 @@ export function UsersClient({ users: initial }: Props) {
       return true
     })
   }, [users, search, tierFilter, roleFilter])
+
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const counts = {
     free:          users.filter(u => u.tier === 'free').length,
@@ -215,18 +221,18 @@ export function UsersClient({ users: initial }: Props) {
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
           placeholder="Search name, email or organisation…"
           className="flex-1 min-w-[200px] bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
         />
-        <select title="Filter by tier" value={tierFilter} onChange={e => setTierFilter(e.target.value)}
+        <select title="Filter by tier" value={tierFilter} onChange={e => { setTierFilter(e.target.value); setPage(1) }}
           className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400">
           <option value="all">All tiers</option>
           <option value="free">Free</option>
           <option value="pro">Pro</option>
           <option value="institutional">Institutional</option>
         </select>
-        <select title="Filter by role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+        <select title="Filter by role" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
           className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400">
           <option value="all">All roles</option>
           <option value="user">User</option>
@@ -250,10 +256,10 @@ export function UsersClient({ users: initial }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paged.length === 0 ? (
                 <tr><td colSpan={9} className="text-center text-slate-400 text-sm py-10">No users match the filter.</td></tr>
               ) : (
-                filtered.map(u => (
+                paged.map(u => (
                   <UserRow
                     key={u.user_id}
                     u={u}
@@ -264,6 +270,9 @@ export function UsersClient({ users: initial }: Props) {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 pb-3">
+          <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
         </div>
       </div>
     </div>

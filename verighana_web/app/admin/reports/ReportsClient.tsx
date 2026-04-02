@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, LineChart, Line,
 } from 'recharts'
 import type { Payment } from './page'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface Props { payments: Payment[] }
 
@@ -32,6 +33,8 @@ function downloadCSV(content: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+const PAGE_SIZE = 25
+
 export function ReportsClient({ payments }: Props) {
   const today    = new Date().toISOString().slice(0, 10)
   const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
@@ -40,6 +43,7 @@ export function ReportsClient({ payments }: Props) {
   const [dateTo,   setDateTo]   = useState(today)
   const [planFilter, setPlanFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     return payments.filter(p => {
@@ -51,6 +55,8 @@ export function ReportsClient({ payments }: Props) {
       return true
     })
   }, [payments, dateFrom, dateTo, planFilter, statusFilter])
+
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const succeeded = filtered.filter(p => p.status === 'succeeded')
   const revenue   = succeeded.reduce((s, p) => s + parseFloat(String(p.amount)), 0)
@@ -100,17 +106,17 @@ export function ReportsClient({ payments }: Props) {
       <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-4 items-end">
         <div>
           <label className="block text-xs text-slate-400 font-mono-vg uppercase tracking-wider mb-1">From</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
             className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400" />
         </div>
         <div>
           <label className="block text-xs text-slate-400 font-mono-vg uppercase tracking-wider mb-1">To</label>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
             className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400" />
         </div>
         <div>
           <label className="block text-xs text-slate-400 font-mono-vg uppercase tracking-wider mb-1">Plan</label>
-          <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
+          <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(1) }}
             className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400">
             <option value="all">All plans</option>
             <option value="pro">Pro</option>
@@ -119,7 +125,7 @@ export function ReportsClient({ payments }: Props) {
         </div>
         <div>
           <label className="block text-xs text-slate-400 font-mono-vg uppercase tracking-wider mb-1">Status</label>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
             className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400">
             <option value="all">All statuses</option>
             <option value="succeeded">Succeeded</option>
@@ -203,10 +209,10 @@ export function ReportsClient({ payments }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paged.length === 0 ? (
                 <tr><td colSpan={8} className="text-center text-slate-400 text-sm py-8">No records match the selected filters.</td></tr>
               ) : (
-                filtered.map(p => (
+                paged.map(p => (
                   <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono-vg whitespace-nowrap">
                       {new Date(p.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
@@ -246,6 +252,9 @@ export function ReportsClient({ payments }: Props) {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 pb-3">
+          <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
         </div>
       </div>
     </div>

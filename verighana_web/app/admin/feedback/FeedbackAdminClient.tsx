@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { FeedbackRow } from './page'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface Props { rows: FeedbackRow[] }
 
@@ -95,10 +96,13 @@ function downloadCSV(content: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+const PAGE_SIZE = 25
+
 export function FeedbackAdminClient({ rows }: Props) {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => rows.filter(r => {
     if (roleFilter !== 'all' && r.respondent_role !== roleFilter) return false
@@ -111,6 +115,8 @@ export function FeedbackAdminClient({ rows }: Props) {
     }
     return true
   }), [rows, search, roleFilter])
+
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const avgNps       = avg(rows.map(r => r.nps_score))
   const avgAccuracy  = avg(rows.map(r => r.rating_accuracy))
@@ -183,14 +189,14 @@ export function FeedbackAdminClient({ rows }: Props) {
         <input
           type="search"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
           placeholder="Search responses…"
           aria-label="Search feedback"
           className="flex-1 min-w-[200px] bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
         />
         <select
           value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
+          onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
           aria-label="Filter by role"
           className="bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
         >
@@ -210,11 +216,11 @@ export function FeedbackAdminClient({ rows }: Props) {
           <span className="px-3">Date</span>
         </div>
 
-        {filtered.length === 0 && (
+        {paged.length === 0 && (
           <p className="text-sm text-slate-400 text-center py-10">No responses yet.</p>
         )}
 
-        {filtered.map(r => (
+        {paged.map(r => (
           <div key={r.id} className="border-b border-slate-100 last:border-0">
             <button
               type="button"
@@ -299,6 +305,8 @@ export function FeedbackAdminClient({ rows }: Props) {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
     </div>
   )
 }

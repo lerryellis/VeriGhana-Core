@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { markFollowupRead as serverMarkFollowupRead, updateTicketStatus, sendTicketReply } from './actions'
 import type { AdminTicket } from './page'
+import { Pagination } from '@/components/ui/Pagination'
 
 type Status = AdminTicket['status']
 
@@ -19,10 +20,13 @@ interface Props {
   tickets: AdminTicket[]
 }
 
+const PAGE_SIZE = 25
+
 export function TicketsClient({ tickets: initial }: Props) {
   const [tickets, setTickets] = useState<AdminTicket[]>(initial)
   const [filter, setFilter]   = useState<Status | 'all'>('all')
   const [search, setSearch]   = useState('')
+  const [page, setPage] = useState(1)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [replyText, setReplyText]   = useState<Record<string, string>>({})
@@ -38,6 +42,8 @@ export function TicketsClient({ tickets: initial }: Props) {
       (t.message ?? '').toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
+
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleMarkFollowupRead(id: string) {
     const t = tickets.find(x => x.id === id)
@@ -104,7 +110,7 @@ export function TicketsClient({ tickets: initial }: Props) {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => setFilter('all')}
+          onClick={() => { setFilter('all'); setPage(1) }}
           className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
             filter === 'all' ? 'bg-[#0f2240] border-[#0f2240] text-white' : 'border-slate-200 text-slate-500 hover:border-slate-400'
           }`}
@@ -115,7 +121,7 @@ export function TicketsClient({ tickets: initial }: Props) {
           <button
             key={s}
             type="button"
-            onClick={() => setFilter(s)}
+            onClick={() => { setFilter(s); setPage(1) }}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
               filter === s
                 ? 'bg-[#0f2240] border-[#0f2240] text-white'
@@ -131,19 +137,19 @@ export function TicketsClient({ tickets: initial }: Props) {
       <input
         type="text"
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); setPage(1) }}
         placeholder="Search tickets…"
         className="w-full bg-white border border-slate-200 text-slate-700 text-sm px-4 py-2.5 rounded-xl outline-none focus:border-blue-400 transition-colors"
       />
 
       {/* Tickets */}
       <div className="space-y-2">
-        {filtered.length === 0 ? (
+        {paged.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-sm">
             No tickets found.
           </div>
         ) : (
-          filtered.map(t => (
+          paged.map(t => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
               <button
                 type="button"
@@ -250,6 +256,8 @@ export function TicketsClient({ tickets: initial }: Props) {
           ))
         )}
       </div>
+
+      <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
     </div>
   )
 }
