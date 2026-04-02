@@ -696,7 +696,45 @@ def run_html_ingestion(sources=None, max_per_source=15):
             print(f"[html_scraper] Loaded {len(db_extras)} additional source(s) from trusted_sources DB")
         sources_to_run = HTML_SOURCES + db_extras
 
+    # ── GhanaWeb special case: use sitemap scraper (Akamai-protected) ────
+    ghanaweb_names = {"ghanaweb"}
+    remaining_sources = []
     for source in sources_to_run:
+        if source["name"].lower().replace(" ", "") in ghanaweb_names:
+            print(f"\n── Scraping: {source['name']}  [sitemap via Playwright]")
+            base_url = source.get("base_url", "https://www.ghanaweb.com")
+            category = source.get("category", "Media")
+            source_id = get_source_id(supabase, source["name"], official_url=base_url, category=category)
+            if not source_id:
+                print(f"   Could not register '{source['name']}' in trusted_sources. Skipping.")
+                continue
+            try:
+                from scrapers.ghanaweb_sitemap import fetch_ghanaweb_articles
+                gw_articles = fetch_ghanaweb_articles()
+                print(f"   Found {len(gw_articles)} items from sitemap — processing up to {max_per_source}")
+                for item in gw_articles[:max_per_source]:
+                    content = scrape_article_content(item["url_link"])
+                    if not content or len(content) < 80:
+                        content = item["title"]
+                    try:
+                        supabase.table('fact_entries').upsert({
+                            'title':          item["title"],
+                            'url_link':       item["url_link"],
+                            'content_text':   content[:5000],
+                            'source_id':      source_id,
+                            'published_date': item.get("published_date") or None,
+                        }, on_conflict='url_link').execute()
+                        total_processed += 1
+                    except Exception as e:
+                        print(f"   DB error: {e}")
+            except ImportError:
+                print(f"   ghanaweb_sitemap module not available. Skipping.")
+            except Exception as e:
+                print(f"   GhanaWeb sitemap error: {e}")
+        else:
+            remaining_sources.append(source)
+
+    for source in remaining_sources:
         name = source["name"]
         url  = source["url"]
         mode = source.get("scrape_mode", "headline")
