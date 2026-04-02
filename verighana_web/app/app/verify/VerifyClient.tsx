@@ -200,6 +200,14 @@ export function VerifyClient({ userId, accessToken, tier, models, used: initialU
             </div>
           </div>
 
+          {/* Web search disclaimer */}
+          {result.disclaimer && (
+            <div className="mx-6 mt-4 mb-0 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              <p className="text-xs font-semibold text-amber-700 mb-1">Web Search Results</p>
+              <p className="text-xs text-amber-600 leading-relaxed">{result.disclaimer}</p>
+            </div>
+          )}
+
           {/* Truth bar */}
           <div className="px-6 py-4 border-b border-slate-100">
             <TruthBar score={result.score} showLabel={false} />

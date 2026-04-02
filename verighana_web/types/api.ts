@@ -51,6 +51,8 @@ export interface VerifyResponse {
   model_used:               string
   search_method:            string
   processing_ms:            number
+  web_search?:              boolean
+  disclaimer?:              string | null
   rate_limit?:              RateLimitStatus
 }
 

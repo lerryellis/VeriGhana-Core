@@ -409,6 +409,86 @@ def _run_ai_analysis(claim: str, sources: list, preferred_model: str) -> tuple[O
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+#  WEB SEARCH FALLBACK (when no local sources match)
+# ──────────────────────────────────────────────────────────────────────────────
+
+_WEB_PROMPT = """You are VeriGhana, a Ghana fact-checking AI.
+No trusted local sources were found for this claim. Use the web search results provided to assess it.
+
+CLAIM:
+{claim}
+
+INSTRUCTIONS:
+1. Assess the claim using the web search results.
+2. Clearly cite which web sources you found and their URLs.
+3. Be cautious — web results may be unreliable, outdated, or biased.
+4. If web results are insufficient, say so honestly.
+
+Return ONLY valid JSON:
+{{
+  "verdict": "VERIFIED or PARTIAL or FALSE or UNCORROBORATED",
+  "score": <integer 0-100, be conservative — max 70 for web-only results>,
+  "explanation": "<2-3 sentences explaining what you found and from where>",
+  "summary": "<3-4 sentences summarising the web findings>",
+  "web_sources": [
+    {{"title": "<page title>", "url": "<URL>", "snippet": "<relevant excerpt>"}}
+  ],
+  "source_notes": [],
+  "convergence": [],
+  "narrative_delta": [],
+  "bias_signals": [],
+  "triangulation_confidence": "low",
+  "triangulation_note": "Based on web search only — not verified against local trusted sources."
+}}"""
+
+
+def _web_search_fallback(claim: str) -> Optional[dict]:
+    """Use Gemini with Google Search grounding when no local sources are found."""
+    try:
+        from google import genai
+        from google.genai import types
+
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
+        if not api_key:
+            logger.warning("Web search fallback: no API key")
+            return None
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=_WEB_PROMPT.format(claim=claim),
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.2,
+            ),
+        )
+
+        text = response.text
+        if not text:
+            return None
+
+        parsed = _parse_json(text)
+        if parsed and isinstance(parsed.get("score"), (int, float)):
+            # Cap web-only scores at 70 for safety
+            parsed["score"] = min(70, int(parsed["score"]))
+            parsed["search_method"] = "web"
+            parsed["web_search"] = True
+            parsed["disclaimer"] = (
+                "No matching articles were found in VeriGhana's trusted local database. "
+                "These results are based on a web search and may not be fully accurate. "
+                "Cross-check with official sources before relying on this information."
+            )
+            return parsed
+
+    except ImportError:
+        logger.warning("Web search fallback: google-genai not installed")
+    except Exception as exc:
+        logger.warning("Web search fallback failed: %s", exc)
+
+    return None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 #  DATABASE HELPERS
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -585,18 +665,8 @@ def _keyword_search(claim: str, limit: int = 8) -> list:
             except Exception as e:
                 logger.warning("ilike %s/%s failed: %s", col, word, e)
 
-    # --- Strategy 2: recent rows as additional context if pool is thin ---
-    if len(candidate_pool) < limit:
-        try:
-            q = supabase.table("fact_entries").select("*")
-            if order_col:
-                q = q.order(order_col, desc=True)
-            r = q.limit(pool_target).execute()
-            _add(r.data)
-            logger.debug("recency fallback added %d rows", len(r.data or []))
-        except Exception as e:
-            logger.error("recency fallback failed: %s — order_col=%s actual_cols=%s",
-                         e, order_col, actual_cols)
+    # Recency fallback removed — we prefer returning no results over irrelevant ones.
+    # When no local sources match, the web search fallback in verify_claim() handles it.
 
     if not candidate_pool:
         logger.error("_keyword_search returned 0 results for: %r  cols=%s  words=%s",
@@ -621,7 +691,7 @@ def _vector_search(claim: str, model_id: str, limit: int = 6) -> list:
         return []
 
     for fn, kwargs in [
-        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.65}),
+        ("match_fact_entries", {"query_embedding": emb, "match_count": limit, "match_threshold": 0.75}),
         ("search_facts",       {"query_embedding": emb, "limit_count": limit}),
     ]:
         try:
@@ -861,6 +931,30 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
     # Enrich with category from trusted_sources table
     sources = _enrich_with_categories(sources)
 
+    # ── Web search fallback when no local sources found ──────────────────
+    if not sources:
+        web_result = _web_search_fallback(claim)
+        if web_result:
+            web_result["processing_ms"] = int((time.time() - start) * 1000)
+            web_result["provider"] = "Gemini (Web Search)"
+            web_result["model_used"] = eff
+            # Format web sources as regular sources for display
+            web_sources = web_result.pop("web_sources", [])
+            web_result["sources"] = [
+                {
+                    "title":       ws.get("title", "Web result"),
+                    "url_link":    ws.get("url", "#"),
+                    "url":         ws.get("url", "#"),
+                    "source_name": ws.get("title", "Web").split(" - ")[-1].strip() if " - " in ws.get("title", "") else "Web",
+                    "source":      "Web",
+                    "category":    "Web Search",
+                    "stance":      ws.get("snippet", ""),
+                }
+                for ws in web_sources
+            ]
+            web_result["categories"] = {"Web Search": [s["source_name"] for s in web_result["sources"]]}
+            return web_result
+
     # AI analysis
     ai, used = _run_ai_analysis(claim, sources, eff)
 
@@ -949,4 +1043,6 @@ def verify_claim(claim: str, model: str = DEFAULT_MODEL,
         "provider":                 provider,
         "search_method":            search_method,
         "processing_ms":            int((time.time() - start) * 1000),
+        "web_search":               False,
+        "disclaimer":               None,
     }

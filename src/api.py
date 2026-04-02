@@ -410,6 +410,8 @@ class VerifyResponse(BaseModel):
     provider:      Optional[str]        = None
     search_method: str
     processing_ms: int
+    web_search:    bool                  = False
+    disclaimer:    Optional[str]         = None
     rate_limit:    Optional[RateLimitOut] = None
 
 
@@ -698,6 +700,8 @@ async def verify(
         provider                 = result.get("provider"),
         search_method            = result.get("search_method", "vector"),
         processing_ms            = result.get("processing_ms", ms),
+        web_search               = result.get("web_search", False),
+        disclaimer               = result.get("disclaimer"),
         rate_limit               = _build_rl(user.id, user.tier),
     )
 
