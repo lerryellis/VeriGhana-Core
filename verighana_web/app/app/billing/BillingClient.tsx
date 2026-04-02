@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { TierChip } from '@/components/ui/TierChip'
 import type { UserProfile } from '../account/page'
 import type { PaymentRecord } from './page'
@@ -87,11 +88,42 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
   const [phone, setPhone] = useState(profile?.phone ?? '')
   const [fullName, setFullName] = useState(profile?.full_name ?? '')
   const [promoCode, setPromoCode] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [promoValid, setPromoValid] = useState<boolean | null>(null)
+  const [promoChecking, setPromoChecking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  async function validatePromo() {
+    const code = promoCode.trim().toUpperCase()
+    if (!code) { setPromoValid(null); setPromoDiscount(0); return }
+    setPromoChecking(true)
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('vg_promo_codes')
+        .select('discount_pct, is_active, max_uses, uses_count, valid_until')
+        .eq('code', code)
+        .single()
+      if (!data || !data.is_active) {
+        setPromoValid(false); setPromoDiscount(0)
+      } else if (data.max_uses && data.uses_count >= data.max_uses) {
+        setPromoValid(false); setPromoDiscount(0)
+      } else if (data.valid_until && new Date(data.valid_until) < new Date()) {
+        setPromoValid(false); setPromoDiscount(0)
+      } else {
+        setPromoValid(true); setPromoDiscount(data.discount_pct ?? 0)
+      }
+    } catch {
+      setPromoValid(false); setPromoDiscount(0)
+    } finally {
+      setPromoChecking(false)
+    }
+  }
+
   const plan       = PLANS[selectedPlan]
-  const price      = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
+  const basePrice  = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
+  const price      = promoDiscount > 0 ? Math.round(basePrice * (1 - promoDiscount / 100) * 100) / 100 : basePrice
   const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
 
   // Tax breakdown (all levies applied on subtotal per GRA re-coupling 2026)
@@ -369,13 +401,31 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
             {/* Promo code */}
             <div>
               <label className="block text-xs text-slate-400 mb-1 font-mono-vg uppercase tracking-wider">Promo Code (optional)</label>
-              <input
-                type="text"
-                value={promoCode}
-                onChange={e => setPromoCode(e.target.value.toUpperCase())}
-                placeholder="GHANA2025"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors font-mono-vg"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoValid(null); setPromoDiscount(0) }}
+                  placeholder="GIMPA2026"
+                  className={`flex-1 bg-slate-50 border text-slate-700 text-sm px-3 py-2 rounded-lg outline-none transition-colors font-mono-vg ${
+                    promoValid === true ? 'border-green-400' : promoValid === false ? 'border-red-300' : 'border-slate-200 focus:border-blue-400'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={validatePromo}
+                  disabled={!promoCode.trim() || promoChecking}
+                  className="text-xs font-medium px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors disabled:opacity-40"
+                >
+                  {promoChecking ? '…' : 'Apply'}
+                </button>
+              </div>
+              {promoValid === true && (
+                <p className="text-xs text-green-600 mt-1 font-mono-vg">{promoDiscount}% discount applied!</p>
+              )}
+              {promoValid === false && (
+                <p className="text-xs text-red-500 mt-1 font-mono-vg">Invalid, expired, or fully used code.</p>
+              )}
             </div>
 
             {/* Order summary with tax breakdown */}
@@ -385,6 +435,12 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
                 <span>{plan.name} · {billing === 'annual' ? 'Annual' : 'Monthly'}</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Promo discount (−{promoDiscount}%)</span>
+                  <span>−${(basePrice * (billing === 'annual' ? 12 : 1) * promoDiscount / 100).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-slate-500">
                 <span>VAT (15%)</span>
                 <span>+${vatAmount.toFixed(2)}</span>
