@@ -2,7 +2,7 @@
 
 import { useTransition, useState, useEffect } from 'react'
 import type { AdminUser } from './page'
-import { deleteUser, changeUserPlan, getUserLastPayment, type UserPayment } from './actions'
+import { deleteUser, changeUserPlan, getUserLastPayment, getUserTimeline, type UserPayment, type TimelineEvent } from './actions'
 
 interface Props {
   user: AdminUser
@@ -38,10 +38,16 @@ export function UserProfileModal({ user, onClose, onDeleted, onTierChanged }: Pr
   const [err,          setErr]              = useState<string | null>(null)
   const [resetSent,    setResetSent]        = useState(false)
   const [payment,      setPayment]          = useState<UserPayment | null | 'loading'>('loading')
+  const [timeline,     setTimeline]         = useState<TimelineEvent[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(true)
 
   useEffect(() => {
     getUserLastPayment(user.user_id).then(setPayment)
-  }, [user.user_id])
+    getUserTimeline(user.user_id, user.email).then(events => {
+      setTimeline(events)
+      setTimelineLoading(false)
+    })
+  }, [user.user_id, user.email])
 
   const limit   = TIER_LIMIT[tier]
   const used    = user.daily_queries_used ?? 0
@@ -246,6 +252,41 @@ export function UserProfileModal({ user, onClose, onDeleted, onTierChanged }: Pr
             </div>
           </div>
           </div>
+        </div>
+
+        {/* Customer Timeline */}
+        <div className="px-8 py-5 border-t border-slate-100 max-h-60 overflow-y-auto">
+          <p className="text-[0.6rem] font-bold tracking-[0.18em] text-slate-400 uppercase mb-3">Activity Timeline</p>
+          {timelineLoading ? (
+            <div className="flex gap-2 items-center text-xs text-slate-400">
+              <span className="w-3 h-3 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+              Loading…
+            </div>
+          ) : timeline.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No activity recorded yet.</p>
+          ) : (
+            <div className="relative pl-4 border-l-2 border-slate-100 space-y-3">
+              {timeline.map((ev, i) => {
+                const dotColor =
+                  ev.type === 'payment'      ? 'bg-green-500' :
+                  ev.type === 'ticket'       ? 'bg-amber-500' :
+                  ev.type === 'verification' ? 'bg-blue-500' :
+                  'bg-slate-400'
+                return (
+                  <div key={`${ev.date}-${i}`} className="relative">
+                    <span className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ${dotColor} ring-2 ring-white`} />
+                    <p className="text-xs font-medium text-slate-700">{ev.label}</p>
+                    <p className="text-[0.65rem] text-slate-400">{ev.detail}</p>
+                    <p className="text-[0.6rem] text-slate-300 font-mono-vg mt-0.5">
+                      {new Date(ev.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' · '}
+                      {new Date(ev.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Actions row */}

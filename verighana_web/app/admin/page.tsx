@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/server'
 import { AdminClient } from './AdminClient'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -19,8 +20,29 @@ async function fetchAdminStats() {
   }
 }
 
-export default async function AdminPage() {
-  const stats = await fetchAdminStats()
+export type CrmUser = {
+  created_at: string
+  tier: string
+  role: string
+  daily_queries_used: number
+  subscription_status: string | null
+}
 
-  return <AdminClient stats={stats} adminKey={ADMIN_KEY} apiUrl={API_URL} />
+export default async function AdminPage() {
+  const [stats, supabase] = await Promise.all([fetchAdminStats(), createClient()])
+
+  // CRM data: all user profiles for signup chart, segmentation, and churn
+  const { data: crmUsers } = await supabase
+    .from('user_profiles')
+    .select('created_at, tier, role, daily_queries_used, subscription_status')
+    .order('created_at', { ascending: true })
+
+  return (
+    <AdminClient
+      stats={stats}
+      adminKey={ADMIN_KEY}
+      apiUrl={API_URL}
+      crmUsers={(crmUsers ?? []) as CrmUser[]}
+    />
+  )
 }

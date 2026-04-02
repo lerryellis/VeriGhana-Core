@@ -97,6 +97,62 @@ export async function changeUserRole(
   }
 }
 
+export type TimelineEvent = {
+  type: 'signup' | 'payment' | 'ticket' | 'verification'
+  date: string
+  label: string
+  detail: string
+}
+
+export async function getUserTimeline(userId: string, email: string): Promise<TimelineEvent[]> {
+  try {
+    const admin = await adminClient()
+    const events: TimelineEvent[] = []
+
+    // Payments
+    const { data: payments } = await admin
+      .from('payments').select('plan_label, amount, currency, created_at, status')
+      .eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+    for (const p of payments ?? []) {
+      events.push({
+        type: 'payment', date: p.created_at,
+        label: `Payment: ${p.plan_label ?? 'Subscription'}`,
+        detail: `$${p.amount} ${p.currency} — ${p.status}`,
+      })
+    }
+
+    // Support tickets
+    const { data: tickets } = await admin
+      .from('support_tickets').select('subject, status, created_at, category')
+      .eq('email', email).order('created_at', { ascending: false }).limit(10)
+    for (const t of tickets ?? []) {
+      events.push({
+        type: 'ticket', date: t.created_at,
+        label: `Ticket: ${t.subject}`,
+        detail: `${t.category ?? 'General'} — ${t.status}`,
+      })
+    }
+
+    // Verifications
+    const { data: verifications } = await admin
+      .from('vg_usage_logs').select('created_at, verdict, score, model_used')
+      .eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+    for (const v of verifications ?? []) {
+      events.push({
+        type: 'verification', date: v.created_at,
+        label: `Verification: ${v.verdict ?? 'Unknown'}`,
+        detail: `Score ${v.score ?? '—'} · ${v.model_used ?? 'Unknown model'}`,
+      })
+    }
+
+    // Sort descending by date
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return events.slice(0, 20)
+  } catch {
+    return []
+  }
+}
+
 export type UserPayment = {
   plan_label:     string
   amount:         number
