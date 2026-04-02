@@ -127,6 +127,7 @@ export function UserProfileModal({ user, onClose, onDeleted, onTierChanged }: Pr
                 {[
                   { label: 'Name',         value: displayName },
                   { label: 'Email',        value: user.email },
+                  { label: 'Phone',        value: user.phone || '—' },
                   { label: 'Organisation', value: user.organisation || '—' },
                   { label: 'Country',      value: user.country || '—' },
                   { label: 'Role',         value: user.role },

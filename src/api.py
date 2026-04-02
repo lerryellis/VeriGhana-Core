@@ -1153,7 +1153,7 @@ async def admin_users(
         q = (
             _supa(service=True)
             .table("user_profiles")
-            .select("user_id,email,full_name,organisation,country,tier,role,"
+            .select("user_id,email,full_name,phone,organisation,country,tier,role,"
                     "subscription_status,subscription_expires_at,daily_queries_used,created_at")
             .order("created_at", desc=True)
             .limit(limit)
