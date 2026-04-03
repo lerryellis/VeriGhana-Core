@@ -129,15 +129,6 @@ HTML_SOURCES = [
         "article_class": None,
         "base_url":      "https://citinewsroom.com"
     },
-    {
-        "name":          "Citinewsroom",
-        "url":           "https://citinewsroom.com/",
-        "scrape_mode":   "headline",
-        "article_tag":   "h3",
-        "article_class": None,
-        "base_url":      "https://citinewsroom.com"
-    },
-
     # ── GOVERNMENT — MINISTRIES ────────────────────────────────
     {
         "name":          "Ministry of Finance",
@@ -212,14 +203,6 @@ HTML_SOURCES = [
         "article_tag":   "h3",
         "article_class": "jeg_post_title",
         "base_url":      "https://judicial.gov.gh"
-    },
-    {
-        "name":          "Communication Authority",
-        "url":           "https://nca.org.gh/",
-        "scrape_mode":   "headline",
-        "article_tag":   "h3",
-        "article_class": None,
-        "base_url":      "https://nca.org.gh"
     },
     {
         "name":          "National Communications Auth",
@@ -300,9 +283,60 @@ HTML_SOURCES = [
         "base_url":      "https://www.gimpa.edu.gh"
     },
 
-    # NOTE: Facebook and Twitter/X URLs removed.
-    # These sites actively block all scraping.
-    # Use their official APIs if social media content is needed.
+    # ── MEDIA (missing from scraper) ─────────────────────────
+    {"name": "Joy Online",           "url": "https://www.myjoyonline.com/news/",  "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.myjoyonline.com"},
+    {"name": "Pulse Ghana",          "url": "https://www.pulse.com.gh/",           "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.pulse.com.gh"},
+    {"name": "Peacefm Online",       "url": "https://www.peacefmonline.com/",      "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.peacefmonline.com"},
+
+    # ── GOVERNMENT — EXECUTIVE ────────────────────────────────
+    {"name": "Office of the President", "url": "https://presidency.gov.gh/",       "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://presidency.gov.gh"},
+    {"name": "Ghana Government Portal", "url": "https://www.ghana.gov.gh/",       "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.ghana.gov.gh"},
+    {"name": "Parliament of Ghana",  "url": "https://www.parliament.gh/news",      "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.parliament.gh"},
+
+    # ── GOVERNMENT — MINISTRIES (missing) ─────────────────────
+    {"name": "Ministry of Education",        "url": "https://moe.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://moe.gov.gh"},
+    {"name": "Ministry of Energy",           "url": "https://www.energymin.gov.gh/",      "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.energymin.gov.gh"},
+    {"name": "Ministry of Roads and Highways", "url": "https://www.mrh.gov.gh/",          "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.mrh.gov.gh"},
+    {"name": "Ministry of Trade and Industry", "url": "https://www.moti.gov.gh/",         "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.moti.gov.gh"},
+    {"name": "Ministry of Justice",          "url": "https://mojag.gov.gh/",              "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://mojag.gov.gh"},
+
+    # ── GOVERNMENT — REGULATORY (missing) ─────────────────────
+    {"name": "Electoral Commission",         "url": "https://www.ec.gov.gh/",             "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.ec.gov.gh"},
+    {"name": "National Development Planning", "url": "https://www.ndpc.gov.gh/",          "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.ndpc.gov.gh"},
+    {"name": "Public Procurement Authority", "url": "https://www.ppbghana.org/",          "scrape_mode": "document", "article_tag": None, "article_class": None, "base_url": "https://www.ppbghana.org"},
+    {"name": "Public Utilities Regulatory Comm", "url": "https://www.purc.com.gh/",       "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.purc.com.gh"},
+    {"name": "Ghana Standards Authority",    "url": "https://www.gsa.gov.gh/",            "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.gsa.gov.gh"},
+    {"name": "Food and Drugs Authority",     "url": "https://www.fdaghana.gov.gh/",       "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.fdaghana.gov.gh"},
+    {"name": "Data Protection Commission",   "url": "https://www.dataprotection.org.gh/", "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.dataprotection.org.gh"},
+    {"name": "Cyber Security Authority",     "url": "https://csa.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://csa.gov.gh"},
+    {"name": "Ghana Revenue Authority",      "url": "https://gra.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://gra.gov.gh"},
+
+    # ── GOVERNMENT — FINANCE & BUSINESS (missing) ─────────────
+    {"name": "National Insurance Commission", "url": "https://nicghana.org/",             "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://nicghana.org"},
+    {"name": "NPRA",                         "url": "https://www.npra.gov.gh/",           "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.npra.gov.gh"},
+    {"name": "Association of Ghana Industries", "url": "https://www.agighana.org/",       "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.agighana.org"},
+    {"name": "Ghana Export Promotion Authority", "url": "https://www.gepaghana.org/",     "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.gepaghana.org"},
+    {"name": "Ghana Free Zones Board",       "url": "https://gfrzoneb.gov.gh/",           "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://gfrzoneb.gov.gh"},
+
+    # ── GOVERNMENT — HEALTH & SOCIAL (missing) ────────────────
+    {"name": "Ghana Health Service",         "url": "https://ghs.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://ghs.gov.gh"},
+    {"name": "National Health Insurance Auth", "url": "https://www.nhia.gov.gh/",         "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.nhia.gov.gh"},
+    {"name": "SSNIT",                        "url": "https://www.ssnit.org.gh/",          "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.ssnit.org.gh"},
+
+    # ── GOVERNMENT — EDUCATION (missing) ──────────────────────
+    {"name": "Ghana Education Service",      "url": "https://ges.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://ges.gov.gh"},
+    {"name": "National Teaching Council",    "url": "https://ntc.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://ntc.gov.gh"},
+    {"name": "National Accreditation Board", "url": "https://nab.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://nab.gov.gh"},
+
+    # ── GOVERNMENT — SECURITY (missing) ───────────────────────
+    {"name": "Ghana Armed Forces",           "url": "https://gafonline.mil.gh/",          "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://gafonline.mil.gh"},
+    {"name": "Ghana Police Service",         "url": "https://www.police.gov.gh/",         "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.police.gov.gh"},
+
+    # ── GOVERNMENT — STATISTICS & ENERGY (missing) ────────────
+    {"name": "Ghana Statistical Service",    "url": "https://www.statsghana.gov.gh/",     "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.statsghana.gov.gh"},
+    {"name": "GRIDCo",                       "url": "https://www.gridcogh.com/",          "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://www.gridcogh.com"},
+    {"name": "DVLA",                         "url": "https://dvla.gov.gh/",               "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://dvla.gov.gh"},
+    {"name": "Local Government Service",     "url": "https://lgs.gov.gh/",                "scrape_mode": "headline", "article_tag": "h3", "article_class": None, "base_url": "https://lgs.gov.gh"},
 ]
 
 
