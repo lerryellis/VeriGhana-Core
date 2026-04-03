@@ -373,6 +373,78 @@ def _strategy_document_links(soup, base_url):
             "article_class": None, "count": len(found), "samples": found[:3]}
 
 
+def _strategy_title_attr(soup, base_url):
+    """
+    Strategy 5a — TITLE ATTRIBUTE SWEEP
+    Catches links where visible text is short but the title attribute contains
+    the full headline. Common on GhanaWeb, government portals, and older CMS sites.
+    Also checks aria-label as a fallback.
+    """
+    import copy
+    soup2 = copy.copy(soup)
+    for el in soup2(["nav","footer","header","aside","script","style"]):
+        el.decompose()
+
+    found, seen = [], set()
+    skip_words = {"#","javascript","mailto","tel:","login","register",
+                  "subscribe","contact","about","privacy","terms","cookie"}
+    for link in soup2.find_all("a", href=True):
+        title = (link.get("title") or link.get("aria-label") or "").strip()
+        href = link.get("href","")
+        if len(title) < 20:
+            continue
+        if any(skip in href.lower() for skip in skip_words):
+            continue
+        full_href = _resolve(href, base_url)
+        if full_href and full_href not in seen and full_href != base_url:
+            seen.add(full_href)
+            found.append({"text": title[:100], "href": full_href})
+    if len(found) < 3:
+        return None
+    return {"scrape_mode": "title_attr", "article_tag": "a[title]",
+            "article_class": None, "count": len(found), "samples": found[:3]}
+
+
+def _strategy_content_blocks(soup, base_url):
+    """
+    Strategy 5b — CONTENT-BEARING BLOCKS
+    Finds div/td/li/p elements that contain both text (20+ chars) and at least
+    one link. Useful for sites that don't use headline tags but structure content
+    as text blocks with embedded links.
+    """
+    import copy
+    soup2 = copy.copy(soup)
+    for el in soup2(["nav","footer","header","aside","script","style"]):
+        el.decompose()
+
+    found, seen = [], set()
+    for tag_name in ["div", "td", "li", "p", "span"]:
+        for el in soup2.find_all(tag_name):
+            link = el.find("a", href=True)
+            if not link:
+                continue
+            text = el.get_text(strip=True)
+            if len(text) < 20 or len(text) > 300:
+                continue
+            href = link.get("href","")
+            full_href = _resolve(href, base_url)
+            # Avoid nav/utility links
+            if not full_href or full_href == base_url:
+                continue
+            href_lower = full_href.lower()
+            if any(skip in href_lower for skip in ["login","register","contact","about","#","javascript"]):
+                continue
+            # Prefer links that look like article URLs (contain date patterns, slugs, or IDs)
+            if full_href not in seen:
+                seen.add(full_href)
+                found.append({"text": text[:100], "href": full_href})
+
+    if len(found) < 3:
+        return None
+    return {"scrape_mode": "content_block", "article_tag": "div/td/li",
+            "article_class": None, "count": len(found), "samples": found[:3]}
+
+
 def _strategy_anchor_sweep(soup, base_url):
     # Work on a copy so we don't destroy the original soup for debug output
     import copy
@@ -573,6 +645,7 @@ def test_site(site, update_db: bool = False):
     candidates = []
     for fn in [_strategy_headlines, _strategy_containers,
                _strategy_list_items, _strategy_document_links,
+               _strategy_title_attr, _strategy_content_blocks,
                _strategy_anchor_sweep]:
         r = fn(soup, base_url)
         if r:

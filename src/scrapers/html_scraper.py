@@ -540,14 +540,78 @@ def extract_anchor_sweep(soup, source: dict) -> list:
 
 
 # ══════════════════════════════════════════════════════════════
+#  STRATEGY 5a — TITLE ATTRIBUTE SWEEP
+# ══════════════════════════════════════════════════════════════
+def extract_title_attr(soup, source: dict) -> list:
+    """Extract articles from <a> tags where the title or aria-label attribute
+    contains the full headline (visible text may be truncated)."""
+    import copy
+    base_url = source.get("base_url", "")
+    soup2 = copy.copy(soup)
+    for el in soup2(["nav", "footer", "header", "aside", "script", "style"]):
+        el.decompose()
+
+    results, seen = [], set()
+    skip_words = {"#", "javascript", "mailto", "tel:", "login", "register",
+                  "subscribe", "contact", "about", "privacy", "terms", "cookie"}
+    for link in soup2.find_all("a", href=True):
+        title = (link.get("title") or link.get("aria-label") or "").strip()
+        href = link.get("href", "")
+        if len(title) < 20:
+            continue
+        if any(skip in href.lower() for skip in skip_words):
+            continue
+        full_href = _resolve(href, base_url)
+        if full_href and full_href not in seen and full_href != base_url:
+            seen.add(full_href)
+            results.append({"title": title[:200], "url": full_href})
+    return results if len(results) >= 3 else []
+
+
+# ══════════════════════════════════════════════════════════════
+#  STRATEGY 5b — CONTENT-BEARING BLOCKS
+# ══════════════════════════════════════════════════════════════
+def extract_content_blocks(soup, source: dict) -> list:
+    """Extract articles from div/td/li/p elements that contain both meaningful
+    text and at least one link — for sites without headline tags."""
+    import copy
+    base_url = source.get("base_url", "")
+    soup2 = copy.copy(soup)
+    for el in soup2(["nav", "footer", "header", "aside", "script", "style"]):
+        el.decompose()
+
+    results, seen = [], set()
+    for tag_name in ["div", "td", "li", "p", "span"]:
+        for el in soup2.find_all(tag_name):
+            link = el.find("a", href=True)
+            if not link:
+                continue
+            text = el.get_text(strip=True)
+            if len(text) < 20 or len(text) > 300:
+                continue
+            href = link.get("href", "")
+            full_href = _resolve(href, base_url)
+            if not full_href or full_href == base_url:
+                continue
+            if any(skip in full_href.lower() for skip in ["login", "register", "contact", "about", "#", "javascript"]):
+                continue
+            if full_href not in seen:
+                seen.add(full_href)
+                results.append({"title": text[:200], "url": full_href})
+    return results if len(results) >= 3 else []
+
+
+# ══════════════════════════════════════════════════════════════
 #  STRATEGY MAP  (must be defined before extract_js_rendered)
 # ══════════════════════════════════════════════════════════════
 STRATEGY_MAP = {
-    "headline":     extract_headline,
-    "container":    extract_container,
-    "list":         extract_list,
-    "document":     extract_document,
-    "anchor_sweep": extract_anchor_sweep,
+    "headline":      extract_headline,
+    "container":     extract_container,
+    "list":          extract_list,
+    "document":      extract_document,
+    "title_attr":    extract_title_attr,
+    "content_block": extract_content_blocks,
+    "anchor_sweep":  extract_anchor_sweep,
 }
 
 
@@ -627,7 +691,7 @@ def extract_articles(soup, source: dict) -> list:
             return results
 
     # Fallback order through remaining static strategies
-    fallback_order = ["headline", "container", "list", "document", "anchor_sweep"]
+    fallback_order = ["headline", "container", "list", "document", "title_attr", "content_block", "anchor_sweep"]
     for mode in fallback_order:
         if mode == primary_mode:
             continue
