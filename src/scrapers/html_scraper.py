@@ -89,6 +89,15 @@ HTML_SOURCES = [
         "category":      "Finance"
     },
     {
+        "name":          "CAGD",
+        "url":           "https://cagd.gov.gh/news",
+        "scrape_mode":   "js_render",
+        "article_tag":   None,
+        "article_class": None,
+        "base_url":      "https://cagd.gov.gh",
+        "category":      "Government"
+    },
+    {
         "name":          "Yen Ghana",
         "url":           "https://yen.com.gh/",
         "scrape_mode":   "headline",

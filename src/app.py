@@ -383,7 +383,7 @@ SITES_TO_TEST = [
     {"name": "Securities and Exchange Comm",   "url": "https://sec.gov.gh/",                                             "category": "Government - Finance"},
     {"name": "National Insurance Commission",  "url": "https://nicghana.org/",                                           "category": "Government - Finance"},
     {"name": "NPRA",                           "url": "https://www.npra.gov.gh/",                                        "category": "Government - Finance"},
-    {"name": "CAGD",                           "url": "https://cagd.gov.gh/",                                            "category": "Government - Finance"},
+    {"name": "CAGD",                           "url": "https://cagd.gov.gh/news",                                        "category": "Government - Finance"},
     {"name": "Association of Ghana Industries","url": "https://www.agighana.org/",                                       "category": "Government - Business"},
     {"name": "Private Enterprise Federation",  "url": "https://pef.org.gh/",                                            "category": "Government - Business"},
     {"name": "Local Government Service",       "url": "https://lgs.gov.gh/",                                            "category": "Government - Local"},
