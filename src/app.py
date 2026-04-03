@@ -347,7 +347,7 @@ SITES_TO_TEST = [
     {"name": "Ministry of Defence",            "url": "https://mod.gov.gh/",                                             "category": "Government - Ministry"},
     {"name": "Parliament of Ghana",            "url": "https://www.parliament.gh/news",                                  "category": "Government - Legislature"},
     {"name": "Judicial Service of Ghana",      "url": "https://www.judicial.gov.gh/",                                    "category": "Government - Judiciary"},
-    {"name": "Bank of Ghana",                  "url": "https://www.bog.gov.gh/news-publications/press-releases/",        "category": "Government - Regulatory"},
+    {"name": "Bank of Ghana",                  "url": "https://www.bog.gov.gh/all-news-page/",                           "category": "Government - Regulatory"},
     {"name": "Electoral Commission",           "url": "https://www.ec.gov.gh/",                                          "category": "Government - Regulatory"},
     {"name": "National Development Planning",  "url": "https://www.ndpc.gov.gh/",                                        "category": "Government - Regulatory"},
     {"name": "Public Procurement Authority",   "url": "https://www.ppbghana.org/",                                       "category": "Government - Regulatory"},

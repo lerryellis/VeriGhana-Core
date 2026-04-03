@@ -80,6 +80,15 @@ HTML_SOURCES = [
         "base_url":      "https://www.ghanaweb.com"
     },
     {
+        "name":          "Bank of Ghana",
+        "url":           "https://www.bog.gov.gh/all-news-page/",
+        "scrape_mode":   "js_render",
+        "article_tag":   None,
+        "article_class": None,
+        "base_url":      "https://www.bog.gov.gh",
+        "category":      "Finance"
+    },
+    {
         "name":          "Yen Ghana",
         "url":           "https://yen.com.gh/",
         "scrape_mode":   "headline",

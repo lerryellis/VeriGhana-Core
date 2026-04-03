@@ -40,7 +40,7 @@ INSERT INTO trusted_sources (source_name, official_url, category) VALUES
   ('Judicial Service',                      'https://judicial.gov.gh/index.php/publications/news-publications/js-latest-news',    'Government'),
   ('Judicial Service of Ghana',             'https://www.judicial.gov.gh/',                                                       'Government'),
 
-  ('Bank of Ghana',                         'https://www.bog.gov.gh/news-publications/press-releases/',                          'Finance'),
+  ('Bank of Ghana',                         'https://www.bog.gov.gh/all-news-page/',                                              'Finance'),
   ('Securities and Exchange Comm',          'https://sec.gov.gh/',                                                                'Finance'),
   ('National Insurance Commission',         'https://nicghana.org/',                                                              'Finance'),
   ('NPRA',                                  'https://www.npra.gov.gh/',                                                           'Finance'),
