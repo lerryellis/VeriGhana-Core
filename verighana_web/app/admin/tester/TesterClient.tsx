@@ -1,27 +1,27 @@
 'use client'
 
 import { useState } from 'react'
+import { testSiteAction } from './actions'
 
 type DbUpdate = { action: 'inserted' | 'updated' | 'skipped' | 'error' | 'none'; source_name?: string; reason?: string }
 
 type TestResult = {
   url: string
-  status: 'ok' | 'error' | 'empty'
+  status: string
   headline_count?: number
   sample_headlines?: string[]
   strategy?: string
   error?: string
   elapsed_ms?: number
   db_update?: DbUpdate
+  challenge_detected?: boolean
 }
 
 interface Props {
   sites: string[]
-  adminKey: string
-  apiUrl: string
 }
 
-export function TesterClient({ sites, adminKey, apiUrl }: Props) {
+export function TesterClient({ sites }: Props) {
   const [customUrl, setCustomUrl]   = useState('')
   const [loading, setLoading]       = useState(false)
   const [result, setResult]         = useState<TestResult | null>(null)
@@ -34,17 +34,8 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
     setLoading(true)
     setResult(null)
     try {
-      const res = await fetch(`${apiUrl}/test-site`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
-        body: JSON.stringify({ url: url.trim() }),
-      })
-      const data = await res.json() as Partial<TestResult>
-      setResult({
-        url: url.trim(),
-        status: data.status ?? (res.ok ? 'empty' : 'error'),
-        ...data,
-      })
+      const data = await testSiteAction(url.trim()) as TestResult
+      setResult(data)
     } catch (err: unknown) {
       setResult({ url: url.trim(), status: 'error', error: (err as Error).message })
     } finally {
@@ -60,17 +51,8 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
 
     for (const url of sites) {
       try {
-        const res = await fetch(`${apiUrl}/test-site`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
-          body: JSON.stringify({ url }),
-        })
-        const data = await res.json() as Partial<TestResult>
-        setBatch(prev => [...prev, {
-          url,
-          status: data.status ?? (res.ok ? 'empty' : 'error'),
-          ...data,
-        }])
+        const data = await testSiteAction(url) as TestResult
+        setBatch(prev => [...prev, data])
       } catch (err: unknown) {
         setBatch(prev => [...prev, { url, status: 'error', error: (err as Error).message }])
       }
@@ -80,8 +62,20 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
   }
 
   const okCount    = batchResults.filter(r => r.status === 'ok').length
-  const emptyCount = batchResults.filter(r => r.status === 'empty').length
-  const errCount   = batchResults.filter(r => r.status === 'error').length
+  const emptyCount = batchResults.filter(r => r.status === 'empty' || r.status === 'no_headlines').length
+  const errCount   = batchResults.filter(r => r.status === 'error' || r.status === 'blocked' || r.status === 'challenge_blocked').length
+
+  function statusStyle(status: string) {
+    if (status === 'ok') return 'border-green-200 bg-green-50'
+    if (status === 'no_headlines' || status === 'empty') return 'border-amber-200 bg-amber-50'
+    return 'border-red-200 bg-red-50'
+  }
+
+  function statusTextStyle(status: string) {
+    if (status === 'ok') return 'text-green-700'
+    if (status === 'no_headlines' || status === 'empty') return 'text-amber-700'
+    return 'text-red-600'
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -115,22 +109,19 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
         </div>
 
         {result && (
-          <div className={`border rounded-xl p-4 ${
-            result.status === 'ok'    ? 'border-green-200 bg-green-50' :
-            result.status === 'empty' ? 'border-amber-200 bg-amber-50' :
-            'border-red-200 bg-red-50'
-          }`}>
+          <div className={`border rounded-xl p-4 ${statusStyle(result.status)}`}>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-mono-vg font-semibold ${
-                result.status === 'ok' ? 'text-green-700' : result.status === 'empty' ? 'text-amber-700' : 'text-red-600'
-              }`}>
-                {(result.status ?? 'error').toUpperCase()}
+              <span className={`text-xs font-mono-vg font-semibold ${statusTextStyle(result.status)}`}>
+                {result.status.toUpperCase().replace('_', ' ')}
                 {result.headline_count !== undefined && ` · ${result.headline_count} headlines`}
                 {result.strategy && ` · ${result.strategy}`}
-                {result.elapsed_ms !== undefined && ` · ${result.elapsed_ms}ms`}
+                {result.elapsed_ms !== undefined && ` · ${(result.elapsed_ms / 1000).toFixed(1)}s`}
               </span>
               <span className="text-xs text-slate-400 font-mono-vg truncate max-w-[240px]">{result.url}</span>
             </div>
+            {result.challenge_detected && (
+              <p className="text-xs text-amber-600 font-mono-vg mb-2">Bot challenge detected (Akamai/Cloudflare). VeriGhana-Bot identity was attempted.</p>
+            )}
             {result.error && (
               <p className="text-xs text-red-600 font-mono-vg">{result.error}</p>
             )}
@@ -150,10 +141,10 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
                   result.db_update.action === 'updated'  ? 'bg-blue-100 text-blue-700' :
                   result.db_update.action === 'error'    ? 'bg-red-100 text-red-600' :
                   'bg-slate-100 text-slate-500'}`}>
-                {result.db_update.action === 'inserted' && '✦ Added to trusted sources'}
-                {result.db_update.action === 'updated'  && `↻ Updated source: ${result.db_update.source_name ?? ''}`}
-                {result.db_update.action === 'skipped'  && `⚠ DB skipped: ${result.db_update.reason ?? ''}`}
-                {result.db_update.action === 'error'    && `✗ DB error: ${result.db_update.reason ?? ''}`}
+                {result.db_update.action === 'inserted' && '+ Added to trusted sources'}
+                {result.db_update.action === 'updated'  && `Updated source: ${result.db_update.source_name ?? ''}`}
+                {result.db_update.action === 'skipped'  && `Skipped: ${result.db_update.reason ?? ''}`}
+                {result.db_update.action === 'error'    && `DB error: ${result.db_update.reason ?? ''}`}
               </div>
             )}
           </div>
@@ -177,7 +168,6 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
             </button>
           </div>
 
-          {/* Progress bar */}
           {batchRunning && (
             <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
@@ -189,7 +179,6 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
 
           {batchResults.length > 0 && (
             <>
-              {/* Summary */}
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: 'OK',    value: okCount,    color: 'text-green-600' },
@@ -203,17 +192,18 @@ export function TesterClient({ sites, adminKey, apiUrl }: Props) {
                 ))}
               </div>
 
-              {/* Results list */}
               <div className="space-y-1.5 max-h-96 overflow-y-auto">
                 {batchResults.map((r, i) => (
                   <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono-vg ${
-                    r.status === 'ok'    ? 'bg-green-50 text-green-700' :
-                    r.status === 'empty' ? 'bg-amber-50 text-amber-700' :
+                    r.status === 'ok' ? 'bg-green-50 text-green-700' :
+                    r.status === 'no_headlines' || r.status === 'empty' ? 'bg-amber-50 text-amber-700' :
                     'bg-red-50 text-red-600'
                   }`}>
                     <span className="truncate flex-1">{r.url}</span>
                     <span className="shrink-0 ml-3">
-                      {r.status === 'ok' ? `✓ ${r.headline_count}` : r.status === 'empty' ? '⚠ empty' : '✗'}
+                      {r.status === 'ok' ? `✓ ${r.headline_count ?? ''}` :
+                       r.status === 'challenge_blocked' ? '🛡️' :
+                       r.status === 'no_headlines' ? '⚠ empty' : '✗'}
                     </span>
                   </div>
                 ))}

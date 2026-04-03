@@ -22,5 +22,5 @@ async function fetchSites(): Promise<string[]> {
 
 export default async function TesterPage() {
   const sites = await fetchSites()
-  return <TesterClient sites={sites} adminKey={ADMIN_KEY} apiUrl={API_URL} />
+  return <TesterClient sites={sites} />
 }

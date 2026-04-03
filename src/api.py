@@ -833,13 +833,19 @@ async def test_single_site(
     """
     Test a single URL for scrapability.
     Returns status, headline count, detected tag/class, and up to 3 sample headlines.
+    Runs in a thread pool to avoid blocking the async event loop.
     """
     if not _TESTER_OK or test_site is None:
         raise HTTPException(status_code=503, detail="site_tester.py not available.")
+    import asyncio
     try:
-        result = test_site(
-            {"name": req.name or req.url, "url": req.url, "category": req.category},
-            update_db=req.update_on_success,
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: test_site(
+                {"name": req.name or req.url, "url": req.url, "category": req.category},
+                update_db=req.update_on_success,
+            ),
         )
         return result
     except Exception as exc:
