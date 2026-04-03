@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { markFollowupRead as serverMarkFollowupRead, updateTicketStatus, sendTicketReply } from './actions'
 import type { AdminTicket } from './page'
 import { Pagination } from '@/components/ui/Pagination'
+import { ChatThread } from '@/components/ui/ChatThread'
 
 type Status = AdminTicket['status']
 
@@ -18,11 +19,13 @@ const STATUSES: Status[] = ['open', 'in_progress', 'resolved', 'closed']
 
 interface Props {
   tickets: AdminTicket[]
+  adminEmail: string
+  adminRole: 'admin' | 'staff'
 }
 
 const PAGE_SIZE = 25
 
-export function TicketsClient({ tickets: initial }: Props) {
+export function TicketsClient({ tickets: initial, adminEmail, adminRole }: Props) {
   const [tickets, setTickets] = useState<AdminTicket[]>(initial)
   const [filter, setFilter]   = useState<Status | 'all'>('all')
   const [search, setSearch]   = useState('')
@@ -198,9 +201,19 @@ export function TicketsClient({ tickets: initial }: Props) {
                     </div>
                   )}
 
-                  {/* Reply form */}
+                  {/* Live chat */}
+                  <div className="border border-slate-200 rounded-xl p-3">
+                    <p className="text-[0.65rem] text-slate-400 font-mono-vg uppercase tracking-widest mb-2">Live Chat</p>
+                    <ChatThread
+                      ticketId={typeof t.id === 'string' ? parseInt(t.id) : t.id}
+                      currentEmail={adminEmail}
+                      currentRole={adminRole}
+                    />
+                  </div>
+
+                  {/* Email reply form */}
                   <div className="space-y-3 pt-1">
-                    <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest">Reply to {t.email}</p>
+                    <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest">Email Reply to {t.email}</p>
                     <textarea
                       value={replyText[t.id] ?? ''}
                       onChange={e => setReplyText(prev => ({ ...prev, [t.id]: e.target.value }))}

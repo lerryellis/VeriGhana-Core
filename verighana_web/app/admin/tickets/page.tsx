@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { TicketsClient } from './TicketsClient'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -32,6 +34,19 @@ async function fetchTickets(): Promise<AdminTicket[]> {
 }
 
 export default async function TicketsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  const adminEmails = (process.env.ADMIN_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase())
+  const role = adminEmails.includes((user.email ?? '').toLowerCase()) ? 'admin' : (profile?.role ?? 'user')
+
   const tickets = await fetchTickets()
-  return <TicketsClient tickets={tickets} />
+  return <TicketsClient tickets={tickets} adminEmail={user.email ?? ''} adminRole={role as 'admin' | 'staff'} />
 }
