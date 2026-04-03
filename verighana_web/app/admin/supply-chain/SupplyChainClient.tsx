@@ -44,6 +44,7 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
 
   // Suppliers state
   const [catFilter, setCatFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recent' | 'stale' | 'no_data'>('all')
   const [supplierSearch, setSupplierSearch] = useState('')
   const [supplierPage, setSupplierPage] = useState(1)
 
@@ -52,22 +53,30 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
     return ['all', ...Array.from(set).sort()]
   }, [suppliers])
 
+  function getStatus(s: Supplier) {
+    const days = daysSince(s.latest_article)
+    if (days === null) return 'no_data'
+    if (days < 2) return 'active'
+    if (days < 7) return 'recent'
+    return 'stale'
+  }
+
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.toLowerCase()
     return suppliers.filter(s => {
       if (catFilter !== 'all' && (s.category ?? 'Unknown') !== catFilter) return false
+      if (statusFilter !== 'all' && getStatus(s) !== statusFilter) return false
       if (q && !s.source_name.toLowerCase().includes(q) && !s.official_url.toLowerCase().includes(q)) return false
       return true
     })
-  }, [suppliers, catFilter, supplierSearch])
+  }, [suppliers, catFilter, statusFilter, supplierSearch])
 
   const pagedSuppliers = filteredSuppliers.slice((supplierPage - 1) * PAGE_SIZE, supplierPage * PAGE_SIZE)
 
   const totalArticles = suppliers.reduce((s, x) => s + x.article_count, 0)
-  const activeSuppliers = suppliers.filter(s => {
-    const d = daysSince(s.latest_article)
-    return d !== null && d < 7
-  }).length
+  const activeSuppliers = suppliers.filter(s => getStatus(s) === 'active').length
+  const noDataSuppliers = suppliers.filter(s => getStatus(s) === 'no_data').length
+  const staleSuppliers  = suppliers.filter(s => getStatus(s) === 'stale').length
 
   // Distribution chart
   const maxDaily = Math.max(...distribution.daily.map(d => d.count), 1)
@@ -97,12 +106,13 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
       {tab === 'suppliers' && (
         <div className="space-y-4">
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { label: 'Total Sources',    value: suppliers.length,  color: 'text-[#0f2240]' },
-              { label: 'Active (7d)',       value: activeSuppliers,   color: 'text-green-600' },
-              { label: 'Total Articles',    value: totalArticles.toLocaleString(), color: 'text-blue-600' },
-              { label: 'Categories',        value: categories.length - 1, color: 'text-slate-600' },
+              { label: 'Active',           value: activeSuppliers,   color: 'text-green-600' },
+              { label: 'No Data',          value: noDataSuppliers,   color: noDataSuppliers > 0 ? 'text-red-500' : 'text-slate-400' },
+              { label: 'Stale (7d+)',      value: staleSuppliers,    color: staleSuppliers > 0 ? 'text-amber-600' : 'text-slate-400' },
+              { label: 'Total Articles',   value: totalArticles.toLocaleString(), color: 'text-blue-600' },
             ].map(k => (
               <div key={k.label} className="bg-white border border-slate-200 rounded-xl px-4 py-4 text-center">
                 <div className={`font-display text-2xl font-extrabold ${k.color}`}>{k.value}</div>
@@ -111,7 +121,34 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
             ))}
           </div>
 
-          {/* Filters */}
+          {/* Status filter pills */}
+          <div className="flex flex-wrap gap-2">
+            {([
+              { key: 'all',     label: `All (${suppliers.length})` },
+              { key: 'active',  label: `Active (${activeSuppliers})` },
+              { key: 'recent',  label: `Recent (${suppliers.filter(s => getStatus(s) === 'recent').length})` },
+              { key: 'stale',   label: `Stale (${staleSuppliers})` },
+              { key: 'no_data', label: `No Data (${noDataSuppliers})` },
+            ] as { key: typeof statusFilter; label: string }[]).map(f => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => { setStatusFilter(f.key); setSupplierPage(1) }}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  statusFilter === f.key
+                    ? f.key === 'no_data' ? 'bg-red-600 border-red-600 text-white'
+                    : f.key === 'stale' ? 'bg-amber-600 border-amber-600 text-white'
+                    : f.key === 'active' ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-[#0f2240] border-[#0f2240] text-white'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-400'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search + category filter */}
           <div className="flex gap-3 flex-wrap">
             <input
               type="text"
@@ -145,9 +182,9 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
                 </thead>
                 <tbody>
                   {pagedSuppliers.map(s => {
-                    const days = daysSince(s.latest_article)
-                    const status = days === null ? 'No data' : days < 2 ? 'Active' : days < 7 ? 'Recent' : 'Stale'
-                    const statusColor = status === 'Active' ? 'bg-green-100 text-green-700' : status === 'Recent' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'
+                    const st = getStatus(s)
+                    const statusLabel = st === 'active' ? 'Active' : st === 'recent' ? 'Recent' : st === 'stale' ? 'Stale' : 'No Data'
+                    const statusColor = st === 'active' ? 'bg-green-100 text-green-700' : st === 'recent' ? 'bg-amber-100 text-amber-700' : st === 'no_data' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'
                     return (
                       <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                         <td className="px-4 py-3 text-sm font-medium text-[#0f2240]">{s.source_name}</td>
@@ -160,7 +197,7 @@ export function SupplyChainClient({ suppliers, inventory, providers, distributio
                         <td className="px-4 py-3 text-sm font-mono-vg text-slate-700">{s.article_count}</td>
                         <td className="px-4 py-3 text-xs text-slate-500 font-mono-vg">{fmtDate(s.latest_article)}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}`}>{status}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}`}>{statusLabel}</span>
                         </td>
                       </tr>
                     )
