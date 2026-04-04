@@ -16,7 +16,7 @@ export default async function ContactPage() {
   // Load open tickets for this user
   const { data: tickets } = await supabase
     .from('support_tickets')
-    .select('id, subject, status, created_at, updated_at, admin_reply, admin_reply_read, user_followup')
+    .select('id, subject, message, status, created_at, updated_at, admin_reply, admin_reply_read, user_followup')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(20)
@@ -37,6 +37,7 @@ export default async function ContactPage() {
 export type SupportTicket = {
   id: string
   subject: string
+  message?: string | null
   status: 'open' | 'in_progress' | 'resolved' | 'closed'
   created_at: string
   updated_at: string
