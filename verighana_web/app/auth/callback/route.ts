@@ -17,13 +17,12 @@ export async function GET(request: Request) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!exchangeError) {
-      // Check if this is a brand-new account (created within the last 60 seconds)
+      // Send welcome email on first login (check if we've already sent one via user metadata)
       const { data: { user } } = await supabase.auth.getUser()
-      if (user?.email && user.created_at) {
-        const ageSeconds = (Date.now() - new Date(user.created_at).getTime()) / 1000
-        if (ageSeconds < 60) {
-          await sendWelcomeEmail(user.email, user.user_metadata?.full_name ?? user.email.split('@')[0])
-        }
+      if (user?.email && !user.user_metadata?.welcome_email_sent) {
+        await sendWelcomeEmail(user.email, user.user_metadata?.full_name ?? user.email.split('@')[0])
+        // Mark as sent so we don't resend on every login
+        await supabase.auth.updateUser({ data: { welcome_email_sent: true } })
       }
 
       return NextResponse.redirect(`${origin}${next}`)
