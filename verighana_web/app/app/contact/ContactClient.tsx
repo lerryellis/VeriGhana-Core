@@ -269,7 +269,7 @@ export function ContactClient({ authEmail, fullName, tier, accessToken, tickets:
 
                     {/* Live chat thread */}
                     <ChatThread
-                      ticketId={typeof t.id === 'string' ? parseInt(t.id) : t.id}
+                      ticketId={t.id}
                       currentEmail={authEmail}
                       currentRole="user"
                     />

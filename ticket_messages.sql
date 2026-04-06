@@ -6,7 +6,7 @@
 
 CREATE TABLE IF NOT EXISTS ticket_messages (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticket_id   INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+  ticket_id   UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
   sender_role TEXT NOT NULL CHECK (sender_role IN ('user', 'admin', 'staff')),
   sender_email TEXT NOT NULL,
   body        TEXT NOT NULL,

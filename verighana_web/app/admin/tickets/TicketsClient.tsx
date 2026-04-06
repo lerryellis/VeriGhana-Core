@@ -205,7 +205,7 @@ export function TicketsClient({ tickets: initial, adminEmail, adminRole }: Props
                   <div className="border border-slate-200 rounded-xl p-3">
                     <p className="text-[0.65rem] text-slate-400 font-mono-vg uppercase tracking-widest mb-2">Live Chat</p>
                     <ChatThread
-                      ticketId={typeof t.id === 'string' ? parseInt(t.id) : t.id}
+                      ticketId={t.id}
                       currentEmail={adminEmail}
                       currentRole={adminRole}
                     />

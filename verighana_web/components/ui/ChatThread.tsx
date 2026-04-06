@@ -13,7 +13,7 @@ export type ChatMessage = {
 }
 
 interface Props {
-  ticketId: number
+  ticketId: string | number
   currentEmail: string
   currentRole: 'user' | 'admin' | 'staff'
 }
