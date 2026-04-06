@@ -10,8 +10,8 @@ import type { PaymentRecord } from './page'
 const API_URL         = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 const PAYSTACK_PK     = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''
 
-import { USD_TO_GHS, GRA_TAX } from '@/lib/constants'
-function toKobo(usd: number) { return Math.round(usd * USD_TO_GHS * 100) }
+import { GRA_TAX } from '@/lib/constants'
+function toPesewas(ghs: number) { return Math.round(ghs * 100) }
 
 declare global {
   interface Window {
@@ -153,7 +153,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
 
     const isCard    = payMethod === 'card'
     const channels  = isCard ? ['card'] : ['mobile_money']
-    const amount    = toKobo(totalPrice)   // tax-inclusive total
+    const amount    = toPesewas(totalPrice)   // tax-inclusive total in pesewas
 
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PK,
