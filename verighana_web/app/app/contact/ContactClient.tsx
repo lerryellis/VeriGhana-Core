@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ChatThread } from '@/components/ui/ChatThread'
 import type { SupportTicket } from './page'
 
 const CATEGORIES = [
@@ -256,53 +255,79 @@ export function ContactClient({ authEmail, fullName, tier, accessToken, tickets:
                   </div>
                 </button>
 
-                {/* Expanded panel — live chat */}
+                {/* Expanded panel */}
                 {expanded === t.id && (
                   <div className="pb-4 space-y-3">
-                    {/* Original message */}
-                    {t.message && (
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
-                        <p className="text-[0.65rem] text-slate-400 font-mono-vg uppercase tracking-widest mb-1">Original Message</p>
-                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{t.message}</p>
+                    {/* Admin reply */}
+                    {t.admin_reply && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+                        <p className="text-[0.65rem] text-blue-400 font-mono-vg uppercase tracking-widest mb-1">Support Reply</p>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{t.admin_reply}</p>
                       </div>
                     )}
 
-                    {/* Live chat thread */}
-                    <ChatThread
-                      ticketId={t.id}
-                      currentEmail={authEmail}
-                      currentRole="user"
-                    />
+                    {/* User follow-up already sent */}
+                    {t.user_followup && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                        <p className="text-[0.65rem] text-slate-400 font-mono-vg uppercase tracking-widest mb-1">Your Follow-up</p>
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{t.user_followup}</p>
+                      </div>
+                    )}
 
-                    {/* Delete */}
-                    <div className="flex items-center gap-2 pt-1">
-                      {confirmDelete === t.id ? (
-                        <>
-                          <span className="text-xs text-slate-500">Delete this ticket?</span>
-                          <button
-                            type="button"
-                            disabled={deleting === t.id}
-                            onClick={() => deleteTicket(t.id)}
-                            className="text-xs px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50"
-                          >
-                            {deleting === t.id ? 'Deleting…' : 'Yes, delete'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDelete(null)}
-                            className="text-xs px-3 py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
+                    {/* Reply textarea */}
+                    <div className="space-y-2">
+                      <textarea
+                        value={followupText[t.id] ?? ''}
+                        onChange={e => setFollowupText(prev => ({ ...prev, [t.id]: e.target.value }))}
+                        placeholder="Add a follow-up message…"
+                        rows={3}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors resize-none"
+                      />
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setConfirmDelete(t.id)}
-                          className="text-xs px-3 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                          disabled={sendingFollowup === t.id || !(followupText[t.id] ?? '').trim()}
+                          onClick={() => sendFollowup(t.id)}
+                          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
                         >
-                          Delete ticket
+                          {sendingFollowup === t.id
+                            ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Sending…</>
+                            : 'Send Follow-up →'
+                          }
                         </button>
+
+                        {/* Delete */}
+                        {confirmDelete === t.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500">Delete this ticket?</span>
+                            <button
+                              type="button"
+                              disabled={deleting === t.id}
+                              onClick={() => deleteTicket(t.id)}
+                              className="text-xs px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50"
+                            >
+                              {deleting === t.id ? 'Deleting…' : 'Yes, delete'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-xs px-3 py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDelete(t.id)}
+                            className="text-xs px-3 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            Delete ticket
+                          </button>
+                        )}
+                      </div>
+                      {followupMsg[t.id] && (
+                        <p className="text-xs text-green-600 font-mono-vg">{followupMsg[t.id]}</p>
                       )}
                     </div>
                   </div>
