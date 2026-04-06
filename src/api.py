@@ -936,8 +936,8 @@ async def send_support_reply(
 # ══════════════════════════════════════════════════════════════════════════════
 
 PLAN_PRICES = {
-    "pro":           {"monthly": 9.99,  "annual": 7.99},
-    "institutional": {"monthly": 79.99, "annual": 63.99},
+    "pro":           {"monthly": 0.99,  "annual": 0.79},
+    "institutional": {"monthly": 1.99, "annual": 1.59},
 }
 PLAN_EXPIRY_DAYS = {"monthly": 31, "annual": 366}
 
@@ -973,13 +973,13 @@ async def verify_payment(
     plan_key_check = req.plan_key if req.plan_key in PLAN_PRICES else "pro"
     cycle_check    = req.billing_cycle if req.billing_cycle in ("monthly", "annual") else "monthly"
     GRA_TAX_RATE   = 0.20  # VAT 15% + NHIL 2.5% + GETFund 2.5% (GRA, Jan 2026)
-    base_usd       = PLAN_PRICES[plan_key_check][cycle_check]
+    base_ghs       = PLAN_PRICES[plan_key_check][cycle_check]
     if cycle_check == "annual":
-        base_usd  *= 12
-    expected_usd   = round(base_usd * (1 + GRA_TAX_RATE), 2)   # tax-inclusive total
-    paid_kobo      = tx.get("amount", 0)               # Paystack amounts are in lowest denomination
-    paid_usd       = paid_kobo / 100 / 15              # convert pesewas→GHS→USD at fixed 15 GHS/USD rate
-    if abs(paid_usd - expected_usd) > 0.25:            # allow 25¢ tolerance for rounding
+        base_ghs  *= 12
+    expected_ghs   = round(base_ghs * (1 + GRA_TAX_RATE), 2)   # tax-inclusive total in GHS
+    paid_pesewas   = tx.get("amount", 0)               # Paystack amounts are in pesewas
+    paid_ghs       = paid_pesewas / 100                # convert pesewas → GHS
+    if abs(paid_ghs - expected_ghs) > 0.10:            # allow ₵0.10 tolerance for rounding
         raise HTTPException(
             status_code=402,
             detail="Payment amount does not match the selected plan price.",
@@ -1019,7 +1019,7 @@ async def verify_payment(
         "amount":         amount,
         "tax_rate":       tax_rate,
         "tax_amount":     tax_amount,
-        "currency":       "USD",
+        "currency":       "GHS",
         "payment_method": req.payment_method or tx.get("channel", "card"),
         "status":         "succeeded",
         "promo_code":     req.promo_code,
