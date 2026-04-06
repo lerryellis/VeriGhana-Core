@@ -6,8 +6,8 @@ import Link from 'next/link'
 const plans = [
   {
     name: 'Free',
-    monthlyPrice: '$0',
-    annualPrice: '$0',
+    monthlyPrice: '₵0',
+    annualPrice: '₵0',
     period: '/mo',
     tagline: 'For curious citizens',
     features: ['5 fact-check queries per day', 'Basic Truth Meter scoring', 'Public fact database access', 'Source citations included'],
@@ -20,8 +20,8 @@ const plans = [
   },
   {
     name: 'Pro',
-    monthlyPrice: '$9.99',
-    annualPrice: '$7.99',
+    monthlyPrice: '₵0.99',
+    annualPrice: '₵0.79',
     period: '/mo',
     tagline: 'For journalists & researchers',
     features: ['Unlimited fact-check queries', 'Full AI verification reports', 'Detailed source citations', 'Personal REST API key', 'Real-time misinformation alerts', 'Verification history export'],
@@ -35,8 +35,8 @@ const plans = [
   },
   {
     name: 'Institutional',
-    monthlyPrice: '$79.99',
-    annualPrice: '$63.99',
+    monthlyPrice: '₵1.99',
+    annualPrice: '₵1.59',
     period: '/mo',
     tagline: "For newsrooms, NGOs & gov't",
     features: ['Multi-user seat management', 'Bulk API processing', 'White-label reporting', 'Custom analytics dashboard', 'Priority SLA support', 'Research dataset access'],

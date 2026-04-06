@@ -36,8 +36,8 @@ const PLANS: Record<Plan, {
 }> = {
   pro: {
     name: 'Pro',
-    monthlyPrice: 9.99,
-    annualPrice: 7.99,
+    monthlyPrice: 0.99,
+    annualPrice: 0.79,
     perks: ['Unlimited verifications', 'All AI models', 'API key access', 'History export', 'Priority support'],
     accent: 'text-blue-700',
     border: 'border-blue-300',
@@ -46,8 +46,8 @@ const PLANS: Record<Plan, {
   },
   institutional: {
     name: 'Institutional',
-    monthlyPrice: 79.99,
-    annualPrice: 63.99,
+    monthlyPrice: 1.99,
+    annualPrice: 1.59,
     perks: ['Everything in Pro', 'Bulk verify (20 claims)', 'Team seats', 'Priority + SLA support', 'Custom integrations'],
     accent: 'text-teal-700',
     border: 'border-teal-300',
@@ -329,7 +329,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
                   )}
                 </div>
                 <div className={`text-2xl font-display font-extrabold ${p.accent} mb-1`}>
-                  ${billing === 'annual' ? p.annualPrice : p.monthlyPrice}
+                  ₵{billing === 'annual' ? p.annualPrice : p.monthlyPrice}
                   <span className="text-xs font-normal text-slate-400">/mo</span>
                 </div>
                 {billing === 'annual' && (
@@ -433,31 +433,31 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
               <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-3">Order Summary</p>
               <div className="flex justify-between text-sm text-slate-600">
                 <span>{plan.name} · {billing === 'annual' ? 'Annual' : 'Monthly'}</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₵{subtotal.toFixed(2)}</span>
               </div>
               {promoDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Promo discount (−{promoDiscount}%)</span>
-                  <span>−${(basePrice * (billing === 'annual' ? 12 : 1) * promoDiscount / 100).toFixed(2)}</span>
+                  <span>−₵{(basePrice * (billing === 'annual' ? 12 : 1) * promoDiscount / 100).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm text-slate-500">
                 <span>VAT (15%)</span>
-                <span>+${vatAmount.toFixed(2)}</span>
+                <span>+₵{vatAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
                 <span>NHIL (2.5%)</span>
-                <span>+${nhilAmount.toFixed(2)}</span>
+                <span>+₵{nhilAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
                 <span>GETFund Levy (2.5%)</span>
-                <span>+${getfundAmount.toFixed(2)}</span>
+                <span>+₵{getfundAmount.toFixed(2)}</span>
               </div>
               <div className="border-t border-slate-200 pt-2 flex justify-between items-baseline">
                 <span className="text-sm font-medium text-slate-600">Total due</span>
-                <span className="text-xl font-display font-extrabold text-[#0f2240]">${totalPrice.toFixed(2)}</span>
+                <span className="text-xl font-display font-extrabold text-[#0f2240]">₵{totalPrice.toFixed(2)}</span>
               </div>
-              <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Taxes per GRA · GHS {(totalPrice * USD_TO_GHS).toFixed(2)}</p>
+              <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Taxes per GRA (VAT + NHIL + GETFund = 20%)</p>
             </div>
 
             {/* Status message */}

@@ -278,14 +278,14 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
           <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
             <PlanTeaser
               name="Pro"
-              price="$9.99/mo"
+              price="₵0.99/mo"
               perks={['Unlimited verifications', 'All AI models', 'API key access', 'History export']}
               href="/app/billing?plan=pro"
               accent="blue"
             />
             <PlanTeaser
               name="Institutional"
-              price="$79.99/mo"
+              price="₵1.99/mo"
               perks={['Everything in Pro', 'Bulk verify (20 claims)', 'Team seats', 'Priority support']}
               href="/app/billing?plan=institutional"
               accent="teal"

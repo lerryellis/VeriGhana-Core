@@ -73,8 +73,8 @@ export default function TermsPage() {
           body: (
             <>
               <p>
-                VeriGhana offers three tiers: Free (5 verifications/day), Pro ($9.99/month), and
-                Institutional ($79.99/month). Paid plans are billed monthly and processed by Paystack.
+                VeriGhana offers three tiers: Free (5 verifications/day), Pro (₵0.99/month), and
+                Institutional (₵1.99/month). Paid plans are billed in GHS monthly and processed by Paystack.
               </p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>Subscriptions auto-renew unless cancelled before the billing date</li>

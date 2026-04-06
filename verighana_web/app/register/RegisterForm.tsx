@@ -8,8 +8,8 @@ import { AuthCard } from '@/components/auth/AuthCard'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 
 const PLAN_LABELS: Record<string, string> = {
-  pro: 'Pro — $9.99/mo',
-  institutional: 'Institutional — $79.99/mo',
+  pro: 'Pro — ₵0.99/mo',
+  institutional: 'Institutional — ₵1.99/mo',
 }
 
 export function RegisterForm() {
