@@ -478,7 +478,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
             >
               {submitting
                 ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Processing…</>
-                : `Upgrade to ${plan.name} — $${price}/mo`
+                : `Upgrade to ${plan.name} — ₵${price}/mo`
               }
             </button>
 
