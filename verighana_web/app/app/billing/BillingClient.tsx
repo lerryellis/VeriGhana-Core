@@ -16,7 +16,18 @@ function toPesewas(ghs: number) { return Math.round(ghs * 100) }
 declare global {
   interface Window {
     PaystackPop: {
-      setup(opts: Record<string, unknown>): { openIframe(): void }
+      setup(opts: {
+        key: string
+        email: string
+        amount: number
+        currency?: string
+        channels?: string[]
+        phone?: string
+        metadata?: Record<string, unknown>
+        callback: (response: { reference: string }) => void
+        onClose: () => void
+        [key: string]: unknown
+      }): { openIframe(): void }
     }
   }
 }
@@ -146,6 +157,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) { setMsg({ type: 'error', text: 'Full name is required.' }); return }
+    if (payMethod !== 'card' && !phone.trim()) { setMsg({ type: 'error', text: 'Mobile Money number is required.' }); return }
     if (!PAYSTACK_PK) { setMsg({ type: 'error', text: 'Payment not configured. Contact support.' }); return }
     if (!window.PaystackPop) { setMsg({ type: 'error', text: 'Payment script not loaded. Refresh and try again.' }); return }
 
@@ -161,6 +173,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
       amount,
       currency: 'GHS',
       channels,
+      phone:    phone || undefined,
       metadata: {
         custom_fields: [
           { display_name: 'Full Name',     variable_name: 'full_name',     value: fullName },
