@@ -13,8 +13,8 @@
         { "key": "X-Permitted-Cross-Domain-Policies",   "value": "none" },
         { "key": "Referrer-Policy",                     "value": "strict-origin-when-cross-origin" },
         { "key": "Strict-Transport-Security",           "value": "max-age=63072000; includeSubDomains; preload" },
-        { "key": "Permissions-Policy",                  "value": "camera=(), microphone=(), geolocation=(), payment=()" },
-        { "key": "Content-Security-Policy",             "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app; frame-ancestors 'none';" }
+        { "key": "Permissions-Policy",                  "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Content-Security-Policy",             "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://checkout.paystack.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://checkout.paystack.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app https://api.paystack.co https://checkout.paystack.com; frame-src https://checkout.paystack.com; frame-ancestors 'none';" }
       ]
     }
   ]
