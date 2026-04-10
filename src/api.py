@@ -1032,14 +1032,14 @@ async def verify_payment(
     _supa(service=True).table("user_profiles").update({
         "tier":                    plan_key,
         "subscription_status":     "active",
-        "subscription_expires_at": expires.isoformat() + "Z",
+        "subscription_expires_at": expires.isoformat(),
         "cancelled_at":            None,
     }).eq("user_id", user.id).execute()
 
     return {
         "success":    True,
         "plan":       plan_key,
-        "expires_at": expires.isoformat() + "Z",
+        "expires_at": expires.isoformat(),
         "reference":  req.reference,
     }
 
