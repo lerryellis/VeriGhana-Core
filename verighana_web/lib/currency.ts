@@ -53,20 +53,22 @@ export function toGHS(usd: number): number {
   return usd * GHS_RATE
 }
 
+const GEO_CACHE_KEY = 'vg_country_v2'
+
 export function useCurrency(): CurrencyInfo {
   const [currency, setCurrency] = useState<CurrencyInfo>(USD)
 
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('vg_country')
+      const cached = sessionStorage.getItem(GEO_CACHE_KEY)
       if (cached) { setCurrency(getCurrency(cached)); return }
     } catch { /* SSR */ }
 
-    fetch('https://ipapi.co/json/')
+    fetch('/api/geo')
       .then(r => r.json())
       .then((d: { country_code?: string }) => {
         const code = d.country_code ?? 'US'
-        try { sessionStorage.setItem('vg_country', code) } catch { /* SSR */ }
+        try { sessionStorage.setItem(GEO_CACHE_KEY, code) } catch { /* SSR */ }
         setCurrency(getCurrency(code))
       })
       .catch(() => {})
