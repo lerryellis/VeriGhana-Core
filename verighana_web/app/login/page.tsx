@@ -42,7 +42,7 @@ function LoginForm() {
       footer={
         <>
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-blue-400 hover:text-blue-300 transition-colors">
+          <Link href="/register" className="text-blue-600 hover:text-blue-500 transition-colors">
             Create one free
           </Link>
         </>
@@ -52,22 +52,22 @@ function LoginForm() {
 
       <div className="relative my-5">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/10" />
+          <div className="w-full border-t border-slate-200" />
         </div>
-        <div className="relative flex justify-center text-xs text-slate-500">
-          <span className="bg-[#0e1f3d] px-3">or continue with email</span>
+        <div className="relative flex justify-center text-xs text-slate-400">
+          <span className="bg-white px-3">or continue with email</span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         <div>
-          <label className="block text-xs text-slate-400 mb-1.5 font-mono-vg uppercase tracking-wider">
+          <label className="block text-xs text-slate-500 mb-1.5 font-mono-vg uppercase tracking-wider">
             Email
           </label>
           <input
@@ -76,12 +76,12 @@ function LoginForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full bg-white/[0.07] border border-white/15 text-white placeholder:text-slate-600 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-500/50 transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-400 transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-xs text-slate-400 mb-1.5 font-mono-vg uppercase tracking-wider">
+          <label className="block text-xs text-slate-500 mb-1.5 font-mono-vg uppercase tracking-wider">
             Password
           </label>
           <input
@@ -90,7 +90,7 @@ function LoginForm() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full bg-white/[0.07] border border-white/15 text-white placeholder:text-slate-600 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-500/50 transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-400 transition-colors"
           />
         </div>
 

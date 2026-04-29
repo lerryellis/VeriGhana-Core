@@ -23,7 +23,7 @@ export function GoogleButton() {
       type="button"
       onClick={handleGoogleSignIn}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:opacity-60 text-gray-800 text-sm font-medium py-3 px-4 rounded-lg transition-colors border border-white/10"
+      className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-700 text-sm font-medium py-3 px-4 rounded-lg transition-colors border border-slate-200"
     >
       {loading ? (
         <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />

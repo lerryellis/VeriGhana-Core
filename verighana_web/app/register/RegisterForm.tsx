@@ -64,7 +64,7 @@ export function RegisterForm() {
       footer={
         <>
           Already have an account?{' '}
-          <Link href="/login" className="text-blue-400 hover:text-blue-300 transition-colors">
+          <Link href="/login" className="text-blue-600 hover:text-blue-500 transition-colors">
             Sign in
           </Link>
         </>
@@ -75,10 +75,10 @@ export function RegisterForm() {
           <GoogleButton />
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
+              <div className="w-full border-t border-slate-200" />
             </div>
-            <div className="relative flex justify-center text-xs text-slate-500">
-              <span className="bg-[#0e1f3d] px-3">or sign up with email</span>
+            <div className="relative flex justify-center text-xs text-slate-400">
+              <span className="bg-white px-3">or sign up with email</span>
             </div>
           </div>
         </>
@@ -134,7 +134,7 @@ function RegisterField({
 }) {
   return (
     <div>
-      <label className="block text-xs text-slate-400 mb-1.5 font-mono-vg uppercase tracking-wider">
+      <label className="block text-xs text-slate-500 mb-1.5 font-mono-vg uppercase tracking-wider">
         {label}
       </label>
       <input
@@ -143,7 +143,7 @@ function RegisterField({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-white/[0.07] border border-white/15 text-white placeholder:text-slate-600 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-500/50 transition-colors"
+        className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm px-4 py-3 rounded-lg outline-none focus:border-blue-400 transition-colors"
       />
     </div>
   )
