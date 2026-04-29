@@ -11,7 +11,7 @@ const API_URL         = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:800
 const PAYSTACK_PK     = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? ''
 
 import { GRA_TAX } from '@/lib/constants'
-function toPesewas(ghs: number) { return Math.round(ghs * 100) }
+import { useCurrency, fmt, toGHS, toGHSPesewas, BASE_USD } from '@/lib/currency'
 
 declare global {
   interface Window {
@@ -37,8 +37,8 @@ type Billing = 'monthly' | 'annual'
 
 const PLANS: Record<Plan, {
   name: string
-  monthlyPrice: number
-  annualPrice: number
+  monthlyUSD: number
+  annualUSD: number
   perks: string[]
   accent: string
   border: string
@@ -47,8 +47,8 @@ const PLANS: Record<Plan, {
 }> = {
   pro: {
     name: 'Pro',
-    monthlyPrice: 0.99,
-    annualPrice: 0.79,
+    monthlyUSD: BASE_USD.pro.monthly,
+    annualUSD:  BASE_USD.pro.annual,
     perks: ['Unlimited verifications', 'All AI models', 'API key access', 'History export', 'Priority support'],
     accent: 'text-blue-700',
     border: 'border-blue-300',
@@ -57,8 +57,8 @@ const PLANS: Record<Plan, {
   },
   institutional: {
     name: 'Institutional',
-    monthlyPrice: 1.99,
-    annualPrice: 1.59,
+    monthlyUSD: BASE_USD.institutional.monthly,
+    annualUSD:  BASE_USD.institutional.annual,
     perks: ['Everything in Pro', 'Bulk verify (20 claims)', 'Team seats', 'Priority + SLA support', 'Custom integrations'],
     accent: 'text-teal-700',
     border: 'border-teal-300',
@@ -84,6 +84,7 @@ interface Props {
 
 export function BillingClient({ profile, authEmail, accessToken, payments, role = 'user' }: Props) {
   const router = useRouter()
+  const currency = useCurrency()
   const isPrivileged = role === 'admin' || role === 'staff'
   const tier = profile?.tier ?? 'free'
   const isPaid = tier !== 'free'
@@ -132,18 +133,18 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
     }
   }
 
-  const plan       = PLANS[selectedPlan]
-  const basePrice  = billing === 'annual' ? plan.annualPrice : plan.monthlyPrice
-  const price      = promoDiscount > 0 ? Math.round(basePrice * (1 - promoDiscount / 100) * 100) / 100 : basePrice
-  const savingsPct = Math.round((1 - plan.annualPrice / plan.monthlyPrice) * 100)
+  const plan         = PLANS[selectedPlan]
+  const basePriceUSD = billing === 'annual' ? plan.annualUSD : plan.monthlyUSD
+  const priceUSD     = promoDiscount > 0 ? Math.round(basePriceUSD * (1 - promoDiscount / 100) * 100) / 100 : basePriceUSD
+  const savingsPct   = Math.round((1 - plan.annualUSD / plan.monthlyUSD) * 100)
 
-  // Tax breakdown (all levies applied on subtotal per GRA re-coupling 2026)
-  const subtotal     = billing === 'annual' ? price * 12 : price
-  const vatAmount    = Math.round(subtotal * GRA_TAX.vat     * 100) / 100
-  const nhilAmount   = Math.round(subtotal * GRA_TAX.nhil    * 100) / 100
-  const getfundAmount = Math.round(subtotal * GRA_TAX.getfund * 100) / 100
-  const totalTax     = Math.round((vatAmount + nhilAmount + getfundAmount) * 100) / 100
-  const totalPrice   = Math.round((subtotal + totalTax) * 100) / 100
+  // Tax breakdown in GHS (GRA levies apply to GHS charge)
+  const subtotalGHS     = toGHS(billing === 'annual' ? priceUSD * 12 : priceUSD)
+  const vatAmount       = Math.round(subtotalGHS * GRA_TAX.vat     * 100) / 100
+  const nhilAmount      = Math.round(subtotalGHS * GRA_TAX.nhil    * 100) / 100
+  const getfundAmount   = Math.round(subtotalGHS * GRA_TAX.getfund * 100) / 100
+  const totalTax        = Math.round((vatAmount + nhilAmount + getfundAmount) * 100) / 100
+  const totalGHS        = Math.round((subtotalGHS + totalTax) * 100) / 100
 
   // Load Paystack script
   useEffect(() => {
@@ -165,7 +166,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
 
     const isCard    = payMethod === 'card'
     const channels  = isCard ? ['card'] : ['mobile_money']
-    const amount    = toPesewas(totalPrice)   // tax-inclusive total in pesewas
+    const amount    = toGHSPesewas(billing === 'annual' ? priceUSD * 12 : priceUSD) + Math.round(totalTax * 100)
 
     const handler = window.PaystackPop.setup({
       key:      PAYSTACK_PK,
@@ -342,7 +343,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
                   )}
                 </div>
                 <div className={`text-2xl font-display font-extrabold ${p.accent} mb-1`}>
-                  ₵{billing === 'annual' ? p.annualPrice : p.monthlyPrice}
+                  {fmt(billing === 'annual' ? p.annualUSD : p.monthlyUSD, currency)}
                   <span className="text-xs font-normal text-slate-400">/mo</span>
                 </div>
                 {billing === 'annual' && (
@@ -446,12 +447,12 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
               <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest mb-3">Order Summary</p>
               <div className="flex justify-between text-sm text-slate-600">
                 <span>{plan.name} · {billing === 'annual' ? 'Annual' : 'Monthly'}</span>
-                <span>₵{subtotal.toFixed(2)}</span>
+                <span>₵{subtotalGHS.toFixed(2)}</span>
               </div>
               {promoDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Promo discount (−{promoDiscount}%)</span>
-                  <span>−₵{(basePrice * (billing === 'annual' ? 12 : 1) * promoDiscount / 100).toFixed(2)}</span>
+                  <span>−₵{(toGHS(basePriceUSD * (billing === 'annual' ? 12 : 1)) * promoDiscount / 100).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm text-slate-500">
@@ -468,8 +469,13 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
               </div>
               <div className="border-t border-slate-200 pt-2 flex justify-between items-baseline">
                 <span className="text-sm font-medium text-slate-600">Total due</span>
-                <span className="text-xl font-display font-extrabold text-[#0f2240]">₵{totalPrice.toFixed(2)}</span>
+                <span className="text-xl font-display font-extrabold text-[#0f2240]">₵{totalGHS.toFixed(2)}</span>
               </div>
+              {currency.code !== 'GHS' && (
+                <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">
+                  ≈ {fmt(totalGHS / 16, currency)} · Charged in GHS via Paystack
+                </p>
+              )}
               <p className="text-[0.65rem] text-slate-400 font-mono-vg text-right">Taxes per GRA (VAT + NHIL + GETFund = 20%)</p>
             </div>
 
@@ -491,7 +497,7 @@ export function BillingClient({ profile, authEmail, accessToken, payments, role 
             >
               {submitting
                 ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Processing…</>
-                : `Upgrade to ${plan.name} — ₵${price}/mo`
+                : `Upgrade to ${plan.name} — ${fmt(priceUSD, currency)}/mo`
               }
             </button>
 

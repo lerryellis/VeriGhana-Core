@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TierChip } from '@/components/ui/TierChip'
 import { deleteAccount } from './actions'
+import { useCurrency, fmt, BASE_USD } from '@/lib/currency'
 import type { UserProfile } from './page'
 
 type Tier = 'free' | 'pro' | 'institutional'
@@ -22,8 +23,9 @@ const TIER_LIMITS: Record<string, string> = {
 }
 
 export function AccountClient({ profile, authEmail, totalVerifications }: Props) {
-  const router = useRouter()
-  const tier   = (profile?.tier ?? 'free') as Tier
+  const router   = useRouter()
+  const currency = useCurrency()
+  const tier     = (profile?.tier ?? 'free') as Tier
 
   const [fullName, setFullName]       = useState(profile?.full_name ?? '')
   const [organisation, setOrg]        = useState(profile?.organisation ?? '')
@@ -287,14 +289,14 @@ export function AccountClient({ profile, authEmail, totalVerifications }: Props)
           <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
             <PlanTeaser
               name="Pro"
-              price="₵0.99/mo"
+              price={`${fmt(BASE_USD.pro.monthly, currency)}/mo`}
               perks={['Unlimited verifications', 'All AI models', 'API key access', 'History export']}
               href="/app/billing?plan=pro"
               accent="blue"
             />
             <PlanTeaser
               name="Institutional"
-              price="₵1.99/mo"
+              price={`${fmt(BASE_USD.institutional.monthly, currency)}/mo`}
               perks={['Everything in Pro', 'Bulk verify (20 claims)', 'Team seats', 'Priority support']}
               href="/app/billing?plan=institutional"
               accent="teal"

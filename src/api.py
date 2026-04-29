@@ -935,9 +935,11 @@ async def send_support_reply(
 #  PAYMENT  [Supabase Auth required]
 # ══════════════════════════════════════════════════════════════════════════════
 
+USD_TO_GHS = 16.0
 PLAN_PRICES = {
-    "pro":           {"monthly": 0.99,  "annual": 0.79},
-    "institutional": {"monthly": 1.99, "annual": 1.59},
+    # Base USD prices × USD_TO_GHS rate → GHS
+    "pro":           {"monthly": round(9.99  * USD_TO_GHS, 2), "annual": round(7.99  * USD_TO_GHS, 2)},
+    "institutional": {"monthly": round(79.99 * USD_TO_GHS, 2), "annual": round(63.99 * USD_TO_GHS, 2)},
 }
 PLAN_EXPIRY_DAYS = {"monthly": 31, "annual": 366}
 
@@ -979,7 +981,7 @@ async def verify_payment(
     expected_ghs   = round(base_ghs * (1 + GRA_TAX_RATE), 2)   # tax-inclusive total in GHS
     paid_pesewas   = tx.get("amount", 0)               # Paystack amounts are in pesewas
     paid_ghs       = paid_pesewas / 100                # convert pesewas → GHS
-    if abs(paid_ghs - expected_ghs) > 0.10:            # allow ₵0.10 tolerance for rounding
+    if abs(paid_ghs - expected_ghs) > max(1.0, expected_ghs * 0.05):  # 5% tolerance
         raise HTTPException(
             status_code=402,
             detail="Payment amount does not match the selected plan price.",

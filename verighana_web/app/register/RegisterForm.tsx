@@ -6,16 +6,18 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { GoogleButton } from '@/components/auth/GoogleButton'
-
-const PLAN_LABELS: Record<string, string> = {
-  pro: 'Pro — ₵0.99/mo',
-  institutional: 'Institutional — ₵1.99/mo',
-}
+import { useCurrency, fmt, BASE_USD } from '@/lib/currency'
 
 export function RegisterForm() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const plan         = searchParams.get('plan') ?? ''
+  const currency     = useCurrency()
+
+  const PLAN_LABELS: Record<string, string> = {
+    pro:           `Pro — ${fmt(BASE_USD.pro.monthly, currency)}/mo`,
+    institutional: `Institutional — ${fmt(BASE_USD.institutional.monthly, currency)}/mo`,
+  }
 
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')

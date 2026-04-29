@@ -1,5 +1,5 @@
 /** Fixed USD → GHS conversion rate used across billing, finance, and invoices */
-export const USD_TO_GHS = 15
+export const USD_TO_GHS = 16
 
 /** Ghana Revenue Authority tax rates (re-coupled Jan 2026) */
 export const GRA_TAX = {
