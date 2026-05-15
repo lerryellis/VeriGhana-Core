@@ -512,7 +512,7 @@ function ResultCard({ result, claim, primary, related, meaningfulDeltas, hasTria
           className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 px-3 py-1.5 hover:bg-white rounded-md transition-colors"
         >
           <span aria-hidden className={`transition-transform ${showDetails ? 'rotate-90' : ''}`}>▶</span>
-          Methodology
+          Details
         </button>
         {result.rate_limit && dailyLimit !== null && (
           <p className="text-xs text-slate-400 font-mono-vg ml-auto">
