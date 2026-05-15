@@ -95,8 +95,6 @@ export default function ResearchPage() {
           <a href="#themes"     className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Themes</a>
           <a href="#outputs"    className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Our outputs</a>
           <a href="#references" className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">References</a>
-          <a href="#method"     className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Methodology</a>
-          <a href="#partners"   className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Partners</a>
           <a href="#contact"    className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Contact</a>
         </div>
       </nav>
@@ -207,49 +205,6 @@ export default function ResearchPage() {
             <p className="text-xs text-slate-500 italic mt-2">
               Full Fact is the UK&apos;s independent fact-checking charity (registered charity no. 1158683). All linked reports are hosted on, and available open-access from, fullfact.org. VeriGhana is not affiliated with Full Fact; these references are listed under fair-use academic citation, and every link sends the reader directly to the original source.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Methodology */}
-      <section id="method" className="px-[5%] py-14 border-b border-slate-200">
-        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
-          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Methodology</h2>
-          <div className="space-y-4">
-            {[
-              { num: '01', title: 'Design Science Research',  body: 'Hevner et al. (2004): research outputs are working artifacts whose value is demonstrated through rigorous evaluation, not hypotheses tested against existing phenomena.' },
-              { num: '02', title: 'Ghana-sampled corpora',    body: 'Every fact-check dataset we publish is drawn from Ghanaian news outlets, government agencies, and civic-tech sources — 64+ active publishers indexed every six hours.' },
-              { num: '03', title: 'Mixed-methods evaluation', body: 'Quantitative accuracy testing on curated claim sets is complemented by qualitative thematic analysis (Braun & Clarke, 2006) of structured responses from Ghanaian users.' },
-              { num: '04', title: 'Open replication',          body: 'Code, source lists, evaluation prompts, and dataset construction notes are public. Any researcher can reproduce a result from the repository alone.' },
-            ].map(m => (
-              <div key={m.num} className="flex gap-5 py-3 border-b border-slate-100 last:border-0">
-                <div className="font-mono-vg text-xs text-blue-600 shrink-0 pt-1">{m.num}</div>
-                <div>
-                  <h3 className="font-display font-semibold text-sm text-[#0f2240] mb-1">{m.title}</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">{m.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Partners */}
-      <section id="partners" className="px-[5%] py-14 border-b border-slate-200">
-        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
-          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Partners</h2>
-          <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
-            {[
-              { name: 'GIMPA',         desc: 'Dissertation supervision and institutional review.' },
-              { name: 'GhanaFact',     desc: 'Reference benchmark for established Ghanaian fact-checking practice.' },
-              { name: 'MFWA',          desc: 'Context on the broader West African information environment.' },
-              { name: 'Penplusbytes',  desc: 'Civic-tech and media accountability work that informs source selection.' },
-            ].map(p => (
-              <div key={p.name} className="border-l-2 border-blue-100 pl-4">
-                <p className="font-display font-semibold text-sm text-[#0f2240] mb-1">{p.name}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{p.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
