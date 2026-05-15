@@ -11,6 +11,11 @@ export function Nav() {
         <li><a href="#how" className="text-sm text-blue-300 hover:text-white transition-colors">How It Works</a></li>
         <li><a href="#pricing" className="text-sm text-blue-300 hover:text-white transition-colors">Pricing</a></li>
         <li>
+          <Link href="/research" className="text-sm text-blue-300 hover:text-white transition-colors">
+            Research
+          </Link>
+        </li>
+        <li>
           <Link href="/app/verify" className="text-sm text-blue-300 hover:text-white transition-colors">
             Dashboard
           </Link>

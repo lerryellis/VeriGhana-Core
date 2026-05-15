@@ -12,6 +12,7 @@ export function Footer() {
           <li><Link href="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</Link></li>
           <li><Link href="/terms"   className="text-sm text-slate-400 hover:text-white transition-colors">Terms of Service</Link></li>
           <li><Link href="/cookies" className="text-sm text-slate-400 hover:text-white transition-colors">Cookie Policy</Link></li>
+          <li><Link href="/research" className="text-sm text-slate-400 hover:text-white transition-colors">Research</Link></li>
           <li>
             <a href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/docs`} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-white transition-colors">
               API Docs
