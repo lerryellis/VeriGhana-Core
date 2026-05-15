@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Methodology Addendum — Qualitative Evaluation Strand</title>
+<style>
+/* ─── RESET ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── PAGE SETUP (print) ────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 2.54cm 2.54cm 2.54cm 3.81cm;
+  @bottom-center {
+    content: counter(page);
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+  }
+}
+
+/* ─── TYPOGRAPHY ────────────────────────────────────────── */
+:root {
+  --navy:   #0d2240;
+  --gold:   #c8a84b;
+  --mid:    #2c4a7c;
+  --gray:   #555;
+  --light:  #f4f6fa;
+  --border: #c8c8c8;
+  --font-body: "Times New Roman", Times, serif;
+  --font-head: Georgia, "Times New Roman", Times, serif;
+  --font-mono: "Courier New", Courier, monospace;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 12pt;
+  line-height: 2;
+  color: #111;
+  background: #fff;
+}
+
+/* ─── SCREEN WRAPPER ────────────────────────────────────── */
+@media screen {
+  body { background: #d0d4dc; }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    padding: 2.54cm 2.54cm 2.54cm 3.81cm;
+    background: #fff;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.25);
+  }
+}
+@media print {
+  .page { page-break-after: always; }
+  .no-print { display: none; }
+}
+
+/* ─── HEADINGS ──────────────────────────────────────────── */
+h1.chapter-title {
+  font-family: var(--font-body);
+  font-size: 14pt;
+  font-weight: bold;
+  color: #000;
+  text-align: center;
+  text-transform: uppercase;
+  margin: 0 0 0.6cm;
+  letter-spacing: 0;
+  page-break-after: avoid;
+  width: calc(100% + 1.27cm);
+  margin-left: -0.635cm;
+}
+h2.section-title {
+  font-family: var(--font-body);
+  font-size: 12pt;
+  font-weight: bold;
+  color: #000;
+  margin: 0.9cm 0 0.25cm;
+  text-align: left;
+  page-break-after: avoid;
+}
+h3.subsection-title {
+  font-family: var(--font-body);
+  font-size: 12pt;
+  font-weight: normal;
+  text-decoration: underline;
+  color: #000;
+  margin: 0.6cm 0 0.2cm;
+  page-break-after: avoid;
+}
+h4.subsubsection-title {
+  font-family: var(--font-body);
+  font-size: 12pt;
+  font-weight: normal;
+  font-style: italic;
+  color: #000;
+  margin: 0.5cm 0 0.15cm;
+  page-break-after: avoid;
+}
+
+/* ─── BODY TEXT ─────────────────────────────────────────── */
+p {
+  margin-bottom: 12pt;
+  text-align: justify;
+  text-indent: 0;
+}
+p.first-para, p.no-indent, p.para-space { text-indent: 0; margin-bottom: 12pt; }
+
+/* ─── LISTS ──────────────────────────────────────────────── */
+ul, ol {
+  margin: 0.4cm 0 0.4cm 1.8cm;
+  text-indent: 0;
+}
+li {
+  margin-bottom: 0.2cm;
+  line-height: 1.8;
+}
+li p { text-indent: 0; margin: 0; }
+
+/* ─── TABLES ─────────────────────────────────────────────── */
+.table-wrapper {
+  margin: 0.6cm 0;
+  page-break-inside: avoid;
+}
+.table-num {
+  font-family: var(--font-body);
+  font-size: 10pt;
+  font-weight: bold;
+  color: #000;
+  text-align: center;
+  margin-bottom: 2px;
+}
+.table-caption {
+  font-family: var(--font-body);
+  font-size: 10pt;
+  font-weight: bold;
+  color: #000;
+  text-align: center;
+  margin-bottom: 8px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 10.5pt;
+  line-height: 1.5;
+}
+thead th {
+  background: #f0f0f0;
+  color: #000;
+  font-size: 10pt;
+  font-weight: bold;
+  padding: 8px 10px;
+  text-align: left;
+  border-top: 2px solid #000;
+  border-bottom: 1px solid #000;
+}
+tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tbody tr:nth-child(odd) td  { background: #fff; }
+tbody tr:nth-child(even) td { background: #f6f8fc; }
+
+/* ─── TOC ──────────────────────────────────────────── */
+.toc-entry {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 11pt;
+  line-height: 1.7;
+}
+.toc-entry.toc-chapter { font-weight: bold; margin-top: 10px; font-size: 11.5pt; }
+.toc-entry.toc-section { padding-left: 1.5em; }
+.toc-entry.toc-subsection { padding-left: 3em; font-size: 10.5pt; }
+.toc-num { min-width: 2.8em; color: #000; font-weight: bold; }
+.toc-title { flex: 1; }
+.toc-dots {
+  flex: 1;
+  border-bottom: 1.5px dotted #bbb;
+  margin: 0 6px;
+  min-width: 20px;
+  position: relative;
+  top: -4px;
+}
+.toc-page { min-width: 2em; text-align: right; color: var(--gray); }
+
+.placement-note {
+  background: #fff8e1;
+  border-left: 4px solid var(--gold);
+  padding: 10px 14px;
+  margin: 0.6cm 0;
+  font-size: 10.5pt;
+  font-style: italic;
+  color: #5a4500;
+}
+.placement-note strong { color: var(--navy); font-style: normal; }
+
+.keywords-block {
+  background: var(--light);
+  border-left: 4px solid var(--navy);
+  padding: 10px 16px;
+  margin: 0.4cm 0;
+  font-size: 10.5pt;
+  border-radius: 0 4px 4px 0;
+  text-indent: 0;
+}
+.keywords-block strong { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     COVER / INTRO PAGE
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h1 class="chapter-title">Research Methodology Addendum<br>Qualitative Evaluation Strand</h1>
+
+  <p class="first-para">
+    This document contains two insertions intended for integration into <em>thesis2.html</em>. The first is a new methodology section (§3.5) introducing a qualitative evaluation strand alongside the existing quantitative accuracy testing. The second extends Chapter Five's evaluation reporting (§5.6.4) with a corresponding qualitative findings section to be populated once participant responses have been collected through the live VeriGhana Research Feedback instrument.
+  </p>
+
+  <p class="para-space">
+    The additions are grounded in the existing Design Science Research (DSR) framework. Hevner et al. (2004) explicitly support multiple evaluation strategies, and a qualitative strand sits inside DSR as a complementary evaluation mode rather than a separate paradigm. The structured open-ended instrument deployed on the live platform produces the qualitative data; thematic analysis (Braun &amp; Clarke, 2006) generates the reported themes. The three-user usability review reported in §5.6.3 of the existing text is re-framed in the new §5.6.4 as a <em>pilot evaluation</em> that preceded the fuller qualitative exercise.
+  </p>
+
+  <h2 class="section-title">Updated Table of Contents (Chapters 3 and 5)</h2>
+  <p class="first-para no-indent">The following entries replace the corresponding lines in the existing front-matter table of contents. Only the affected chapters are shown; page numbers will need to be re-flowed once integrated.</p>
+
+  <div class="toc-entry toc-chapter"><span class="toc-num">3</span><span class="toc-title">Research Methodology</span><span class="toc-dots"></span><span class="toc-page">7</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">3.1</span><span class="toc-title">Design Science Research</span><span class="toc-dots"></span><span class="toc-page">7</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">3.2</span><span class="toc-title">Development Approach</span><span class="toc-dots"></span><span class="toc-page">7</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">3.3</span><span class="toc-title">Data Collection</span><span class="toc-dots"></span><span class="toc-page">8</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">3.4</span><span class="toc-title">Ethical Considerations in Web Scraping</span><span class="toc-dots"></span><span class="toc-page">8</span></div>
+  <div class="toc-entry toc-section" style="background:#fffbe6;padding:4px 0 4px 1.5em;border-radius:4px;"><span class="toc-num">3.5</span><span class="toc-title"><strong>Qualitative Evaluation Strand</strong> &nbsp;<em>(new)</em></span><span class="toc-dots"></span><span class="toc-page">9</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">3.6</span><span class="toc-title">Technology Selection Rationale &nbsp;<em>(renumbered from 3.5)</em></span><span class="toc-dots"></span><span class="toc-page">10</span></div>
+
+  <div class="toc-entry toc-chapter" style="margin-top:18px;"><span class="toc-num">5</span><span class="toc-title">Implementation and Evaluation</span><span class="toc-dots"></span><span class="toc-page">18</span></div>
+  <div class="toc-entry toc-section"><span class="toc-num">5.6</span><span class="toc-title">Evaluation</span><span class="toc-dots"></span><span class="toc-page">24</span></div>
+  <div class="toc-entry toc-subsection"><span class="toc-num">5.6.1</span><span class="toc-title">Functional Accuracy Testing</span><span class="toc-dots"></span><span class="toc-page">24</span></div>
+  <div class="toc-entry toc-subsection"><span class="toc-num">5.6.2</span><span class="toc-title">Performance Testing</span><span class="toc-dots"></span><span class="toc-page">24</span></div>
+  <div class="toc-entry toc-subsection"><span class="toc-num">5.6.3</span><span class="toc-title">Usability Pilot (3 users) &nbsp;<em>(re-titled)</em></span><span class="toc-dots"></span><span class="toc-page">25</span></div>
+  <div class="toc-entry toc-subsection" style="background:#fffbe6;padding:4px 0 4px 3em;border-radius:4px;"><span class="toc-num">5.6.4</span><span class="toc-title"><strong>Qualitative User Feedback &nbsp;<em>(new)</em></strong></span><span class="toc-dots"></span><span class="toc-page">25</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 3.5 — NEW METHODOLOGY SECTION
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="placement-note">
+    <strong>Placement instruction:</strong> Insert the following section in <em>thesis2.html</em> immediately <strong>before</strong> the existing <code>&lt;h2 class="section-title"&gt;3.5 &nbsp; Technology Selection Rationale&lt;/h2&gt;</code> heading (currently around line 978). Re-number the existing 3.5 to 3.6, and update Table 3.1 references accordingly if numbering is changed.
+  </div>
+
+  <h2 class="section-title">3.5 &nbsp; Qualitative Evaluation Strand</h2>
+
+  <p class="first-para no-indent">The evaluation programme described in §3.1 and elaborated in Chapter Five combines three complementary strategies: functional accuracy testing on a curated set of 20 claims, quantitative performance testing under simulated load, and a qualitative evaluation strand reported in §5.6.4. The qualitative strand is grounded in the same Design Science Research paradigm that frames the project as a whole. Hevner et al. (2004) explicitly identify multiple admissible evaluation modes in their fifth and third guidelines, and observational, descriptive, and testimonial evaluation are recognised within their typology alongside the more familiar experimental and analytical modes. A qualitative strand is therefore not an external paradigm imposed on the DSR core but a complementary evaluation mode that the framework itself accommodates. Its inclusion strengthens the rigour of the evaluation by addressing dimensions the accuracy and performance testing cannot reach, particularly the perceived usefulness, perceived ease of use, and trust-related constructs that Davis's (1989) Technology Acceptance Model identifies as proximal determinants of adoption.</p>
+
+  <h3 class="subsection-title">3.5.1 &nbsp; Instrument Design</h3>
+
+  <p class="first-para no-indent">The qualitative instrument takes the form of a structured open-ended questionnaire deployed within the live VeriGhana platform itself, integrated as an optional fifth section of the existing <code>/app/feedback</code> route. Earlier sections of the same form capture the platform's quantitative product-feedback measures (role, frequency of use, Net Promoter Score, five-dimensional star ratings, and a four-item Likert agreement battery). The qualitative research strand is presented as a clearly separated, opt-in fifth step preceded by an informed consent statement, ensuring that respondents distinguish between routine product feedback and participation in academic research. Participants are encouraged to submit at least one claim through the live system before opting in, ensuring that responses are anchored in concrete experience of the artifact rather than abstract impressions of fact-checking platforms in general. The instrument comprises five open-ended prompts:</p>
+
+  <ol>
+    <li>How confident were you in the verdict the system returned, and why?</li>
+    <li>Did the source citations change how you interpreted the result?</li>
+    <li>What would prevent you from using this system regularly?</li>
+    <li>Was there anything the system got wrong or that surprised you?</li>
+    <li>How does this compare to how you currently verify information?</li>
+  </ol>
+
+  <p class="para-space">The prompts are designed to elicit reflection on the three TAM constructs of interest (perceived usefulness, perceived ease of use, and trust) without directly priming participants with the underlying theoretical vocabulary. Question one operationalises trust in the artifact's verdict. Question two probes whether citation transparency, identified in the literature review as a critical determinant of fact-check credibility, performs the function the design intends. Question three surfaces barriers to sustained adoption. Question four invites disconfirming evidence and surfaces failure modes the developer would otherwise miss. Question five situates the artifact against participants' baseline verification practices, allowing comparative claims to be made grounded in user accounts rather than developer assumptions.</p>
+
+  <h3 class="subsection-title">3.5.2 &nbsp; Sampling Strategy</h3>
+
+  <p class="first-para no-indent">Purposive sampling is used, as is standard in qualitative research where the goal is depth of understanding within identifiable stakeholder groups rather than statistical generalisation (Patton, 2002). Five purposively defined stakeholder categories are represented: journalists and media practitioners, researchers and academics, students, educators, and members of the general public. These categories correspond to the five plan-relevant user roles for which the artifact has been designed and represent the population the platform is intended to serve. Sample size in qualitative research is governed by the principle of thematic saturation rather than statistical power, and Braun and Clarke (2006) note that thematic studies with samples in the range of six to ten participants are common and defensible in postgraduate qualitative research. The target sample for this dissertation is between five and ten respondents, with at least one respondent from each of the five stakeholder categories. Recruitment is conducted by direct invitation through the researcher's professional and academic networks; the platform's existing user base is not used as a sampling frame to avoid the self-selection bias that would arise from sampling only users who chose to register independently.</p>
+
+  <h3 class="subsection-title">3.5.3 &nbsp; Informed Consent</h3>
+
+  <p class="first-para no-indent">Participants are presented with a written informed consent statement before being shown any of the five questions. The consent statement discloses the academic purpose of the research, the affiliation of the researcher (MSc dissertation at GIMPA), the voluntary nature of participation, the right to withdraw at any time, the right to leave any individual question unanswered, the storage of responses in a secure Supabase database, the use of anonymised verbatim quotation in the published dissertation, and the GIMPA institutional repository as the location of final deposit. Participants must affirmatively check a consent box and confirm that they are at least 18 years of age before the questionnaire is unlocked. The consent record (a boolean field and a timestamp) is stored alongside each response in the database, providing an auditable record of consent.</p>
+
+  <h3 class="subsection-title">3.5.4 &nbsp; Analytical Approach: Thematic Analysis</h3>
+
+  <p class="first-para no-indent">Responses are analysed using the six-phase thematic analysis procedure of Braun and Clarke (2006), which is the most widely used qualitative analytical framework in applied dissertation work and is recommended for studies of this scope. The six phases are: (1) familiarisation with the data through repeated reading; (2) generation of initial codes applied systematically across the full dataset; (3) collation of codes into candidate themes; (4) review and refinement of themes against both the coded extracts and the full dataset; (5) definition and naming of final themes; and (6) production of the written analytical report, with selected verbatim quotations supporting each reported theme. Coding is conducted manually rather than through proprietary qualitative software, given the modest size of the corpus, and is documented through a coding log retained in the dissertation appendix. Themes are reported in §5.6.4 of Chapter Five, with quotations attributed by anonymised participant identifier and stakeholder category (e.g. &ldquo;Participant J1, journalist&rdquo;).</p>
+
+  <h3 class="subsection-title">3.5.5 &nbsp; Validity and Trustworthiness</h3>
+
+  <p class="first-para no-indent">Qualitative research is appropriately evaluated against criteria of trustworthiness rather than the validity and reliability constructs proper to quantitative work (Lincoln &amp; Guba, 1985). Four trustworthiness dimensions are addressed. <strong>Credibility</strong> is established by anchoring all responses in concrete artifact use, ensuring participants are commenting on a system they have actually engaged with rather than a description of one. <strong>Transferability</strong> is supported by the explicit reporting of stakeholder category for each quoted extract, allowing readers in comparable contexts to assess applicability. <strong>Dependability</strong> is maintained through the documented coding procedure and the retention of the coding log. <strong>Confirmability</strong> is addressed by reporting both confirming and disconfirming evidence: question four explicitly invites disconfirming accounts and any contrary themes that emerge are reported alongside the supporting evidence. The three-user usability review previously reported in §5.6.3 is re-framed as a pilot evaluation that preceded the fuller qualitative exercise and informed the final design of the instrument, particularly the wording of question two on source citation interpretation.</p>
+
+  <div class="keywords-block">
+    <strong>References to be added to bibliography:</strong><br>
+    Braun, V., &amp; Clarke, V. (2006). Using thematic analysis in psychology. <em>Qualitative Research in Psychology</em>, 3(2), 77–101.<br>
+    Davis, F. D. (1989). Perceived usefulness, perceived ease of use, and user acceptance of information technology. <em>MIS Quarterly</em>, 13(3), 319–340.<br>
+    Lincoln, Y. S., &amp; Guba, E. G. (1985). <em>Naturalistic inquiry</em>. Sage.<br>
+    Patton, M. Q. (2002). <em>Qualitative research and evaluation methods</em> (3rd ed.). Sage.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 5.6.4 — NEW EVALUATION SUBSECTION
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="placement-note">
+    <strong>Placement instruction:</strong> Insert the following subsection in <em>thesis2.html</em> immediately <strong>after</strong> the existing <code>5.6.3 Usability Review</code> paragraph (currently lines 1268–1269). Re-title the existing 5.6.3 from &ldquo;Usability Review&rdquo; to &ldquo;Usability Pilot&rdquo; to mark it as a precursor to the fuller qualitative exercise.
+  </div>
+
+  <h3 class="subsection-title">5.6.3 &nbsp; Usability Pilot &nbsp;<em>(re-titled — replace existing 5.6.3 paragraph)</em></h3>
+
+  <p class="first-para no-indent">Prior to the fuller qualitative evaluation reported in §5.6.4, a small usability pilot was conducted with three non-technical users who reviewed the live Vercel-deployed interface. All three correctly interpreted the four verdict labels and the Truth Meter score without instruction, and two identified the Triangulation and Nuance panel as particularly useful. One participant initially misunderstood the UNCORROBORATED verdict as meaning the claim had been disproved rather than meaning that no relevant evidence had been located, which prompted the addition of an explanatory note in the result panel clarifying the distinction. This pilot was diagnostic in purpose, surfacing interface-level issues that could be addressed before opening the platform to the fuller qualitative sample. The findings informed the final wording of the open-ended instrument used in §5.6.4, particularly the framing of the source-citation question.</p>
+
+  <h3 class="subsection-title">5.6.4 &nbsp; Qualitative User Feedback</h3>
+
+  <p class="first-para no-indent">The qualitative evaluation strand described in §3.5 was conducted with [N] purposively sampled respondents across the five stakeholder categories: [insert counts — e.g. two journalists, two researchers, one student, one educator, and two general-public users]. Each respondent submitted at least one claim through the live VeriGhana platform before completing the structured open-ended instrument. Responses were analysed thematically following the six-phase procedure of Braun and Clarke (2006). Four themes emerged from the dataset and are reported below, with verbatim quotations attributed by anonymised participant identifier and stakeholder category.</p>
+
+  <h4 class="subsubsection-title">Theme 1 — Source citations as the foundation of perceived trust</h4>
+
+  <p class="first-para no-indent">[Populate from responses to question two. Expected pattern based on the literature review: participants report that the visible list of source citations was decisive in their willingness to accept the verdict, and that the verdict label alone — without sources — would have been treated with significantly greater scepticism. Include at least two supporting quotations from distinct stakeholder categories. If a counter-account emerged in which a participant indicated the citations did <em>not</em> matter, report it here as disconfirming evidence.]</p>
+
+  <h4 class="subsubsection-title">Theme 2 — Speed as a structural change in verification practice</h4>
+
+  <p class="first-para no-indent">[Populate from responses to question five comparing VeriGhana with baseline practice. Expected pattern: respondents describe their pre-VeriGhana verification practice as either (a) abandoning verification when it felt too costly, or (b) investing minutes-to-hours in ad-hoc Google searches. The four-second median response time emerged as a qualitatively different category, with respondents reporting that the system made verification feasible where it previously was not. Include the most striking comparative quotation as an opening anchor for the theme.]</p>
+
+  <h4 class="subsubsection-title">Theme 3 — Confidence calibration and the UNCORROBORATED verdict</h4>
+
+  <p class="first-para no-indent">[Populate from responses to question one and question four. The pilot already surfaced a confusion between UNCORROBORATED and FALSE; report whether the explanatory note added after the pilot resolved this for the fuller sample, or whether confusion persisted. Confidence is reported as a graduated, not binary, attitude: participants who marked the verdict as &ldquo;trustworthy on this claim&rdquo; explicitly distinguished this from a general endorsement of the system.]</p>
+
+  <h4 class="subsubsection-title">Theme 4 — Barriers to sustained adoption</h4>
+
+  <p class="first-para no-indent">[Populate from responses to question three. Expected barrier categories: data cost on mobile, perceived narrowness of the source base, lack of integration with WhatsApp where most everyday claims circulate, and reservations about English-only operation in a society where many claims circulate in Twi, Ga, Ewe, and Hausa. Report the frequency with which each barrier category appeared and identify any barrier raised by every participant.]</p>
+
+  <h4 class="subsubsection-title">Synthesis</h4>
+
+  <p class="first-para no-indent">[Synthesise the four themes against the three TAM constructs the instrument was designed to probe. Perceived usefulness is supported principally by themes one and two; perceived ease of use by the absence of interface complaints across respondents combined with the residual UNCORROBORATED confusion in theme three; and trust by the central role of source citations reported in theme one. The synthesis should explicitly note where the qualitative findings converge with the quantitative accuracy results in §5.6.1 and where they diverge — divergence between objective accuracy and subjective confidence is theoretically interesting and should be reported even if it complicates the headline narrative.]</p>
+
+  <div class="placement-note">
+    <strong>Reporting note:</strong> Each square-bracketed section above is a structural placeholder. Once participant responses are collected through the live platform, substitute each placeholder with the corresponding evidence and quotations. The headings, theme structure, and theoretical framing are pre-committed; the empirical content is open. This approach allows the chapter to be drafted in advance of data collection while keeping all claims about findings honest.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ARTIFACT NOTE
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <h2 class="section-title">Implementation Artifact Note</h2>
+
+  <p class="first-para no-indent">The qualitative instrument described in §3.5 is implemented as an additional opt-in section of the platform's existing feedback route (<code>/app/feedback</code>). Rather than creating a parallel data collection page, the research strand is integrated into the same five-step feedback wizard so that respondents complete a single coherent flow. Steps one through four capture the routine product-feedback signals (role, NPS, star ratings, Likert agreement, and short open-ended product comments). Step five presents the informed consent statement; only respondents who tick the consent checkbox are shown the five DSR-aligned open-ended prompts and the contextual claim-and-verdict fields. Respondents who decline the research participation submit the same form with the research fields left null, ensuring that the existence of an academic research strand does not compromise the product feedback function the form was originally built to serve.</p>
+
+  <p class="para-space">The data model is implemented as an extension to the existing <code>app_feedback</code> table (rather than a parallel table) via the migration <code>app_feedback_research_extension.sql</code>. The migration adds nine columns: a boolean <code>research_consent</code> flag, a <code>research_consent_at</code> timestamp recorded only when consent is given, the claim text and verdict the respondent verified, and the five answer columns <code>research_q1_confidence</code> through <code>research_q5_comparison</code>. A filtered index on <code>research_consent = TRUE</code> allows the thematic analyst to retrieve only consenting responses without scanning the full table. Row-level security policies already in force on <code>app_feedback</code> govern the new columns identically: respondents may read only their own submissions while authenticated administrators may read all submissions for thematic coding.</p>
+
+  <p class="para-space">No data beyond the user's email address (used solely to attribute responses to a single user account for duplicate prevention) and the response content itself is captured. Email addresses are stored in a separate column from the response content and are excluded during analytical export, satisfying the anonymisation commitment made in the consent statement. The frontend implementation is in <code>verighana_web/app/app/feedback/FeedbackClient.tsx</code> and may be referenced from §5.5 (Frontend) as part of the implementation narrative.</p>
+</div>
+
+</body>
+</html>

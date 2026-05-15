@@ -43,6 +43,34 @@ const LIKERTS = [
 
 const LIKERT_LABELS = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree']
 
+const RESEARCH_QUESTIONS: Array<{ key: string; label: string; hint: string }> = [
+  {
+    key: 'research_q1_confidence',
+    label: 'How confident were you in the verdict the system returned? Why?',
+    hint: 'Was the verdict (VERIFIED / PARTIAL / FALSE / UNCORROBORATED) convincing? What contributed to or undermined your confidence?',
+  },
+  {
+    key: 'research_q2_citations',
+    label: 'Did the source citations change how you interpreted the result?',
+    hint: 'Reflect on how seeing the underlying sources affected your trust in, or understanding of, the verdict.',
+  },
+  {
+    key: 'research_q3_barriers',
+    label: 'What would prevent you from using this system regularly?',
+    hint: 'Practical barriers: cost, speed, language, accuracy, interface, trust, habit — anything that would stop you.',
+  },
+  {
+    key: 'research_q4_surprises',
+    label: 'Was there anything the system got wrong or that surprised you?',
+    hint: 'Specific errors, unexpected verdicts, missing context, or anything that struck you as unusual.',
+  },
+  {
+    key: 'research_q5_comparison',
+    label: 'How does this compare to how you currently verify information?',
+    hint: 'Compared with what you do now (Google, asking colleagues, ignoring the claim, etc.), how does this experience differ?',
+  },
+]
+
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [hover, setHover] = useState(0)
   return (
@@ -114,7 +142,13 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
   const [featureRequest, setFeatureRequest] = useState('')
   const [generalComments, setGeneralComments] = useState('')
 
-  const totalSteps = 4
+  // Step 5 — Research participation (qualitative DSR strand)
+  const [researchConsent, setResearchConsent] = useState(false)
+  const [researchClaim, setResearchClaim] = useState('')
+  const [researchVerdict, setResearchVerdict] = useState('')
+  const [researchAnswers, setResearchAnswers] = useState<Record<string, string>>({})
+
+  const totalSteps = 5
 
   async function handleSubmit() {
     setSubmitting(true)
@@ -144,6 +178,17 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
       biggest_challenge:   biggestChallenge.trim() || null,
       feature_request:     featureRequest.trim() || null,
       general_comments:    generalComments.trim() || null,
+
+      // Research participation (qualitative DSR strand)
+      research_consent:    researchConsent,
+      research_consent_at: researchConsent ? new Date().toISOString() : null,
+      research_claim_text: researchConsent ? (researchClaim.trim()  || null) : null,
+      research_verdict:    researchConsent ? (researchVerdict.trim() || null) : null,
+      research_q1_confidence: researchConsent ? ((researchAnswers['research_q1_confidence'] ?? '').trim() || null) : null,
+      research_q2_citations:  researchConsent ? ((researchAnswers['research_q2_citations']  ?? '').trim() || null) : null,
+      research_q3_barriers:   researchConsent ? ((researchAnswers['research_q3_barriers']   ?? '').trim() || null) : null,
+      research_q4_surprises:  researchConsent ? ((researchAnswers['research_q4_surprises']  ?? '').trim() || null) : null,
+      research_q5_comparison: researchConsent ? ((researchAnswers['research_q5_comparison'] ?? '').trim() || null) : null,
     })
 
     setSubmitting(false)
@@ -201,7 +246,7 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
           />
         </div>
         <div className="flex justify-between mt-2">
-          {['About You', 'Ratings', 'Agreement', 'Open-ended'].map((s, i) => (
+          {['About You', 'Ratings', 'Agreement', 'Open-ended', 'Research'].map((s, i) => (
             <span key={s} className={`text-[0.65rem] font-mono-vg ${step > i ? 'text-blue-500' : 'text-slate-300'}`}>{s}</span>
           ))}
         </div>
@@ -409,13 +454,118 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
             <button type="button" onClick={() => setStep(3)} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 transition-colors">← Back</button>
             <button
               type="button"
+              onClick={() => setStep(5)}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 5: Research Participation (qualitative DSR strand) ───── */}
+      {step === 5 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+          <div>
+            <p className="text-xs text-blue-600 font-mono-vg uppercase tracking-widest mb-1">Optional</p>
+            <p className="text-xs text-slate-400 font-mono-vg uppercase tracking-widest">Research Participation</p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-slate-600 space-y-2">
+            <p>
+              <strong className="text-[#0f2240]">What this is.</strong> A short qualitative research instrument that forms part of the Design Science Research evaluation of VeriGhana, conducted by Ellis Lamptey for an MSc dissertation at GIMPA.
+            </p>
+            <p>
+              <strong className="text-[#0f2240]">Voluntary.</strong> Skip this section if you prefer — your earlier feedback is already saved when you submit. If you opt in, you will answer five short open-ended questions about a claim you verified on VeriGhana. Quotations may be used <em>anonymously</em> in the published dissertation.
+            </p>
+            <p>
+              <strong className="text-[#0f2240]">Confidentiality.</strong> Responses are stored in our Supabase database. Your email is stored only to prevent duplicates and is never attached to quoted text. The dissertation will be deposited in the GIMPA institutional repository.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={researchConsent}
+              onChange={e => setResearchConsent(e.target.checked)}
+              className="mt-1 w-4 h-4 accent-blue-600"
+            />
+            <span className="text-sm text-[#0f2240]">
+              I am 18+, I have read the above, and I consent to participate in the research. My responses may be quoted anonymously in the published dissertation.
+            </span>
+          </label>
+
+          {researchConsent && (
+            <div className="space-y-5 pt-3 border-t border-slate-100">
+              <div>
+                <label className="block text-sm font-medium text-[#0f2240] mb-1">
+                  Claim you tested <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={researchClaim}
+                  onChange={e => setResearchClaim(e.target.value)}
+                  placeholder="The claim you submitted to VeriGhana"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f2240] mb-1">
+                  Verdict you received <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={researchVerdict}
+                  onChange={e => setResearchVerdict(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
+                >
+                  <option value="">— select —</option>
+                  <option value="VERIFIED">VERIFIED</option>
+                  <option value="PARTIAL">PARTIAL</option>
+                  <option value="FALSE">FALSE</option>
+                  <option value="UNCORROBORATED">UNCORROBORATED</option>
+                </select>
+              </div>
+
+              {RESEARCH_QUESTIONS.map((q, idx) => (
+                <div key={q.key}>
+                  <label className="block text-sm font-medium text-[#0f2240] mb-1">
+                    {idx + 1}. {q.label}
+                  </label>
+                  <p className="text-xs text-slate-400 mb-2">{q.hint}</p>
+                  <textarea
+                    value={researchAnswers[q.key] ?? ''}
+                    onChange={e => setResearchAnswers(prev => ({ ...prev, [q.key]: e.target.value }))}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="Type your answer here…"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors resize-none"
+                  />
+                  <p className="text-right text-[0.65rem] text-slate-400 font-mono-vg mt-0.5">
+                    {(researchAnswers[q.key] ?? '').length}/2000
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <div className="text-sm px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-between pt-2 border-t border-slate-100">
+            <button type="button" onClick={() => setStep(4)} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-lg border border-slate-200 transition-colors">← Back</button>
+            <button
+              type="button"
               disabled={submitting}
               onClick={handleSubmit}
               className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2"
             >
               {submitting
                 ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Submitting…</>
-                : 'Submit Feedback'}
+                : researchConsent ? 'Submit Feedback + Research' : 'Submit Feedback'}
             </button>
           </div>
         </div>
