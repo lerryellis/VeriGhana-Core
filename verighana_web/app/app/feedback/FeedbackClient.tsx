@@ -246,9 +246,22 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
           />
         </div>
         <div className="flex justify-between mt-2">
-          {['About You', 'Ratings', 'Agreement', 'Open-ended', 'Research'].map((s, i) => (
-            <span key={s} className={`text-[0.65rem] font-mono-vg ${step > i ? 'text-blue-500' : 'text-slate-300'}`}>{s}</span>
-          ))}
+          {['About You', 'Ratings', 'Agreement', 'Open-ended', 'Research'].map((s, i) => {
+            const target = i + 1
+            const isCurrent = step === target
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStep(target)}
+                className={`text-[0.65rem] font-mono-vg transition-colors cursor-pointer hover:text-blue-600 ${
+                  isCurrent ? 'text-blue-600 font-semibold' : step > i ? 'text-blue-500' : 'text-slate-400'
+                }`}
+              >
+                {s}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -515,6 +528,7 @@ export function FeedbackClient({ userEmail, userTier, priorSubmission }: Props) 
                   Verdict you received <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
                 <select
+                  aria-label="Verdict you received"
                   value={researchVerdict}
                   onChange={e => setResearchVerdict(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg outline-none focus:border-blue-400 transition-colors"
