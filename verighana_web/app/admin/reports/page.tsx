@@ -19,6 +19,21 @@ export type Payment = {
   promo_code: string | null
 }
 
+export type Verification = {
+  id: string
+  created_at: string
+  user_id: string | null
+  user_email: string | null
+  input_claim: string
+  score: number
+  verdict: 'VERIFIED' | 'PARTIAL' | 'FALSE' | 'UNCORROBORATED' | 'ERROR'
+  model_used: string
+  category: 'known_true' | 'known_false' | 'no_coverage' | null
+  expected_verdict: 'VERIFIED' | 'PARTIAL' | 'FALSE' | 'UNCORROBORATED' | null
+  response_time_ms: number | null
+  sources_retrieved: number | null
+}
+
 async function fetchPayments(): Promise<Payment[]> {
   try {
     const res = await fetch(`${API_URL}/admin/payments?limit=1000`, {
@@ -33,7 +48,21 @@ async function fetchPayments(): Promise<Payment[]> {
   }
 }
 
+async function fetchVerifications(): Promise<Verification[]> {
+  try {
+    const res = await fetch(`${API_URL}/admin/verifications?limit=2000`, {
+      headers: { 'X-Admin-Key': ADMIN_KEY },
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const data = await res.json() as { verifications: Verification[] }
+    return data.verifications ?? []
+  } catch {
+    return []
+  }
+}
+
 export default async function ReportsPage() {
-  const payments = await fetchPayments()
-  return <ReportsClient payments={payments} />
+  const [payments, verifications] = await Promise.all([fetchPayments(), fetchVerifications()])
+  return <ReportsClient payments={payments} verifications={verifications} apiUrl={API_URL} adminKey={ADMIN_KEY} />
 }

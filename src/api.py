@@ -1146,6 +1146,99 @@ async def download_invoice(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ── Verifications (claim queries) — for thesis §5.2 accuracy evaluation ──────
+
+@app.get("/admin/verifications", tags=["Admin"], include_in_schema=False)
+async def admin_verifications(
+    limit:     int           = 2000,
+    date_from: Optional[str] = None,   # ISO date e.g. 2025-01-01
+    date_to:   Optional[str] = None,
+    verdict:   Optional[str] = None,   # VERIFIED | PARTIAL | FALSE | UNCORROBORATED
+    category:  Optional[str] = None,   # known_true | known_false | no_coverage | untagged
+    _:         str           = Depends(require_admin_key),
+):
+    """All user-submitted claim queries with verdict, score, and optional eval tags."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    try:
+        q = (
+            _supa(service=True)
+            .table("verification_log")
+            .select("id,created_at,user_id,input_claim,score,verdict,model_used,"
+                    "category,expected_verdict,response_time_ms,sources_retrieved")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if date_from:
+            q = q.gte("created_at", date_from)
+        if date_to:
+            q = q.lte("created_at", date_to + "T23:59:59Z")
+        if verdict:
+            q = q.eq("verdict", verdict)
+        if category == "untagged":
+            q = q.is_("category", "null")
+        elif category:
+            q = q.eq("category", category)
+        rows = q.execute().data or []
+
+        # Join user emails for display (one round-trip)
+        user_ids = list({r["user_id"] for r in rows if r.get("user_id")})
+        email_map: dict[str, str] = {}
+        if user_ids:
+            try:
+                prof = (
+                    _supa(service=True)
+                    .table("user_profiles")
+                    .select("user_id,email")
+                    .in_("user_id", user_ids)
+                    .execute()
+                    .data
+                ) or []
+                email_map = {p["user_id"]: p.get("email") or "" for p in prof}
+            except Exception:
+                pass
+        for r in rows:
+            r["user_email"] = email_map.get(r.get("user_id") or "", "")
+
+        return {"verifications": rows, "total": len(rows)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch("/admin/verifications/{row_id}", tags=["Admin"], include_in_schema=False)
+async def admin_tag_verification(
+    row_id:            str,
+    body:              dict,
+    _:                 str = Depends(require_admin_key),
+):
+    """Tag a verification row with expected_category / expected_verdict for §5.2."""
+    if not (SUPABASE_URL and SUPABASE_SVC_KEY):
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY not configured.")
+    payload: dict = {}
+    if "category" in body:
+        v = body["category"]
+        if v in (None, "", "known_true", "known_false", "no_coverage"):
+            payload["category"] = v or None
+    if "expected_verdict" in body:
+        v = body["expected_verdict"]
+        if v in (None, "", "VERIFIED", "PARTIAL", "FALSE", "UNCORROBORATED"):
+            payload["expected_verdict"] = v or None
+    if not payload:
+        raise HTTPException(status_code=400, detail="No valid fields to update.")
+    try:
+        updated = (
+            _supa(service=True)
+            .table("verification_log")
+            .update(payload)
+            .eq("id", row_id)
+            .execute()
+            .data
+        )
+        return {"updated": updated[0] if updated else None}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/admin/users", tags=["Admin"], include_in_schema=False)
 async def admin_users(
     limit:  int           = 500,

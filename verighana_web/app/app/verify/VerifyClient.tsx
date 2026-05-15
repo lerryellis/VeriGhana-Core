@@ -55,13 +55,15 @@ export function VerifyClient({ userId, accessToken, tier, models, used: initialU
       // Save to verification_log (fire-and-forget — don't block the UI)
       const supabase = createClient()
       supabase.from('verification_log').insert({
-        user_id:         userId,
-        input_claim:     input,
-        score:           data.score,
-        verdict:         data.verdict,
-        explanation:     data.explanation,
-        matched_sources: JSON.stringify(data.sources),
-        model_used:      data.model_used,
+        user_id:           userId,
+        input_claim:       input,
+        score:             data.score,
+        verdict:           data.verdict,
+        explanation:       data.explanation,
+        matched_sources:   JSON.stringify(data.sources),
+        model_used:        data.model_used,
+        response_time_ms:  data.processing_ms ?? null,
+        sources_retrieved: data.sources?.length ?? 0,
       }).then(() => {}) // ignore errors silently
 
     } catch (err: unknown) {
