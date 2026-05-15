@@ -13,26 +13,28 @@ const FF_HUB = 'https://fullfact.org/policy/research/'
 // Full Fact (UK)'s published outputs and each title links directly to the PDF or
 // landing page on fullfact.org. Descriptions are original to VeriGhana and
 // explain the relevance of each reference to our Ghana-focused work.
-const REFERENCES: Array<{ title: string; desc: string; url: string; format: 'PDF' | 'Web' }> = [
-  { title: 'A checklist for fact checkers',                 desc: 'Practical editorial discipline for newsroom fact-checkers; informs our verdict workflow and reviewer checklist.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/briefing-fact-check-checklist-en.pdf' },
-  { title: 'Communicating uncertainty',                     desc: 'Conveying evidence limits honestly without losing the reader; shapes how we label PARTIAL and UNCORROBORATED verdicts.',                                 format: 'PDF', url: 'https://fullfact.org/media/uploads/en-communicating-uncertainty.pdf' },
-  { title: 'Conspiracy beliefs',                            desc: 'Drivers of conspiracy belief and what counters them; we test which findings translate to Ghanaian faith-adjacent claims.',                               format: 'PDF', url: 'https://fullfact.org/media/uploads/en-conspiracy-beliefs.pdf' },
-  { title: 'The impact of health misinformation',           desc: 'Comparative work across Africa, Latin America, and the UK; we sharpen the African leg with Ghana-specific evidence on GHS messaging.',                   format: 'PDF', url: 'https://fullfact.org/media/uploads/en-tackling-health-misinfo.pdf' },
-  { title: 'Media and information literacy',                desc: 'Effectiveness of literacy programmes by region; informs how we design reader-side interventions for Ghanaian audiences.',                                format: 'PDF', url: 'https://fullfact.org/media/uploads/media-information-literacy-lessons.pdf' },
-  { title: 'The impact of fact checking',                   desc: 'Evidence that fact-checks affect public figures, institutions, and media coverage; we replicate the question in Ghana.',                                 format: 'PDF', url: 'https://fullfact.org/media/uploads/impact-fact-checkers-public-figures-media.pdf' },
-  { title: 'Communicating fact checks online',              desc: 'Attention–accuracy trade-offs in digital formats; directly applicable to WhatsApp-first distribution in Ghana.',                                          format: 'PDF', url: 'https://fullfact.org/media/uploads/how-communicate-fact-checks-online.pdf' },
-  { title: 'Who believes and shares misinformation?',       desc: 'Cognitive biases underlying acceptance and propagation of false claims; baseline for Ghana-comparative analysis.',                                        format: 'PDF', url: 'https://fullfact.org/media/uploads/who-believes-shares-misinformation.pdf' },
-  { title: 'Public engagement with the news',               desc: 'Audience patterns of news consumption and political engagement; methodological model for our Ghanaian audience research.',                                format: 'PDF', url: 'https://fullfact.org/media/uploads/uk-audience-engagement-politics-information-news.pdf' },
-  { title: 'Researching misinformation',                    desc: 'Overview of lessons, evidence gaps, and emerging research directions; our research questions are partly structured around the gaps identified.',         format: 'PDF', url: 'https://fullfact.org/media/uploads/en-2019-20-research-overview.pdf' },
-  { title: 'A checklist for fact checking an election',     desc: 'Election-cycle editorial discipline; directly relevant to our Ghana 2024 and 2028 election fact-checking workflow.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-checklist.pdf' },
-  { title: 'Campaign tactics during the 2019 election',     desc: 'Commissioned research on how campaign tactics influence voter perception; analogues observed in Ghanaian campaign communication.',                        format: 'PDF', url: 'https://fullfact.org/media/uploads/ff_election_research_report_final_version_16.12.19.pdf' },
-  { title: 'Fact checking in the 2019 election',            desc: 'Academic findings integrated with editorial lessons from an election cycle; reference for our Ghana election fact-checking design.',                     format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-briefing.pdf' },
-  { title: 'Political trust in the UK',                     desc: 'What trust and distrust mean in political contexts; trust distributions we observe in Ghana differ structurally, which we report on directly.',          format: 'PDF', url: 'https://fullfact.org/media/uploads/political-trust-in-the-uk.pdf' },
-  { title: 'Understanding of economic terms',               desc: 'Public comprehension of core economic concepts; informs how we frame verdicts on cedi, inflation, and GDP claims.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/understanding_the_economy_research_briefing.pdf' },
-  { title: 'The backfire effect',                           desc: 'Evidence that fact-checking generally informs rather than entrenches; we test whether the same holds across Ghanaian stakeholder groups.',               format: 'PDF', url: 'https://fullfact.org/media/uploads/backfire_report_fullfact.pdf' },
-  { title: 'Does fact checking have a women problem?',      desc: 'Gender representation and demographics in the fact-checking sector; informs our purposive sampling for the qualitative evaluation strand.',              format: 'Web', url: 'https://fullfact.org/blog/2018/jul/does-factchecking-have-women-problem/' },
-  { title: 'Audience research for Full Fact',               desc: 'Self-selecting audience research findings; methodological precedent for our opt-in qualitative evaluation strand.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/full_fact_audience_research_final.pdf' },
-  { title: 'What people think about fact checking',         desc: 'Audience research on perceived need for and trust in fact-checking; we ask the same question in Ghana and report comparative findings.',                 format: 'PDF', url: 'https://fullfact.org/media/uploads/NatCen-Need_for_fact_checking_in_Britain.pdf' },
+type Ref = { title: string; desc: string; url: string; format: 'PDF' | 'Web'; thumb: string; tint: string }
+
+const REFERENCES: Array<Ref> = [
+  { thumb: '✓', tint: 'bg-emerald-50 text-emerald-700',  title: 'A checklist for fact checkers',                 desc: 'Editorial discipline that informs our verdict workflow and reviewer checklist.',                              format: 'PDF', url: 'https://fullfact.org/media/uploads/briefing-fact-check-checklist-en.pdf' },
+  { thumb: '?', tint: 'bg-amber-50 text-amber-700',      title: 'Communicating uncertainty',                     desc: 'Shapes how we label PARTIAL and UNCORROBORATED verdicts without losing the reader.',                          format: 'PDF', url: 'https://fullfact.org/media/uploads/en-communicating-uncertainty.pdf' },
+  { thumb: '◉', tint: 'bg-purple-50 text-purple-700',    title: 'Conspiracy beliefs',                            desc: 'Drivers we test against Ghanaian faith-adjacent and traditional-medicine claims.',                            format: 'PDF', url: 'https://fullfact.org/media/uploads/en-conspiracy-beliefs.pdf' },
+  { thumb: '+', tint: 'bg-rose-50 text-rose-700',        title: 'The impact of health misinformation',           desc: 'Comparative work we sharpen with Ghana-specific evidence on GHS messaging.',                                   format: 'PDF', url: 'https://fullfact.org/media/uploads/en-tackling-health-misinfo.pdf' },
+  { thumb: '☰', tint: 'bg-sky-50 text-sky-700',          title: 'Media and information literacy',                desc: 'Effectiveness by region; informs how we design reader-side interventions for Ghana.',                         format: 'PDF', url: 'https://fullfact.org/media/uploads/media-information-literacy-lessons.pdf' },
+  { thumb: '⚖', tint: 'bg-slate-100 text-slate-700',    title: 'The impact of fact checking',                   desc: 'Evidence that fact-checks affect public figures and media — we replicate in Ghana.',                          format: 'PDF', url: 'https://fullfact.org/media/uploads/impact-fact-checkers-public-figures-media.pdf' },
+  { thumb: '↗', tint: 'bg-blue-50 text-blue-700',        title: 'Communicating fact checks online',              desc: 'Attention–accuracy trade-offs applicable to WhatsApp-first distribution in Ghana.',                           format: 'PDF', url: 'https://fullfact.org/media/uploads/how-communicate-fact-checks-online.pdf' },
+  { thumb: '◐', tint: 'bg-fuchsia-50 text-fuchsia-700',  title: 'Who believes and shares misinformation?',       desc: 'Cognitive baseline for Ghana-comparative analysis of belief and sharing behaviour.',                          format: 'PDF', url: 'https://fullfact.org/media/uploads/who-believes-shares-misinformation.pdf' },
+  { thumb: '≡', tint: 'bg-indigo-50 text-indigo-700',    title: 'Public engagement with the news',               desc: 'Methodological model for our Ghanaian audience-research design.',                                              format: 'PDF', url: 'https://fullfact.org/media/uploads/uk-audience-engagement-politics-information-news.pdf' },
+  { thumb: '◊', tint: 'bg-teal-50 text-teal-700',        title: 'Researching misinformation',                    desc: 'Evidence gaps and directions our Ghana research questions are partly structured around.',                     format: 'PDF', url: 'https://fullfact.org/media/uploads/en-2019-20-research-overview.pdf' },
+  { thumb: '☑', tint: 'bg-emerald-50 text-emerald-700',  title: 'A checklist for fact checking an election',     desc: 'Editorial discipline transferred to our Ghana 2024 and 2028 election workflows.',                             format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-checklist.pdf' },
+  { thumb: '▲', tint: 'bg-orange-50 text-orange-700',    title: 'Campaign tactics during the 2019 election',     desc: 'Tactic patterns with clear analogues in Ghanaian campaign communication.',                                    format: 'PDF', url: 'https://fullfact.org/media/uploads/ff_election_research_report_final_version_16.12.19.pdf' },
+  { thumb: '▼', tint: 'bg-orange-50 text-orange-700',    title: 'Fact checking in the 2019 election',            desc: 'Reference for our Ghana election fact-checking design and editorial lessons.',                                format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-briefing.pdf' },
+  { thumb: '◢', tint: 'bg-slate-100 text-slate-700',    title: 'Political trust in the UK',                     desc: 'Trust distributions we report against — Ghana&apos;s differ structurally.',                                   format: 'PDF', url: 'https://fullfact.org/media/uploads/political-trust-in-the-uk.pdf' },
+  { thumb: '₵', tint: 'bg-green-50 text-green-700',      title: 'Understanding of economic terms',               desc: 'Informs how we frame verdicts on cedi, inflation, and GDP claims.',                                            format: 'PDF', url: 'https://fullfact.org/media/uploads/understanding_the_economy_research_briefing.pdf' },
+  { thumb: '↺', tint: 'bg-red-50 text-red-700',          title: 'The backfire effect',                           desc: 'We test whether the &ldquo;informs rather than entrenches&rdquo; finding holds in Ghana.',                    format: 'PDF', url: 'https://fullfact.org/media/uploads/backfire_report_fullfact.pdf' },
+  { thumb: '♀', tint: 'bg-pink-50 text-pink-700',        title: 'Does fact checking have a women problem?',      desc: 'Demographics that inform our purposive sampling for the qualitative evaluation.',                             format: 'Web', url: 'https://fullfact.org/blog/2018/jul/does-factchecking-have-women-problem/' },
+  { thumb: '◔', tint: 'bg-cyan-50 text-cyan-700',        title: 'Audience research for Full Fact',               desc: 'Methodological precedent for our opt-in qualitative evaluation strand.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/full_fact_audience_research_final.pdf' },
+  { thumb: '✎', tint: 'bg-yellow-50 text-yellow-700',    title: 'What people think about fact checking',         desc: 'We ask the same question in Ghana and report comparative findings.',                                          format: 'PDF', url: 'https://fullfact.org/media/uploads/NatCen-Need_for_fact_checking_in_Britain.pdf' },
 ]
 
 const THEMES = [
@@ -169,33 +171,32 @@ export default function ResearchPage() {
               Published work by <a href={FF_HUB} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-500">Full Fact (UK)</a> that informs our Ghana-focused research. Each title links directly to the report PDF or page on fullfact.org. Descriptions are original to VeriGhana and explain how each is relevant to our work.
             </p>
           </div>
-          <ol className="space-y-3 list-none">
-            {REFERENCES.map((r, i) => (
+          <ol className="grid sm:grid-cols-2 gap-2.5 list-none">
+            {REFERENCES.map(r => (
               <li key={r.title}>
                 <a
                   href={r.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group block bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm rounded-lg p-4 transition-all"
+                  className="group flex gap-3 bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm rounded-md p-3 transition-all h-full"
                 >
-                  <div className="flex gap-4">
-                    <span className="font-mono-vg text-xs text-slate-400 shrink-0 pt-0.5">{String(i + 1).padStart(2, '0')}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-0.5">
-                        <h3 className="font-display font-semibold text-sm text-[#0f2240] leading-snug group-hover:text-blue-600">
-                          {r.title}
-                          <span className="text-blue-500 ml-1.5 text-xs" aria-hidden>↗</span>
-                        </h3>
-                        <span className={`shrink-0 font-mono-vg text-[0.6rem] uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                          r.format === 'PDF' ? 'bg-red-50 text-red-600 border border-red-100'
-                                              : 'bg-blue-50 text-blue-600 border border-blue-100'
-                        }`}>
-                          {r.format}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 leading-relaxed">{r.desc}</p>
-                      <p className="text-[0.65rem] text-slate-400 font-mono-vg mt-1.5 truncate">{r.url.replace('https://', '')}</p>
+                  <div className={`shrink-0 w-12 h-12 rounded-md flex items-center justify-center text-xl font-bold ${r.tint}`} aria-hidden>
+                    {r.thumb}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2 mb-0.5">
+                      <h3 className="font-display font-semibold text-[0.8rem] text-[#0f2240] leading-snug group-hover:text-blue-600 flex-1">
+                        {r.title}
+                        <span className="text-blue-500 ml-1 text-[0.65rem]" aria-hidden>↗</span>
+                      </h3>
+                      <span className={`shrink-0 font-mono-vg text-[0.55rem] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        r.format === 'PDF' ? 'bg-red-50 text-red-600 border border-red-100'
+                                            : 'bg-blue-50 text-blue-600 border border-blue-100'
+                      }`}>
+                        {r.format}
+                      </span>
                     </div>
+                    <p className="text-[0.7rem] text-slate-500 leading-relaxed">{r.desc}</p>
                   </div>
                 </a>
               </li>
