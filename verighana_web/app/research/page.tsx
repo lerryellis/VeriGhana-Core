@@ -7,92 +7,64 @@ export const metadata = {
   description: 'Ghana-focused research on misinformation, fact-checking, and the information environment. Reports, briefings, and academic outputs from VeriGhana.',
 }
 
+const FF_HUB = 'https://fullfact.org/policy/research/'
+
+// External references drawn on by VeriGhana's research programme. Titles refer to
+// Full Fact (UK)'s published outputs and each title links directly to the PDF or
+// landing page on fullfact.org. Descriptions are original to VeriGhana and
+// explain the relevance of each reference to our Ghana-focused work.
+const REFERENCES: Array<{ title: string; desc: string; url: string; format: 'PDF' | 'Web' }> = [
+  { title: 'A checklist for fact checkers',                 desc: 'Practical editorial discipline for newsroom fact-checkers; informs our verdict workflow and reviewer checklist.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/briefing-fact-check-checklist-en.pdf' },
+  { title: 'Communicating uncertainty',                     desc: 'Conveying evidence limits honestly without losing the reader; shapes how we label PARTIAL and UNCORROBORATED verdicts.',                                 format: 'PDF', url: 'https://fullfact.org/media/uploads/en-communicating-uncertainty.pdf' },
+  { title: 'Conspiracy beliefs',                            desc: 'Drivers of conspiracy belief and what counters them; we test which findings translate to Ghanaian faith-adjacent claims.',                               format: 'PDF', url: 'https://fullfact.org/media/uploads/en-conspiracy-beliefs.pdf' },
+  { title: 'The impact of health misinformation',           desc: 'Comparative work across Africa, Latin America, and the UK; we sharpen the African leg with Ghana-specific evidence on GHS messaging.',                   format: 'PDF', url: 'https://fullfact.org/media/uploads/en-tackling-health-misinfo.pdf' },
+  { title: 'Media and information literacy',                desc: 'Effectiveness of literacy programmes by region; informs how we design reader-side interventions for Ghanaian audiences.',                                format: 'PDF', url: 'https://fullfact.org/media/uploads/media-information-literacy-lessons.pdf' },
+  { title: 'The impact of fact checking',                   desc: 'Evidence that fact-checks affect public figures, institutions, and media coverage; we replicate the question in Ghana.',                                 format: 'PDF', url: 'https://fullfact.org/media/uploads/impact-fact-checkers-public-figures-media.pdf' },
+  { title: 'Communicating fact checks online',              desc: 'Attention–accuracy trade-offs in digital formats; directly applicable to WhatsApp-first distribution in Ghana.',                                          format: 'PDF', url: 'https://fullfact.org/media/uploads/how-communicate-fact-checks-online.pdf' },
+  { title: 'Who believes and shares misinformation?',       desc: 'Cognitive biases underlying acceptance and propagation of false claims; baseline for Ghana-comparative analysis.',                                        format: 'PDF', url: 'https://fullfact.org/media/uploads/who-believes-shares-misinformation.pdf' },
+  { title: 'Public engagement with the news',               desc: 'Audience patterns of news consumption and political engagement; methodological model for our Ghanaian audience research.',                                format: 'PDF', url: 'https://fullfact.org/media/uploads/uk-audience-engagement-politics-information-news.pdf' },
+  { title: 'Researching misinformation',                    desc: 'Overview of lessons, evidence gaps, and emerging research directions; our research questions are partly structured around the gaps identified.',         format: 'PDF', url: 'https://fullfact.org/media/uploads/en-2019-20-research-overview.pdf' },
+  { title: 'A checklist for fact checking an election',     desc: 'Election-cycle editorial discipline; directly relevant to our Ghana 2024 and 2028 election fact-checking workflow.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-checklist.pdf' },
+  { title: 'Campaign tactics during the 2019 election',     desc: 'Commissioned research on how campaign tactics influence voter perception; analogues observed in Ghanaian campaign communication.',                        format: 'PDF', url: 'https://fullfact.org/media/uploads/ff_election_research_report_final_version_16.12.19.pdf' },
+  { title: 'Fact checking in the 2019 election',            desc: 'Academic findings integrated with editorial lessons from an election cycle; reference for our Ghana election fact-checking design.',                     format: 'PDF', url: 'https://fullfact.org/media/uploads/election-factcheck-briefing.pdf' },
+  { title: 'Political trust in the UK',                     desc: 'What trust and distrust mean in political contexts; trust distributions we observe in Ghana differ structurally, which we report on directly.',          format: 'PDF', url: 'https://fullfact.org/media/uploads/political-trust-in-the-uk.pdf' },
+  { title: 'Understanding of economic terms',               desc: 'Public comprehension of core economic concepts; informs how we frame verdicts on cedi, inflation, and GDP claims.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/understanding_the_economy_research_briefing.pdf' },
+  { title: 'The backfire effect',                           desc: 'Evidence that fact-checking generally informs rather than entrenches; we test whether the same holds across Ghanaian stakeholder groups.',               format: 'PDF', url: 'https://fullfact.org/media/uploads/backfire_report_fullfact.pdf' },
+  { title: 'Does fact checking have a women problem?',      desc: 'Gender representation and demographics in the fact-checking sector; informs our purposive sampling for the qualitative evaluation strand.',              format: 'Web', url: 'https://fullfact.org/blog/2018/jul/does-factchecking-have-women-problem/' },
+  { title: 'Audience research for Full Fact',               desc: 'Self-selecting audience research findings; methodological precedent for our opt-in qualitative evaluation strand.',                                       format: 'PDF', url: 'https://fullfact.org/media/uploads/full_fact_audience_research_final.pdf' },
+  { title: 'What people think about fact checking',         desc: 'Audience research on perceived need for and trust in fact-checking; we ask the same question in Ghana and report comparative findings.',                 format: 'PDF', url: 'https://fullfact.org/media/uploads/NatCen-Need_for_fact_checking_in_Britain.pdf' },
+]
+
 const THEMES = [
-  {
-    icon: '🗳️',
-    title: 'Elections & Political Claims',
-    desc: 'Verifying campaign promises, polling-station rumours, and ECG-related claims across Ghana\'s 2024 and 2028 election cycles.',
-    tags: ['Elections', 'NDC', 'NPP', 'EC Ghana'],
-  },
-  {
-    icon: '💊',
-    title: 'Health Misinformation',
-    desc: 'Tracking false claims about COVID-19 vaccines, traditional remedies, cholera outbreaks, malaria prevention, and Ghana Health Service guidance.',
-    tags: ['GHS', 'NMIMR', 'Vaccines'],
-  },
-  {
-    icon: '💵',
-    title: 'Economic Claims',
-    desc: 'Fact-checking cedi-depreciation narratives, inflation figures, GDP statistics, IMF programme claims, and Bank of Ghana announcements.',
-    tags: ['BoG', 'GSS', 'IMF', 'Cedi'],
-  },
-  {
-    icon: '🗣️',
-    title: 'Local-Language Information',
-    desc: 'How misinformation spreads in Twi, Ga, Ewe, Hausa, and Dagbani — and what verification looks like beyond English-language news.',
-    tags: ['Twi', 'Ga', 'Ewe', 'Hausa'],
-  },
-  {
-    icon: '📱',
-    title: 'WhatsApp & Social Platforms',
-    desc: 'Mapping how false claims propagate through Ghanaian WhatsApp groups, X/Twitter, Facebook, TikTok, and the role of forwarded media.',
-    tags: ['WhatsApp', 'X', 'TikTok'],
-  },
-  {
-    icon: '🏛️',
-    title: 'Government Accountability',
-    desc: 'Verifying ministerial statements, parliamentary claims, agency press releases, and public-sector performance data.',
-    tags: ['MoF', 'Parliament', 'GRA'],
-  },
-  {
-    icon: '⛪',
-    title: 'Religious & Traditional Claims',
-    desc: 'Treating faith-adjacent and traditional-medicine claims with care: where evidence applies, where pluralism is owed, and where harm must be flagged.',
-    tags: ['Faith', 'Traditional Medicine'],
-  },
-  {
-    icon: '🌍',
-    title: 'Diaspora & Migration',
-    desc: 'Information flowing into and out of Ghanaian diaspora communities — embassy notices, visa rumours, and remittance claims.',
-    tags: ['Diaspora', 'Migration'],
-  },
+  { title: 'Misinformation propagation',     desc: 'How false claims travel through Ghanaian WhatsApp groups, X, Facebook, TikTok, and the role of forwarded media.' },
+  { title: 'Health misinformation',          desc: 'Tracking vaccine, malaria, cholera, and traditional-remedy claims against Ghana Health Service and NMIMR evidence.' },
+  { title: 'Economic claims',                desc: 'Fact-checking cedi depreciation, inflation, GDP, IMF programme, and Bank of Ghana announcements.' },
+  { title: 'Election integrity',             desc: 'Verifying campaign promises, polling-station rumours, and EC Ghana statements across the 2024 and 2028 cycles.' },
+  { title: 'Local-language information',     desc: 'How misinformation spreads in Twi, Ga, Ewe, Hausa, and Dagbani beyond English-language news.' },
+  { title: 'Government accountability',      desc: 'Verifying ministerial statements, parliamentary claims, agency press releases, and public-sector performance data.' },
+  { title: 'Religious & traditional claims', desc: 'Where evidence applies, where pluralism is owed, and where harm must be flagged.' },
+  { title: 'Diaspora & migration',           desc: 'Embassy notices, visa rumours, and remittance claims flowing into and out of Ghanaian diaspora communities.' },
 ]
 
-const PUBLICATIONS = [
+const VG_OUTPUTS = [
   {
-    type: 'Dissertation',
-    year: '2026',
+    type: 'Dissertation',     year: '2026', status: 'In review',
     title: 'VeriGhana: A Domain-Specific Retrieval-Augmented Fact-Checking Platform for Ghana',
-    author: 'Ellis Lamptey',
-    venue: 'MSc Computer Science, Ghana Institute of Management and Public Administration (GIMPA)',
-    summary: 'Design Science Research project building and evaluating a production fact-checking system over a corpus of 64+ trusted Ghanaian news and government sources, with multi-provider AI verification cascade and pgvector semantic retrieval.',
-    status: 'In review',
+    venue: 'MSc Computer Science, GIMPA',
+    desc: 'Design Science Research project building and evaluating a production fact-checking system over a corpus of 64+ trusted Ghanaian news and government sources.',
   },
   {
-    type: 'Working paper',
-    year: '2026',
+    type: 'Working paper',   year: '2026', status: 'Draft',
     title: 'The Six-Strategy HTML Scraping Cascade: Architecture for Heterogeneous African News Sites',
-    author: 'Ellis Lamptey',
     venue: 'VeriGhana Technical Report 2026/01',
-    summary: 'A replicable engineering pattern for ingesting articles from Ghanaian newsrooms whose page architectures range from server-rendered WordPress to JavaScript-rendered SPAs, including a Playwright-based fallback for sites that block conventional scrapers.',
-    status: 'Draft',
+    desc: 'A replicable engineering pattern for ingesting articles from Ghanaian newsrooms whose page architectures vary from server-rendered WordPress to JavaScript-rendered SPAs.',
   },
   {
-    type: 'Briefing',
-    year: '2026',
+    type: 'Briefing',        year: '2026', status: 'Forthcoming',
     title: 'Qualitative Evaluation of an AI Fact-Checker: Five Themes from Ghanaian Users',
-    author: 'Ellis Lamptey',
     venue: 'VeriGhana Briefing Series',
-    summary: 'Thematic analysis of structured open-ended responses from journalists, researchers, students, educators, and general-public users of the live VeriGhana platform — what builds trust, what blocks adoption, and how citation transparency changes the user experience.',
-    status: 'Forthcoming',
+    desc: 'Thematic analysis of structured open-ended responses from journalists, researchers, students, educators, and general-public users of the live VeriGhana platform.',
   },
-]
-
-const PARTNERS = [
-  { name: 'GIMPA', desc: 'Ghana Institute of Management and Public Administration — dissertation supervision and institutional review.' },
-  { name: 'GhanaFact', desc: 'Reference benchmark for established Ghanaian fact-checking practice; comparative work in progress.' },
-  { name: 'MFWA', desc: 'Media Foundation for West Africa — context on the broader regional information environment.' },
-  { name: 'Penplusbytes', desc: 'Ghanaian civic-tech and media accountability NGO whose work has informed our source selection.' },
 ]
 
 export default function ResearchPage() {
@@ -100,147 +72,160 @@ export default function ResearchPage() {
     <div className="min-h-screen flex flex-col bg-white">
       <Nav />
 
-      {/* Hero */}
-      <header className="px-[5%] py-20 text-center" style={{ background: 'linear-gradient(150deg,#c8b5a2 0%,#ddd3c4 25%,#ede8e0 50%,#cddce8 80%,#b4cce0 100%)' }}>
-        <div className="max-w-3xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-700 uppercase tracking-widest mb-3">Research</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-5xl text-[#0f2240] mb-4 leading-tight">
+      {/* Hero — sober, hub-style */}
+      <header className="px-[5%] py-16 border-b border-slate-200 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-3">Research</p>
+          <h1 className="font-display font-extrabold text-3xl md:text-4xl text-[#0f2240] mb-4 leading-tight">
             Evidence-grounded research for Ghana&apos;s information environment.
           </h1>
-          <p className="text-base md:text-lg text-slate-700 leading-relaxed">
-            Knowing what is accurate is half the fight for a better information environment. We also need to understand how falsehoods travel, how beliefs are formed, and what interventions fact-checkers can use to be most effective &mdash; in Ghana.
+          <p className="text-base text-slate-600 leading-relaxed max-w-3xl">
+            Knowing what is accurate is half the fight. We also study how falsehoods travel, how beliefs are formed, and what interventions fact-checkers can use to be most effective — in Ghana.
           </p>
-          <p className="text-xs text-slate-500 mt-3 italic">
+          <p className="text-xs text-slate-400 mt-3 italic">
             Framing adapted from Full Fact (UK), <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">fullfact.org/policy/research</a>.
           </p>
         </div>
       </header>
 
-      {/* Mission */}
-      <section className="px-[5%] py-16 bg-white">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Our remit</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-4">Ghana-specific. Open. Reproducible.</h2>
+      {/* In-page anchor nav */}
+      <nav className="sticky top-16 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-[5%]">
+        <div className="max-w-4xl mx-auto flex gap-6 overflow-x-auto py-3 text-sm">
+          <a href="#remit"      className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Remit</a>
+          <a href="#themes"     className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Themes</a>
+          <a href="#outputs"    className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Our outputs</a>
+          <a href="#references" className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">References</a>
+          <a href="#method"     className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Methodology</a>
+          <a href="#partners"   className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Partners</a>
+          <a href="#contact"    className="text-slate-500 hover:text-[#0f2240] whitespace-nowrap">Contact</a>
+        </div>
+      </nav>
+
+      {/* Remit */}
+      <section id="remit" className="px-[5%] py-14 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Remit</h2>
           <div className="text-slate-600 leading-relaxed space-y-4 text-base">
             <p>
-              Most academic and industry research on automated fact-checking is built on English-language sources from the United States and Western Europe. The findings, the source corpora, and the assumptions about what an &ldquo;ordinary citizen&rdquo; needs to verify a claim are shaped by those settings. Ghana&apos;s information environment is different — different sources, different platforms, different verification habits, different languages, different stakes.
+              Most academic and industry research on automated fact-checking is built on English-language sources from the United States and Western Europe. The findings, source corpora, and assumptions about what an ordinary citizen needs to verify a claim are shaped by those settings. Ghana&apos;s information environment is different.
             </p>
             <p>
-              Our remit, borrowing the formulation used by Full Fact (UK), is to <em>put reliable evidence at the heart of public debate</em> &mdash; in our case, public debate in Ghana. Every dataset we build is sampled from Ghanaian sources. Every evaluation is conducted with Ghanaian respondents. Every published finding is open-access and reproducible from the public repository. We are a small project: this is not a substitute for the work done by GhanaFact, the Ghana Journalists Association, or the country&apos;s established media houses. It is an attempt to add a public, technical, transparent layer to the same effort.
+              Our remit, borrowing the formulation used by Full Fact, is to put reliable evidence at the heart of public debate &mdash; in our case, public debate in Ghana. Every dataset we build is sampled from Ghanaian sources. Every evaluation is conducted with Ghanaian respondents. Every published finding is open-access and reproducible from the public repository.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Research Questions — adapted from Full Fact's research themes */}
-      <section className="px-[5%] py-16 bg-white border-t border-slate-100">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Research questions</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3">What we&apos;re trying to find out</h2>
-          <p className="text-slate-500 mb-10 max-w-2xl">
-            Six questions structure our work. They borrow the question framing pioneered by Full Fact&apos;s research programme and re-anchor it in Ghana&apos;s context.
-          </p>
-
-          <div className="space-y-4">
-            {[
-              { q: 'How do falsehoods actually travel in Ghana?', detail: 'Mapping the routes — WhatsApp forwards, X threads, Facebook reels, talk radio call-ins — that move a claim from origin to mass audience, and the points at which intervention is feasible.' },
-              { q: 'What drives belief in conspiracy claims, and what works against them?',  detail: 'Borrowing from Full Fact\'s work on conspiracy beliefs, examining whether the same drivers apply in Ghana and which counter-strategies translate, particularly around faith-adjacent and traditional-medicine claims.' },
-              { q: 'What is the impact of health misinformation across Ghana?', detail: 'Full Fact\'s comparative work on health misinformation across Africa, Latin America, and the UK gives us a baseline; we sharpen the African leg with Ghana-specific evidence on vaccines, cholera response, malaria treatments, and Ghana Health Service messaging.' },
-              { q: 'Does fact-checking actually change minds — or does it backfire?', detail: 'Full Fact has documented evidence that fact-checking generally informs rather than polarises (the &ldquo;backfire effect&rdquo; is rare). We test whether that finding holds in Ghana, where trust in mediating institutions follows a different distribution.' },
-              { q: 'How should fact-checks be communicated online?',                              detail: 'Balancing attention and accuracy in WhatsApp-first, mobile-data-conscious distribution — adapting Full Fact\'s &ldquo;Communicating Fact Checks Online&rdquo; principles to the formats most Ghanaian citizens actually read.' },
-              { q: 'What does the Ghanaian public think about fact-checking?',  detail: 'Following Full Fact\'s tradition of asking audiences directly, we collect structured qualitative responses from Ghanaian users on what they trust, what they distrust, and what they wish fact-checkers did differently.' },
-            ].map((item, i) => (
-              <div key={item.q} className="bg-slate-50 border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
-                <div className="flex gap-4">
-                  <div className="font-display font-extrabold text-xl text-blue-600 shrink-0">Q{i + 1}</div>
-                  <div>
-                    <h3 className="font-display font-bold text-base text-[#0f2240] mb-1">{item.q}</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{item.detail}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
 
       {/* Themes */}
-      <section className="px-[5%] py-16 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2 text-center">Research themes</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3 text-center">Eight focus areas</h2>
-          <p className="text-slate-500 text-center max-w-2xl mx-auto mb-12">
-            We organise our work around the eight themes that account for the majority of high-impact misinformation claims observed in Ghana.
-          </p>
-
-          <div className="grid md:grid-cols-2 gap-5">
+      <section id="themes" className="px-[5%] py-14 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <div>
+            <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Themes</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">Eight areas that account for most of the high-impact misinformation observed in Ghana.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
             {THEMES.map(t => (
-              <div key={t.title} className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md hover:border-blue-200 transition-all">
-                <div className="text-3xl mb-3" aria-hidden>{t.icon}</div>
-                <h3 className="font-display font-bold text-base text-[#0f2240] mb-2">{t.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed mb-3">{t.desc}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {t.tags.map(tag => (
-                    <span key={tag} className="text-[0.65rem] font-mono-vg text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+              <div key={t.title} className="border-l-2 border-blue-100 pl-4 py-1 hover:border-blue-500 transition-colors">
+                <h3 className="font-display font-semibold text-[#0f2240] text-sm mb-1">{t.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{t.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Publications */}
-      <section className="px-[5%] py-16 bg-white">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Publications</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3">Reports &amp; briefings</h2>
-          <p className="text-slate-500 mb-10">
-            Outputs from the VeriGhana research programme. All publications are open-access; preprints are released ahead of formal venue submission.
-          </p>
-
-          <div className="space-y-5">
-            {PUBLICATIONS.map(pub => (
-              <article key={pub.title} className="border border-slate-200 rounded-xl p-6 hover:border-blue-300 transition-colors">
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <span className="text-[0.65rem] font-mono-vg bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-wider">{pub.type}</span>
-                  <span className="text-[0.65rem] font-mono-vg text-slate-400">{pub.year}</span>
-                  <span className={`text-[0.65rem] font-mono-vg px-2 py-0.5 rounded-full uppercase tracking-wider ml-auto ${
-                    pub.status === 'In review' ? 'bg-amber-100 text-amber-700' :
-                    pub.status === 'Draft'     ? 'bg-slate-100 text-slate-500' :
-                                                  'bg-green-100 text-green-700'
-                  }`}>
-                    {pub.status}
-                  </span>
+      {/* VeriGhana outputs */}
+      <section id="outputs" className="px-[5%] py-14 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <div>
+            <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Our outputs</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">Published and forthcoming from the VeriGhana research programme. Open-access.</p>
+          </div>
+          <div className="space-y-6">
+            {VG_OUTPUTS.map(o => (
+              <article key={o.title} className="pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2 text-[0.65rem] font-mono-vg uppercase tracking-wider">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{o.type}</span>
+                  <span className="text-slate-400">{o.year}</span>
+                  <span className={`px-2 py-0.5 rounded-full ml-auto ${
+                    o.status === 'In review' ? 'bg-amber-100 text-amber-700' :
+                    o.status === 'Draft'     ? 'bg-slate-100 text-slate-500' :
+                                                'bg-green-100 text-green-700'
+                  }`}>{o.status}</span>
                 </div>
-                <h3 className="font-display font-bold text-lg text-[#0f2240] mb-1 leading-snug">{pub.title}</h3>
-                <p className="text-sm text-slate-500 mb-3">{pub.author} · {pub.venue}</p>
-                <p className="text-sm text-slate-600 leading-relaxed">{pub.summary}</p>
+                <h3 className="font-display font-bold text-base text-[#0f2240] mb-1 leading-snug">{o.title}</h3>
+                <p className="text-xs text-slate-500 mb-2 font-mono-vg">{o.venue}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{o.desc}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Methodology */}
-      <section className="px-[5%] py-16 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Methodology</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-6">How we work</h2>
+      {/* References — Full Fact catalogue, our descriptions, direct links */}
+      <section id="references" className="px-[5%] py-14 border-b border-slate-200 bg-slate-50">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <div>
+            <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">References</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Published work by <a href={FF_HUB} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-500">Full Fact (UK)</a> that informs our Ghana-focused research. Each title links directly to the report PDF or page on fullfact.org. Descriptions are original to VeriGhana and explain how each is relevant to our work.
+            </p>
+          </div>
+          <ol className="space-y-3 list-none">
+            {REFERENCES.map((r, i) => (
+              <li key={r.title}>
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm rounded-lg p-4 transition-all"
+                >
+                  <div className="flex gap-4">
+                    <span className="font-mono-vg text-xs text-slate-400 shrink-0 pt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3 mb-0.5">
+                        <h3 className="font-display font-semibold text-sm text-[#0f2240] leading-snug group-hover:text-blue-600">
+                          {r.title}
+                          <span className="text-blue-500 ml-1.5 text-xs" aria-hidden>↗</span>
+                        </h3>
+                        <span className={`shrink-0 font-mono-vg text-[0.6rem] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          r.format === 'PDF' ? 'bg-red-50 text-red-600 border border-red-100'
+                                              : 'bg-blue-50 text-blue-600 border border-blue-100'
+                        }`}>
+                          {r.format}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">{r.desc}</p>
+                      <p className="text-[0.65rem] text-slate-400 font-mono-vg mt-1.5 truncate">{r.url.replace('https://', '')}</p>
+                    </div>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ol>
+          <div className="md:col-start-2">
+            <p className="text-xs text-slate-500 italic mt-2">
+              Full Fact is the UK&apos;s independent fact-checking charity (registered charity no. 1158683). All linked reports are hosted on, and available open-access from, fullfact.org. VeriGhana is not affiliated with Full Fact; these references are listed under fair-use academic citation, and every link sends the reader directly to the original source.
+            </p>
+          </div>
+        </div>
+      </section>
 
-          <div className="space-y-5">
+      {/* Methodology */}
+      <section id="method" className="px-[5%] py-14 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Methodology</h2>
+          <div className="space-y-4">
             {[
-              { num: '01', title: 'Design Science Research', body: 'Built on Hevner et al. (2004): research outputs are working artifacts whose value is demonstrated through rigorous evaluation, not hypotheses tested against existing phenomena.' },
+              { num: '01', title: 'Design Science Research',  body: 'Hevner et al. (2004): research outputs are working artifacts whose value is demonstrated through rigorous evaluation, not hypotheses tested against existing phenomena.' },
               { num: '02', title: 'Ghana-sampled corpora',    body: 'Every fact-check dataset we publish is drawn from Ghanaian news outlets, government agencies, and civic-tech sources — 64+ active publishers indexed every six hours.' },
-              { num: '03', title: 'Mixed-methods evaluation', body: 'Quantitative accuracy testing on curated claim sets is complemented by qualitative thematic analysis (Braun & Clarke, 2006) of structured open-ended responses from Ghanaian users.' },
-              { num: '04', title: 'Open replication',        body: 'Code, source lists, evaluation prompts, and dataset construction notes are public. Any researcher can reproduce a result from the repository alone.' },
+              { num: '03', title: 'Mixed-methods evaluation', body: 'Quantitative accuracy testing on curated claim sets is complemented by qualitative thematic analysis (Braun & Clarke, 2006) of structured responses from Ghanaian users.' },
+              { num: '04', title: 'Open replication',          body: 'Code, source lists, evaluation prompts, and dataset construction notes are public. Any researcher can reproduce a result from the repository alone.' },
             ].map(m => (
-              <div key={m.num} className="flex gap-5 bg-white border border-slate-200 rounded-xl p-5">
-                <div className="font-display font-extrabold text-2xl text-blue-600 shrink-0 leading-none">{m.num}</div>
+              <div key={m.num} className="flex gap-5 py-3 border-b border-slate-100 last:border-0">
+                <div className="font-mono-vg text-xs text-blue-600 shrink-0 pt-1">{m.num}</div>
                 <div>
-                  <h3 className="font-display font-bold text-base text-[#0f2240] mb-1">{m.title}</h3>
+                  <h3 className="font-display font-semibold text-sm text-[#0f2240] mb-1">{m.title}</h3>
                   <p className="text-sm text-slate-600 leading-relaxed">{m.body}</p>
                 </div>
               </div>
@@ -250,84 +235,53 @@ export default function ResearchPage() {
       </section>
 
       {/* Partners */}
-      <section className="px-[5%] py-16 bg-white">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2 text-center">Partners &amp; collaborators</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3 text-center">Working with Ghanaian institutions</h2>
-          <p className="text-slate-500 text-center max-w-2xl mx-auto mb-10">
-            Our work is read, supervised, and challenged by institutions whose remit overlaps with ours.
-          </p>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            {PARTNERS.map(p => (
-              <div key={p.name} className="border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
-                <p className="font-display font-bold text-base text-[#0f2240] mb-1">{p.name}</p>
-                <p className="text-sm text-slate-600 leading-relaxed">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Influences & further reading — explicit attribution to Full Fact */}
-      <section className="px-[5%] py-16 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Influences &amp; further reading</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3">Standing on the work of others</h2>
-          <p className="text-slate-600 leading-relaxed mb-6 max-w-3xl">
-            Our research programme is shaped substantially by the published work of <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 underline">Full Fact</a>, the UK&apos;s independent fact-checking charity (registered charity no. 1158683). Several of the reports below are sources we draw on directly when designing studies and interpreting Ghanaian findings. Where we adopt their framing or evidence, we cite them; where we depart, we explain why.
-          </p>
-
-          <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+      <section id="partners" className="px-[5%] py-14 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Partners</h2>
+          <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
             {[
-              { title: 'A Checklist for Fact Checkers',                  note: 'Practical recommendations distilled from misinformation research; informs our editorial discipline.' },
-              { title: 'Communicating Uncertainty',                       note: 'How to convey evidence limitations honestly without losing the audience — directly applicable to our verdict labelling.' },
-              { title: 'Conspiracy Beliefs',                              note: 'Drivers of belief in conspiracy theories and intervention strategies — adapted to Ghanaian faith-adjacent and traditional-medicine claims.' },
-              { title: 'The Impact of Health Misinformation',             note: 'Comparative work across Africa, Latin America, and the UK — we sharpen the Africa leg with Ghana-specific evidence.' },
-              { title: 'Media and Information Literacy',                  note: 'Effectiveness review with regional comparative analysis we draw on when assessing reader-side interventions.' },
-              { title: 'The Impact of Fact Checking',                     note: 'Evidence on the effects of fact-checking on public figures, institutions, and media. We test whether the same effects appear in Ghana.' },
-              { title: 'Communicating Fact Checks Online',                note: 'Attention–accuracy trade-offs in online formats; informs how we design WhatsApp-shareable verdicts.' },
-              { title: 'Who Believes and Shares Misinformation?',         note: 'Cognitive biases underlying acceptance of false claims — relevant cross-culturally though distributions vary.' },
-              { title: 'Researching Misinformation',                      note: 'Overview of lessons, gaps, and emerging research directions — our research questions are partly structured around their gap analysis.' },
-              { title: 'The Backfire Effect',                             note: 'Evidence that fact-checking informs rather than entrenches. We replicate the question in Ghana, where trust distributions differ.' },
-              { title: 'What People Think About Fact Checking',           note: 'Audience research methodology we adapt for our qualitative evaluation strand.' },
+              { name: 'GIMPA',         desc: 'Dissertation supervision and institutional review.' },
+              { name: 'GhanaFact',     desc: 'Reference benchmark for established Ghanaian fact-checking practice.' },
+              { name: 'MFWA',          desc: 'Context on the broader West African information environment.' },
+              { name: 'Penplusbytes',  desc: 'Civic-tech and media accountability work that informs source selection.' },
             ].map(p => (
-              <div key={p.title} className="px-6 py-4 hover:bg-slate-50 transition-colors">
-                <p className="font-display font-semibold text-sm text-[#0f2240]">{p.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{p.note}</p>
+              <div key={p.name} className="border-l-2 border-blue-100 pl-4">
+                <p className="font-display font-semibold text-sm text-[#0f2240] mb-1">{p.name}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{p.desc}</p>
               </div>
             ))}
           </div>
-
-          <p className="text-xs text-slate-500 mt-5 italic">
-            All Full Fact reports cited above are available open-access at <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">fullfact.org/policy/research</a>. Their work is reproduced and referenced here under fair-use academic citation. VeriGhana is not affiliated with Full Fact.
-          </p>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-[5%] py-20" style={{ background: 'linear-gradient(135deg,#0f2240 0%,#1a3a6e 100%)' }}>
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs font-mono-vg text-blue-300 uppercase tracking-widest mb-3">Get involved</p>
-          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-white mb-4">
-            Are you in Ghana? Help us evaluate the platform.
-          </h2>
-          <p className="text-blue-100 text-base mb-8 max-w-xl mx-auto leading-relaxed">
-            Sign in, verify a claim, and complete the optional research questions at the end of the feedback form. Responses are anonymised and analysed thematically as part of the live evaluation reported in the dissertation.
-          </p>
-          <div className="flex gap-3 justify-center flex-wrap">
-            <Link
-              href="/app/verify"
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors"
-            >
-              Try VeriGhana
-            </Link>
-            <Link
-              href="/app/feedback"
-              className="bg-white/10 hover:bg-white/15 text-white text-sm font-medium px-6 py-3 rounded-lg border border-white/20 transition-colors"
-            >
-              Participate in Research →
-            </Link>
+      {/* Contact / participate */}
+      <section id="contact" className="px-[5%] py-14">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-[180px_1fr] gap-8">
+          <h2 className="font-display font-bold text-sm text-slate-400 uppercase tracking-widest pt-1">Contact</h2>
+          <div>
+            <p className="text-slate-600 text-base leading-relaxed mb-5">
+              If you&apos;re a researcher, journalist, or institution working on Ghana&apos;s information environment, we want to hear from you. To participate in the live qualitative evaluation strand, sign in and complete the optional research questions in the feedback form.
+            </p>
+            <div className="flex gap-3 flex-wrap">
+              <Link
+                href="/app/feedback"
+                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+              >
+                Participate in research →
+              </Link>
+              <Link
+                href="/app/verify"
+                className="bg-white hover:bg-slate-50 text-[#0f2240] text-sm font-medium px-5 py-2.5 rounded-lg border border-slate-300 transition-colors"
+              >
+                Try VeriGhana
+              </Link>
+              <a
+                href="mailto:ellis.lamptey@bolt.eu"
+                className="bg-white hover:bg-slate-50 text-slate-600 text-sm font-medium px-5 py-2.5 rounded-lg border border-slate-300 transition-colors"
+              >
+                Contact lead researcher
+              </a>
+            </div>
           </div>
         </div>
       </section>
