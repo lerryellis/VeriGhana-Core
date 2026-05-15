@@ -108,7 +108,10 @@ export default function ResearchPage() {
             Evidence-grounded research for Ghana&apos;s information environment.
           </h1>
           <p className="text-base md:text-lg text-slate-700 leading-relaxed">
-            VeriGhana studies how misinformation spreads in Ghana, how citizens, journalists, and institutions verify what they read, and how AI-assisted fact-checking can serve a Ghanaian audience without importing assumptions that do not fit the local context.
+            Knowing what is accurate is half the fight for a better information environment. We also need to understand how falsehoods travel, how beliefs are formed, and what interventions fact-checkers can use to be most effective &mdash; in Ghana.
+          </p>
+          <p className="text-xs text-slate-500 mt-3 italic">
+            Framing adapted from Full Fact (UK), <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">fullfact.org/policy/research</a>.
           </p>
         </div>
       </header>
@@ -123,8 +126,40 @@ export default function ResearchPage() {
               Most academic and industry research on automated fact-checking is built on English-language sources from the United States and Western Europe. The findings, the source corpora, and the assumptions about what an &ldquo;ordinary citizen&rdquo; needs to verify a claim are shaped by those settings. Ghana&apos;s information environment is different — different sources, different platforms, different verification habits, different languages, different stakes.
             </p>
             <p>
-              The research programme behind VeriGhana exists to close that gap. Every dataset we build is sampled from Ghanaian sources. Every evaluation is conducted with Ghanaian respondents. Every published finding is open-access and reproducible from the public repository. We are a small project: this is not a substitute for the work done by GhanaFact, the Ghana Journalists Association, or the country&apos;s established media houses. It is an attempt to add a public, technical, transparent layer to the same effort.
+              Our remit, borrowing the formulation used by Full Fact (UK), is to <em>put reliable evidence at the heart of public debate</em> &mdash; in our case, public debate in Ghana. Every dataset we build is sampled from Ghanaian sources. Every evaluation is conducted with Ghanaian respondents. Every published finding is open-access and reproducible from the public repository. We are a small project: this is not a substitute for the work done by GhanaFact, the Ghana Journalists Association, or the country&apos;s established media houses. It is an attempt to add a public, technical, transparent layer to the same effort.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Research Questions — adapted from Full Fact's research themes */}
+      <section className="px-[5%] py-16 bg-white border-t border-slate-100">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Research questions</p>
+          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3">What we&apos;re trying to find out</h2>
+          <p className="text-slate-500 mb-10 max-w-2xl">
+            Six questions structure our work. They borrow the question framing pioneered by Full Fact&apos;s research programme and re-anchor it in Ghana&apos;s context.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              { q: 'How do falsehoods actually travel in Ghana?', detail: 'Mapping the routes — WhatsApp forwards, X threads, Facebook reels, talk radio call-ins — that move a claim from origin to mass audience, and the points at which intervention is feasible.' },
+              { q: 'What drives belief in conspiracy claims, and what works against them?',  detail: 'Borrowing from Full Fact\'s work on conspiracy beliefs, examining whether the same drivers apply in Ghana and which counter-strategies translate, particularly around faith-adjacent and traditional-medicine claims.' },
+              { q: 'What is the impact of health misinformation across Ghana?', detail: 'Full Fact\'s comparative work on health misinformation across Africa, Latin America, and the UK gives us a baseline; we sharpen the African leg with Ghana-specific evidence on vaccines, cholera response, malaria treatments, and Ghana Health Service messaging.' },
+              { q: 'Does fact-checking actually change minds — or does it backfire?', detail: 'Full Fact has documented evidence that fact-checking generally informs rather than polarises (the &ldquo;backfire effect&rdquo; is rare). We test whether that finding holds in Ghana, where trust in mediating institutions follows a different distribution.' },
+              { q: 'How should fact-checks be communicated online?',                              detail: 'Balancing attention and accuracy in WhatsApp-first, mobile-data-conscious distribution — adapting Full Fact\'s &ldquo;Communicating Fact Checks Online&rdquo; principles to the formats most Ghanaian citizens actually read.' },
+              { q: 'What does the Ghanaian public think about fact-checking?',  detail: 'Following Full Fact\'s tradition of asking audiences directly, we collect structured qualitative responses from Ghanaian users on what they trust, what they distrust, and what they wish fact-checkers did differently.' },
+            ].map((item, i) => (
+              <div key={item.q} className="bg-slate-50 border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
+                <div className="flex gap-4">
+                  <div className="font-display font-extrabold text-xl text-blue-600 shrink-0">Q{i + 1}</div>
+                  <div>
+                    <h3 className="font-display font-bold text-base text-[#0f2240] mb-1">{item.q}</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{item.detail}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -231,6 +266,42 @@ export default function ResearchPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Influences & further reading — explicit attribution to Full Fact */}
+      <section className="px-[5%] py-16 bg-slate-50 border-y border-slate-200">
+        <div className="max-w-4xl mx-auto">
+          <p className="text-xs font-mono-vg text-blue-600 uppercase tracking-widest mb-2">Influences &amp; further reading</p>
+          <h2 className="font-display font-extrabold text-2xl md:text-3xl text-[#0f2240] mb-3">Standing on the work of others</h2>
+          <p className="text-slate-600 leading-relaxed mb-6 max-w-3xl">
+            Our research programme is shaped substantially by the published work of <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 underline">Full Fact</a>, the UK&apos;s independent fact-checking charity (registered charity no. 1158683). Several of the reports below are sources we draw on directly when designing studies and interpreting Ghanaian findings. Where we adopt their framing or evidence, we cite them; where we depart, we explain why.
+          </p>
+
+          <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            {[
+              { title: 'A Checklist for Fact Checkers',                  note: 'Practical recommendations distilled from misinformation research; informs our editorial discipline.' },
+              { title: 'Communicating Uncertainty',                       note: 'How to convey evidence limitations honestly without losing the audience — directly applicable to our verdict labelling.' },
+              { title: 'Conspiracy Beliefs',                              note: 'Drivers of belief in conspiracy theories and intervention strategies — adapted to Ghanaian faith-adjacent and traditional-medicine claims.' },
+              { title: 'The Impact of Health Misinformation',             note: 'Comparative work across Africa, Latin America, and the UK — we sharpen the Africa leg with Ghana-specific evidence.' },
+              { title: 'Media and Information Literacy',                  note: 'Effectiveness review with regional comparative analysis we draw on when assessing reader-side interventions.' },
+              { title: 'The Impact of Fact Checking',                     note: 'Evidence on the effects of fact-checking on public figures, institutions, and media. We test whether the same effects appear in Ghana.' },
+              { title: 'Communicating Fact Checks Online',                note: 'Attention–accuracy trade-offs in online formats; informs how we design WhatsApp-shareable verdicts.' },
+              { title: 'Who Believes and Shares Misinformation?',         note: 'Cognitive biases underlying acceptance of false claims — relevant cross-culturally though distributions vary.' },
+              { title: 'Researching Misinformation',                      note: 'Overview of lessons, gaps, and emerging research directions — our research questions are partly structured around their gap analysis.' },
+              { title: 'The Backfire Effect',                             note: 'Evidence that fact-checking informs rather than entrenches. We replicate the question in Ghana, where trust distributions differ.' },
+              { title: 'What People Think About Fact Checking',           note: 'Audience research methodology we adapt for our qualitative evaluation strand.' },
+            ].map(p => (
+              <div key={p.title} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+                <p className="font-display font-semibold text-sm text-[#0f2240]">{p.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{p.note}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-slate-500 mt-5 italic">
+            All Full Fact reports cited above are available open-access at <a href="https://fullfact.org/policy/research/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">fullfact.org/policy/research</a>. Their work is reproduced and referenced here under fair-use academic citation. VeriGhana is not affiliated with Full Fact.
+          </p>
         </div>
       </section>
 
